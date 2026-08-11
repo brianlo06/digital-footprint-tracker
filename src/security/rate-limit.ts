@@ -2,7 +2,7 @@ import "server-only";
 
 import { isIP } from "node:net";
 import { getServerEnv } from "@/config/server-env";
-import { getRuntimeDatabase } from "@/database/client";
+import { withRuntimeDatabase } from "@/database/client";
 import type { AuthenticatedPrincipal } from "@/security/auth";
 import { createLookupToken } from "@/security/crypto";
 import { getApplicationKeyring } from "@/security/keyring";
@@ -52,17 +52,19 @@ export async function consumeActionRateLimit(
   const userScopeToken = createLookupToken(principal.subject, "rate-limit-user:v1", keyring);
   const networkScopeToken = createLookupToken(networkIdentifier, "rate-limit-network:v1", keyring);
 
-  const rows = await getRuntimeDatabase().execute(sql<RateLimitRow>`
-    select
-      allowed,
-      retry_after_seconds as "retryAfterSeconds",
-      limiting_scope as "limitingScope"
-    from public.consume_action_rate_limit(
-      ${userScopeToken},
-      ${networkScopeToken},
-      ${action}::public.rate_limit_action
-    )
-  `);
+  const rows = await withRuntimeDatabase((database) =>
+    database.execute(sql<RateLimitRow>`
+      select
+        allowed,
+        retry_after_seconds as "retryAfterSeconds",
+        limiting_scope as "limitingScope"
+      from public.consume_action_rate_limit(
+        ${userScopeToken},
+        ${networkScopeToken},
+        ${action}::public.rate_limit_action
+      )
+    `),
+  );
   const [decision] = rows as unknown as RateLimitRow[];
   if (!decision) throw new Error("RATE_LIMIT_DECISION_MISSING");
   return decision;

@@ -7,6 +7,7 @@ node_modules/
 .wrangler/
 .dev.vars
 .dev.vars.*
+.env.local.cloud-build-backup
 dist/
 coverage/
 playwright-report/

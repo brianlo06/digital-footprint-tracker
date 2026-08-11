@@ -3,6 +3,7 @@ import { requirePrincipal } from "@/security/auth";
 import { redirect } from "next/navigation";
 
 import { deleteAccountAction } from "./actions";
+import { ManagedDeleteForm } from "./managed-delete-form";
 
 export const metadata = { title: "Privacy settings" };
 
@@ -52,19 +53,11 @@ export default async function PrivacySettingsPage({
           This deletes identifiers, verification records, consent, and linked audit ownership. A
           pseudonymous deletion receipt is retained for a limited period.
         </div>
-        {parameters.error === "reauthentication_required" ? (
-          <p role="alert">
-            Managed-account deletion is intentionally disabled until a stable recent-login or MFA
-            challenge is configured. No data was changed.
-          </p>
-        ) : parameters.error ? (
+        {parameters.error ? (
           <p role="alert">Deletion was not completed. Confirm the text or retry safely.</p>
         ) : null}
         {managedAuthentication ? (
-          <p className="muted">
-            Production deletion remains fail-closed in this milestone. A stable reauthentication
-            flow must be selected and tested before this control is enabled.
-          </p>
+          <ManagedDeleteForm />
         ) : (
           <form action={deleteAccountAction} className="form-grid">
             <label>

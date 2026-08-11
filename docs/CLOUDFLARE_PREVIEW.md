@@ -38,6 +38,8 @@ npm run deploy
 
 The deploy script sets OpenNext's recursion guard before invoking Wrangler directly. This avoids Wrangler delegating back into OpenNext while still deploying the adapter-generated `.open-next/worker.js` and assets.
 
+`npm run cf:build` temporarily moves the ignored `.env.local` out of the project while Next/OpenNext compiles, restores it on exit, and then requires every generated OpenNext environment manifest to be empty. Runtime configuration must come from Cloudflare variables, secrets, and bindings. This prevents local database URLs, fixture keys, and provider settings from being copied into an uploaded Worker version.
+
 After deployment, verify at minimum:
 
 ```bash
@@ -61,4 +63,4 @@ Rollback changes the Worker version, not this repository. Follow it with a Git r
 
 ## Future hosted data work
 
-The existing `postgres` client is suitable for the local foundation but must not be enabled as a process-global client in Workers. Before connecting hosted PostgreSQL, select a supported Cloudflare connection strategy such as Hyperdrive, construct request-safe clients, provision the same restricted roles and forced RLS, and repeat the complete synthetic integration and browser suites. Never attach an owner/migration database URL to the web Worker.
+The application database boundary is prepared for Hyperdrive but the public preview has no database binding. Outside local development it accepts only request-context bindings named `RUNTIME_DATABASE`, `MAINTENANCE_DATABASE`, and `ROTATION_DATABASE`; it creates and closes clients per operation rather than caching them at module scope. Before attaching a runtime binding, provision the same restricted roles and forced RLS, run migrations with an owner credential that never enters a Worker, and repeat the complete synthetic integration and browser suites.

@@ -19,8 +19,8 @@ const serverEnvSchema = z
     APP_DOMAIN: z.string().default("localhost:3000"),
     AUTH_MODE: z.enum(["disabled", "local", "clerk"]).default("local"),
     LOCAL_AUTH_SUBJECT: z.string().min(3).max(128).default("local_developer"),
-    DATABASE_URL: z.string().min(1),
-    RUNTIME_DATABASE_URL: z.string().min(1),
+    DATABASE_URL: z.string().min(1).optional(),
+    RUNTIME_DATABASE_URL: z.string().min(1).optional(),
     MAINTENANCE_DATABASE_URL: z.string().min(1).optional(),
     ROTATION_DATABASE_URL: z.string().min(1).optional(),
     TRUSTED_CLIENT_IP_HEADER: z
@@ -55,7 +55,24 @@ const serverEnvSchema = z
       context.addIssue({ code: "custom", path: ["LOOKUP_KEY"], message: "is required" });
     }
 
-    if (env.APP_ENV !== "local" && env.RUNTIME_DATABASE_URL === env.DATABASE_URL) {
+    if (env.APP_ENV === "local" && !env.DATABASE_URL) {
+      context.addIssue({ code: "custom", path: ["DATABASE_URL"], message: "is required locally" });
+    }
+
+    if (env.APP_ENV === "local" && !env.RUNTIME_DATABASE_URL) {
+      context.addIssue({
+        code: "custom",
+        path: ["RUNTIME_DATABASE_URL"],
+        message: "is required locally",
+      });
+    }
+
+    if (
+      env.APP_ENV !== "local" &&
+      env.RUNTIME_DATABASE_URL &&
+      env.DATABASE_URL &&
+      env.RUNTIME_DATABASE_URL === env.DATABASE_URL
+    ) {
       context.addIssue({
         code: "custom",
         path: ["RUNTIME_DATABASE_URL"],

@@ -5,7 +5,7 @@ import { createLookupToken } from "@/security/crypto";
 import { getApplicationKeyring } from "@/security/keyring";
 import { sql } from "drizzle-orm";
 
-import { getRuntimeDatabase, type DatabaseTransaction } from "./client";
+import { type DatabaseTransaction, withRuntimeDatabase } from "./client";
 
 export function deletionSubjectToken(subject: string): string {
   return createLookupToken(subject, "deleted-auth-subject:v1", getApplicationKeyring());
@@ -23,12 +23,14 @@ export async function withTenantDatabase<T>(
 ): Promise<T> {
   const subjectToken = deletionSubjectToken(principal.subject);
 
-  return getRuntimeDatabase().transaction(async (transaction) => {
-    await transaction.execute(sql`
-      select
-        set_config('app.auth_subject', ${principal.subject}, true),
-        set_config('app.subject_token', ${subjectToken}, true)
-    `);
-    return operation(transaction);
-  });
+  return withRuntimeDatabase((database) =>
+    database.transaction(async (transaction) => {
+      await transaction.execute(sql`
+        select
+          set_config('app.auth_subject', ${principal.subject}, true),
+          set_config('app.subject_token', ${subjectToken}, true)
+      `);
+      return operation(transaction);
+    }),
+  );
 }

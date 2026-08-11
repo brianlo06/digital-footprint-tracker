@@ -59,4 +59,20 @@ describe("database connection environment boundary", () => {
 
     expect(getServerEnv().AUTH_MODE).toBe("disabled");
   });
+
+  it("permits hosted Hyperdrive bindings without embedding database URLs", () => {
+    configureRequiredEnvironment();
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("AUTH_MODE", "disabled");
+    vi.stubEnv("DATABASE_URL", undefined);
+    vi.stubEnv("RUNTIME_DATABASE_URL", undefined);
+    vi.stubEnv("MAINTENANCE_DATABASE_URL", undefined);
+    vi.stubEnv("ROTATION_DATABASE_URL", undefined);
+    resetServerEnvForTests();
+
+    const env = getServerEnv();
+    expect(env.APP_ENV).toBe("preview");
+    expect(env).not.toHaveProperty("DATABASE_URL");
+    expect(env).not.toHaveProperty("RUNTIME_DATABASE_URL");
+  });
 });

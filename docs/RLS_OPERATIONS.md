@@ -5,11 +5,13 @@
 The foundation has four deliberately separate database connections:
 
 - `DATABASE_URL` is the database-owner connection. It is limited to migrations and synthetic integration-test setup/inspection.
-- `RUNTIME_DATABASE_URL` is the user-facing application connection. Its role must be a non-owner, non-superuser role without `BYPASSRLS`, schema creation, or migration privileges.
-- `MAINTENANCE_DATABASE_URL` is optional in the web process and required only for unscheduled retention invocation. Its login role has no table privileges and may execute only the bounded retention function.
-- `ROTATION_DATABASE_URL` is optional and reserved for controlled key-rewrap operations. Its login role has no table privileges and may execute only bounded envelope list/replace functions.
+- `RUNTIME_DATABASE_URL` is the local user-facing application connection. Its role must be a non-owner, non-superuser role without `BYPASSRLS`, schema creation, or migration privileges. Hosted Workers accept only the `RUNTIME_DATABASE` Hyperdrive binding and create a request-scoped client from it.
+- `MAINTENANCE_DATABASE_URL` is local-only. The isolated retention Worker uses a distinct `MAINTENANCE_DATABASE` Hyperdrive binding whose login role has no table privileges and may execute only the bounded retention function.
+- `ROTATION_DATABASE_URL` is local-only. A hosted controlled rewrap invocation must use a distinct `ROTATION_DATABASE` Hyperdrive binding whose login role has no table privileges and may execute only bounded envelope list/replace functions.
 
 Tenant-facing services call `withTenantDatabase`, which opens a transaction and sets `app.auth_subject` plus the pseudonymous `app.subject_token` with `set_config(..., true)`. The `true` flag makes both values transaction-local. Policies use `current_setting(..., true)` plus `nullif`; absent or cleared settings therefore reveal no rows and permit no writes.
+
+Outside local development, database helpers do not cache clients in module scope and do not accept connection-string environment fallbacks. They resolve the required Hyperdrive binding from the current OpenNext request context, open at most five application connections, complete the operation, and close the client. Missing bindings fail closed.
 
 Application ownership predicates remain mandatory. RLS is a second, independently tested boundary.
 

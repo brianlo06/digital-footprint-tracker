@@ -4,28 +4,29 @@
 
 ## Implemented scope
 
-| Capability              | State                       | Boundary                                                                       |
-| ----------------------- | --------------------------- | ------------------------------------------------------------------------------ |
-| Application shell       | Implemented                 | Responsive, semantic, keyboard-checked foundation UI; no finding screens       |
-| Authentication boundary | Implemented, hosted off     | Preview mode fails closed; Clerk adapter exists; local mode rejects production |
-| Account onboarding      | Implemented                 | Explicit authenticated Server Action; GET/render paths are read-only           |
-| Identifier model        | Implemented for email only  | Separate identity/identifier records; no scan capability                       |
-| Identifier protection   | Implemented                 | Per-record AES-256-GCM envelope; keyed lookup token; tested key rewrap         |
-| KEK rotation batches    | Local procedure verified    | Bounded dry-run/resume/rollback; production KMS and invocation not chosen      |
-| Verification            | Local fake only             | 15-minute, single-use challenge; atomic five-attempt lockout; no delivery      |
-| Verification gateway    | Interface implemented       | Local non-delivery implementation only; no provider selected                   |
-| Mutation throttling     | Local baseline verified     | Atomic user/network limits; hosted trusted-IP source not configured            |
-| Consent and audit       | Foundation implemented      | Scoped consent and allowlisted events; no provider consent yet                 |
-| Application telemetry   | Canary boundary verified    | Field validators, redaction marker, sink-bypass scan; hosted traces remain off |
-| Account deletion        | Local lifecycle implemented | Cascades foundation data; pseudonymous receipt retained for one year           |
-| Deletion failure        | Quarantined and retryable   | Pending accounts lose normal access; receipt identity is reused                |
-| Managed-auth deletion   | Fail-closed                 | Requires a stable recent-login/MFA flow before enablement                      |
-| Retention               | Bounded service implemented | Function-only role; no scheduler; purges only eligible metadata                |
-| Database isolation      | Local RLS baseline verified | Forced policies plus restricted runtime role; hosted roles not provisioned     |
-| Browser security        | HTTPS preview verified      | Nonce CSP, HSTS, restrictive headers, and protected-route redirect checked     |
-| Cloud deployment        | Public shell deployed       | `dft.jarvisworlds.com`; no auth, database, secrets, or personal-data paths     |
-| Tests                   | Hosted CI verified          | Unit/build plus PostgreSQL authorization/lifecycle jobs on GitHub Actions      |
-| Providers/scans/jobs    | Not implemented             | Contracts/readmes only; zero provider network activity                         |
+| Capability              | State                        | Boundary                                                                       |
+| ----------------------- | ---------------------------- | ------------------------------------------------------------------------------ |
+| Application shell       | Implemented                  | Responsive, semantic, keyboard-checked foundation UI; no finding screens       |
+| Authentication boundary | Implemented, hosted off      | Preview mode fails closed; Clerk adapter exists; local mode rejects production |
+| Account onboarding      | Implemented                  | Explicit authenticated Server Action; GET/render paths are read-only           |
+| Identifier model        | Implemented for email only   | Separate identity/identifier records; no scan capability                       |
+| Identifier protection   | Implemented                  | Per-record AES-256-GCM envelope; keyed lookup token; tested key rewrap         |
+| KEK rotation batches    | Local procedure verified     | Bounded dry-run/resume/rollback; production KMS and invocation not chosen      |
+| Verification            | Local fake only              | 15-minute, single-use challenge; atomic five-attempt lockout; no delivery      |
+| Verification gateway    | Interface implemented        | Local non-delivery implementation only; no provider selected                   |
+| Mutation throttling     | Local baseline verified      | Atomic user/network limits; hosted trusted-IP source not configured            |
+| Consent and audit       | Foundation implemented       | Scoped consent and allowlisted events; no provider consent yet                 |
+| Application telemetry   | Canary boundary verified     | Field validators, redaction marker, sink-bypass scan; hosted traces remain off |
+| Account deletion        | Local lifecycle implemented  | Cascades foundation data; pseudonymous receipt retained for one year           |
+| Deletion failure        | Quarantined and retryable    | Pending accounts lose normal access; receipt identity is reused                |
+| Managed-auth deletion   | Implemented, tenant untested | Clerk strict reverification; hosted MFA/passkey/deletion exercise remains      |
+| Retention               | Worker template implemented  | Function-only daily Cron dry-builds; hosted binding/period approval remains    |
+| Database isolation      | Local RLS baseline verified  | Forced policies plus restricted runtime role; hosted roles not provisioned     |
+| Worker database clients | Implemented                  | Request-scoped Hyperdrive only outside local development                       |
+| Browser security        | HTTPS preview verified       | Nonce CSP, HSTS, restrictive headers, and protected-route redirect checked     |
+| Cloud deployment        | Public shell deployed        | `dft.jarvisworlds.com`; no auth, database, secrets, or personal-data paths     |
+| Tests                   | Hosted CI verified           | Unit/build plus PostgreSQL authorization/lifecycle jobs on GitHub Actions      |
+| Providers/scans/jobs    | Not implemented              | Contracts/readmes only; zero provider network activity                         |
 
 ## Verification evidence
 
@@ -65,17 +66,22 @@
 - a source-boundary test prevents direct console/stdout/stderr logging and telemetry SDK imports; hosted automatic invocation logs and application traces remain disabled;
 - production startup rejects local authentication;
 - production dependency audit reports no known vulnerabilities.
+- managed deletion requires subject continuity plus Clerk strict reverification before consuming the deletion rate limit or mutating data;
+- the managed deletion UI retries the Server Action only after Clerk completes its strongest available credential challenge and treats cancellation as a no-op;
+- hosted database helpers accept only request-context Hyperdrive bindings and close their Postgres.js clients after each operation;
+- a route-less retention Cron Worker reuses the bounded retention core through a distinct maintenance binding and dry-builds in CI; and
+- the Cloudflare build fails if OpenNext embeds any `.env` project values, preventing local database URLs or key material from entering an uploaded bundle.
 - GitHub Actions runs pinned quality/build actions and the complete synthetic PostgreSQL restricted-role integration suite; the first hosted run passed both jobs.
 
 ## Remaining Phase 1 gates
 
 1. Configure and exercise Clerk in an isolated preview tenant with MFA/passkey, session, recovery, webhook, privacy/DPA, and deletion tests.
-2. Select a stable reauthentication mechanism for destructive account deletion; keep the action disabled for Clerk until then.
+2. Exercise the implemented Clerk strict-reverification deletion flow with password, passkey/MFA, cancellation, stale session, recovery, provider deletion failure, and successful deletion in that tenant.
 3. Reproduce and inspect the verified local RLS, runtime-role, and function-only retention boundaries in the hosted preview before it handles multi-user personal data.
 4. Configure and verify the trusted ingress IP source in hosted preview, calibrate the implemented distributed limits, and approve an idempotent delivery provider/outbox before replacing the local fake gateway.
 5. Reproduce the verified batch rewrap, rollback, and recovery procedure against an approved production KMS with monitored invocation; separately design and approve lookup-token rotation because it requires controlled plaintext access and coordinated cutover.
 6. Repeat the multi-user and managed-auth browser checks after Clerk and the hosted database are approved; the no-data HTTPS preview baseline is recorded in `BROWSER_VALIDATION.md`.
-7. Approve legal retention periods and add a least-privileged, monitored invocation mechanism for the bounded retention service; no scheduler exists today.
+7. Approve legal retention periods, provision the retention Worker maintenance Hyperdrive binding, deploy its daily Cron, and verify Cron Events/alerts and backup/tombstone behavior.
 
 ## Dependency note
 

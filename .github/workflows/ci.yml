@@ -45,6 +45,8 @@ jobs:
         run: npm run cf:build
       - name: Verify generated Cloudflare bindings
         run: npm run cf:typecheck
+      - name: Build least-privileged retention Worker
+        run: npm run cf:retention:build
 
   database-integration:
     name: PostgreSQL integration

@@ -8,6 +8,7 @@ export default defineConfig([
   globalIgnores([
     ".next/**",
     ".open-next/**",
+    ".wrangler/**",
     "coverage/**",
     "drizzle/**",
     "cloudflare-env.d.ts",

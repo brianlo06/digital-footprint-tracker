@@ -1,6 +1,6 @@
 import "server-only";
 
-import { getRotationDatabase } from "@/database/client";
+import { withRotationDatabase } from "@/database/client";
 import {
   type EncryptedEnvelope,
   type EncryptionKeyring,
@@ -61,55 +61,57 @@ export async function rewrapIdentifierBatch(
   }
   validateRotationKeys(options.currentKeyring, options.nextKeyring);
 
-  const rows = await getRotationDatabase().execute(sql<RewrapCandidateRow>`
-    select
-      identifier_id as "identifierId",
-      encrypted_value as "encryptedValue"
-    from public.list_identifier_envelopes_for_rewrap(
-      ${options.currentKeyring.keyId}::text,
-      ${batchSize + 1}::integer
-    )
-  `);
-  const candidates = (rows as unknown as RewrapCandidateRow[]).slice(0, batchSize);
-  const hasMore = rows.length > batchSize;
+  return withRotationDatabase(async (database) => {
+    const rows = await database.execute(sql<RewrapCandidateRow>`
+      select
+        identifier_id as "identifierId",
+        encrypted_value as "encryptedValue"
+      from public.list_identifier_envelopes_for_rewrap(
+        ${options.currentKeyring.keyId}::text,
+        ${batchSize + 1}::integer
+      )
+    `);
+    const candidates = (rows as unknown as RewrapCandidateRow[]).slice(0, batchSize);
+    const hasMore = rows.length > batchSize;
 
-  if (options.dryRun) {
+    if (options.dryRun) {
+      return {
+        dryRun: true,
+        planned: candidates.length,
+        rewrapped: 0,
+        conflicts: 0,
+        hasMore,
+      };
+    }
+
+    let rewrapped = 0;
+    let conflicts = 0;
+    for (const candidate of candidates) {
+      const replacement = rewrapEncryptedEnvelope(
+        candidate.encryptedValue,
+        options.currentKeyring,
+        options.nextKeyring,
+      );
+      const result = await database.execute(sql<{ replaced: boolean }>`
+        select public.replace_identifier_envelope_for_rewrap(
+          ${candidate.identifierId}::uuid,
+          ${JSON.stringify(candidate.encryptedValue)}::jsonb,
+          ${JSON.stringify(replacement)}::jsonb,
+          ${options.currentKeyring.keyId}::text,
+          ${options.nextKeyring.keyId}::text
+        ) as replaced
+      `);
+      const [outcome] = result as unknown as { replaced: boolean }[];
+      if (outcome?.replaced) rewrapped += 1;
+      else conflicts += 1;
+    }
+
     return {
-      dryRun: true,
+      dryRun: false,
       planned: candidates.length,
-      rewrapped: 0,
-      conflicts: 0,
+      rewrapped,
+      conflicts,
       hasMore,
     };
-  }
-
-  let rewrapped = 0;
-  let conflicts = 0;
-  for (const candidate of candidates) {
-    const replacement = rewrapEncryptedEnvelope(
-      candidate.encryptedValue,
-      options.currentKeyring,
-      options.nextKeyring,
-    );
-    const result = await getRotationDatabase().execute(sql<{ replaced: boolean }>`
-      select public.replace_identifier_envelope_for_rewrap(
-        ${candidate.identifierId}::uuid,
-        ${JSON.stringify(candidate.encryptedValue)}::jsonb,
-        ${JSON.stringify(replacement)}::jsonb,
-        ${options.currentKeyring.keyId}::text,
-        ${options.nextKeyring.keyId}::text
-      ) as replaced
-    `);
-    const [outcome] = result as unknown as { replaced: boolean }[];
-    if (outcome?.replaced) rewrapped += 1;
-    else conflicts += 1;
-  }
-
-  return {
-    dryRun: false,
-    planned: candidates.length,
-    rewrapped,
-    conflicts,
-    hasMore,
-  };
+  });
 }

@@ -32,11 +32,13 @@ Only `Identity → Identifiers` exists in executable form today.
 - A delivery-independent email verification gateway; only the non-delivering local implementation exists.
 - Database-atomic per-user and shared-network throttling for every protected mutation, storing only keyed scope tokens.
 - Scoped consent, privacy-safe audit events, and a deletion receipt model.
-- Retry-safe deletion quarantine and bounded, unscheduled retention maintenance through a function-only database role.
-- Managed-auth deletion fails closed until stable recent-login/MFA reauthentication is configured.
+- Retry-safe deletion quarantine and bounded retention maintenance through a function-only database role, plus a separately deployable daily Cron Worker template.
+- Managed-auth deletion uses Clerk strict reverification and retries only after the strongest available recent credential challenge succeeds.
 - Deny-by-default structured logging and synthetic unit/integration coverage.
 - GitHub Actions quality/build and restricted-role PostgreSQL integration jobs using synthetic data only.
+- Request-scoped Cloudflare Hyperdrive support for restricted runtime, maintenance, and rotation roles; the public preview deliberately has none of those bindings yet.
 - Cloudflare Worker preview with authentication disabled, protected routes redirected to a public boundary page, no database or secrets, and no provider activity.
+- Cloudflare builds temporarily isolate local environment files and fail if OpenNext embeds any project environment values in the deployable bundle.
 
 ## Local setup
 
@@ -68,6 +70,7 @@ The local verification fixture is `LOCAL_VERIFICATION_CODE` (default `000000`). 
 npm run check
 npm run build
 npm run cf:build
+npm run cf:retention:build
 ```
 
 Database integration tests are opt-in so unit tests remain local-service independent:
@@ -105,6 +108,6 @@ The pinned GitHub Actions workflow runs `npm run check`, the production build, m
 
 ## Not implemented
 
-No real provider adapter, scan engine, finding dashboard, scheduler, notification delivery, broker workflow, owned-domain check, search/social/breach call, hosted personal-data store, or production authentication configuration exists. The deployed Worker is a public preview shell only. Placeholder provider contracts and documentation do not perform provider network activity. Phase 2 must not begin without a separate provider approval, legal/ToS/privacy/security review, and explicit owner authorization.
+No real provider adapter, scan engine, finding dashboard, notification delivery, broker workflow, owned-domain check, search/social/breach call, hosted personal-data store, or production authentication configuration exists. The retention Cron source is operational infrastructure only and is not deployed. The deployed Worker is a public preview shell. Placeholder provider contracts and documentation do not perform provider network activity. Phase 2 must not begin without a separate provider approval, legal/ToS/privacy/security review, and explicit owner authorization.
 
 This project is not legal advice. Never commit secrets or real personal data.

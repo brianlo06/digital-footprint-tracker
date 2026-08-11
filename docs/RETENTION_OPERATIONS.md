@@ -1,10 +1,10 @@
 # Retention Maintenance
 
-**Status:** Phase 1 bounded service and local least-privileged database capability implemented; no scheduler, CLI, deployment, or production invocation exists.
+**Status:** Phase 1 bounded service, local least-privileged database capability, and isolated Cloudflare Cron Worker are implemented; hosted deployment awaits a hosted database and owner-approved retention periods.
 
 ## Purpose
 
-`runRetentionMaintenance` calls one bounded PostgreSQL security-definer function that reduces retained privacy/security metadata in a single transaction. It exists now so retention semantics and database authority are executable and testable before an operations platform is chosen.
+`runRetentionMaintenance` calls one bounded PostgreSQL security-definer function that reduces retained privacy/security metadata in a single transaction. `workers/retention.ts` invokes the same core operation from a separate Worker, never from the web Worker.
 
 The maintenance login role cannot access protected tables directly. It can execute only the retention function. That function is owned by a non-login role with narrowly granted operations on verification, deletion-receipt, audit, and rate-limit tables. The web runtime role cannot execute it.
 
@@ -33,6 +33,17 @@ Failed, requested, or auth-revoked deletion receipts are deliberately retained b
 
 A database failure rolls back the batch and should be retried later with bounded backoff. No record is interpreted as deleted unless its database delete returns successfully. Operations must alert on repeated failures and growing eligible-record age, not on PII-bearing labels.
 
+## Cloudflare invocation boundary
+
+`wrangler.retention.example.jsonc` is a deployment template for a daily 04:00 UTC Cron Trigger. Before deployment, copy it to an environment-owned configuration and replace the all-zero Hyperdrive placeholder with a configuration whose origin credential is the function-only maintenance login.
+
+- The Worker has no route and returns 404 if fetched directly.
+- It creates one short-lived Postgres.js client per invocation and always closes it.
+- Batch size and orphan-audit period are bounded again in application code and in PostgreSQL.
+- Its Hyperdrive binding is distinct from the web runtime binding; no owner or runtime credential is available.
+- It emits no application log. Cloudflare Cron Events and aggregate Worker analytics provide invocation success/failure without request bodies, identifiers, or database results.
+- `npm run cf:retention:build` dry-builds the Worker in CI without provisioning or invoking a database.
+
 ## Production gate
 
-Before scheduling this service, reproduce and inspect the local function-only roles in the hosted database; select an invocation mechanism, metrics, alert thresholds, runbook, legal retention values, backup/tombstone behavior, and deployment ownership. Keep `MAINTENANCE_DATABASE_URL` out of the web runtime. Scheduling it is a separate Phase 1 production-readiness decision and must not be coupled to provider jobs.
+Before deploying the schedule, reproduce and inspect the function-only roles in the hosted database; approve legal retention values, backup/tombstone behavior, alert thresholds, and deployment ownership. Keep the maintenance Hyperdrive binding out of the web Worker. The current proposed defaults are 15 minutes for pending challenge secrets and 365 days for completed pseudonymous receipts and orphan audit events; these are engineering defaults, not legal approval.
