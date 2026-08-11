@@ -15,6 +15,8 @@ Allowlisted fields: timestamp, severity, event name/version, environment, servic
 
 Opaque IDs are still personal data when linkable. Restrict access and do not expose them to unnecessary third-party processors.
 
+The executable Phase 1 logger intentionally implements a smaller subset: event, environment, service version, request/correlation/user/identity/identifier/target IDs, outcome, error code, and a bounded duration bucket. Values are validated by field rather than trusted merely because their key is allowlisted. IDs must be UUIDs or carry an explicit opaque-ID prefix followed by a bounded, mixed alphanumeric suffix of at least 16 characters; codes cannot contain whitespace, punctuation, URLs, or free text. Any rejected key or value is removed and adds `redacted: true`; an invalid event becomes `TELEMETRY_REDACTED`.
+
 ## Implementation requirements
 
 - central structured logger with deny-by-default schema, not arbitrary object serialization;
@@ -22,6 +24,7 @@ Opaque IDs are still personal data when linkable. Restrict access and do not exp
 - avoid logging request bodies, full URLs, headers, database parameters, and ORM objects;
 - errors use stable codes and scrubbed stacks; production debug logging is time-bound and approved;
 - maintain canary PII tests that fail if known synthetic identifiers reach log/trace/metric sinks;
+- prohibit direct console/stdout/stderr calls outside the centralized logger and prohibit telemetry SDK imports until a separately reviewed sink exists;
 - prevent sensitive route parameters and attributes from entering traces;
 - role-restricted access, audited queries, short retention, export deletion policy;
 - incident process for telemetry PII leakage, including sink deletion and credential rotation.
@@ -39,3 +42,9 @@ Audit events are purposeful security/business records: verification complete, co
 ## Operational dashboards and alerts
 
 Alert on provider error/rate-limit changes, cost burn, queue lag, scan partial rate, auth/recovery anomalies, deletion lag, decrypt failures, and telemetry redaction failures. Alerts contain IDs and runbooks, not identifier values or findings.
+
+## Automated canary
+
+`tests/security/logger.test.ts` injects a synthetic email, verification code, bearer token, session cookie, personal-data URL, database URL, ciphertext, JSON request body, and a forged newline event across both known and unknown fields. The test fails if any complete canary reaches serialized output. It also verifies that the Worker-compatible sink receives exactly one JSON string rather than an arbitrary object.
+
+`tests/security/telemetry-boundary.test.ts` scans application source to prevent bypassing the sanitizer. It also pins the hosted preview boundary: Cloudflare automatic invocation logs and application traces remain disabled, and no application metric or trace SDK is present. Cloudflare's aggregate platform analytics and separately configured zone-level browser analytics are outside this application logger; reassess both before hosted personal-data processing.
