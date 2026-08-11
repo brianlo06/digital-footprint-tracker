@@ -35,6 +35,7 @@ Only `Identity → Identifiers` exists in executable form today.
 - Retry-safe deletion quarantine and bounded, unscheduled retention maintenance through a function-only database role.
 - Managed-auth deletion fails closed until stable recent-login/MFA reauthentication is configured.
 - Deny-by-default structured logging and synthetic unit/integration coverage.
+- GitHub Actions quality/build and restricted-role PostgreSQL integration jobs using synthetic data only.
 
 ## Local setup
 
@@ -76,6 +77,8 @@ TEST_MAINTENANCE_DATABASE_URL=postgres://digital_footprint_maintenance... \
 TEST_ROTATION_DATABASE_URL=postgres://digital_footprint_rotation... \
 npm run test:integration
 ```
+
+The pinned GitHub Actions workflow runs `npm run check`, the production build, migrations, local restricted-role provisioning, and all PostgreSQL integration tests on pushes to `main` and pull requests. CI uses only synthetic credentials and data.
 
 ## Documentation
 

@@ -22,10 +22,10 @@
 | Retention               | Bounded service implemented | Function-only role; no scheduler; purges only eligible metadata            |
 | Database isolation      | Local RLS baseline verified | Forced policies plus restricted runtime role; hosted roles not provisioned |
 | Browser security        | Local baseline implemented  | Nonce CSP and restrictive headers; HTTPS/HSTS awaits preview               |
-| Tests                   | Hardened baseline           | Unit plus opt-in PostgreSQL authorization/lifecycle integration tests      |
+| Tests                   | Hosted CI verified          | Unit/build plus PostgreSQL authorization/lifecycle jobs on GitHub Actions  |
 | Providers/scans/jobs    | Not implemented             | Contracts/readmes only; zero provider network activity                     |
 
-## Verified locally
+## Verification evidence
 
 - formatting, ESLint, strict TypeScript, unit tests, and production build;
 - migration against isolated local PostgreSQL;
@@ -58,6 +58,7 @@
 - response scripts/styles carry a per-request CSP nonce and restrictive browser headers are present;
 - production startup rejects local authentication;
 - production dependency audit reports no known vulnerabilities.
+- GitHub Actions runs pinned quality/build actions and the complete synthetic PostgreSQL restricted-role integration suite; the first hosted run passed both jobs.
 
 ## Remaining Phase 1 gates
 
@@ -66,7 +67,7 @@
 3. Reproduce and inspect the verified local RLS, runtime-role, and function-only retention boundaries in the hosted preview before it handles multi-user personal data.
 4. Configure and verify the trusted ingress IP source in hosted preview, calibrate the implemented distributed limits, and approve an idempotent delivery provider/outbox before replacing the local fake gateway.
 5. Reproduce the verified batch rewrap, rollback, and recovery procedure against an approved production KMS with monitored invocation; separately design and approve lookup-token rotation because it requires controlled plaintext access and coordinated cutover.
-6. Add hosted CI and repeat browser accessibility/security checks in an HTTPS production preview after repository hosting is selected; the local Chrome audit is recorded in `BROWSER_VALIDATION.md`.
+6. Repeat browser accessibility/security checks in an HTTPS production preview after a deployment target is selected; hosted CI is active and the local Chrome audit is recorded in `BROWSER_VALIDATION.md`.
 7. Approve legal retention periods and add a least-privileged, monitored invocation mechanism for the bounded retention service; no scheduler exists today.
 
 ## Dependency note
