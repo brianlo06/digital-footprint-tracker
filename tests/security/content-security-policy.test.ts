@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { createContentSecurityPolicy, createNonce } from "@/security/content-security-policy";
+import {
+  createContentSecurityPolicy,
+  createNonce,
+  PRIVATE_DYNAMIC_CACHE_CONTROL,
+} from "@/security/content-security-policy";
 
 describe("content security policy", () => {
   it("uses a fresh high-entropy nonce", () => {
@@ -33,5 +37,16 @@ describe("content security policy", () => {
     expect(policy).toContain("style-src 'self' 'unsafe-inline'");
     expect(policy).toContain("connect-src 'self' ws:");
     expect(policy).not.toContain("upgrade-insecure-requests");
+  });
+
+  it("prevents storage and edge transformation of nonce-bearing responses", () => {
+    expect(PRIVATE_DYNAMIC_CACHE_CONTROL.split(", ")).toEqual([
+      "private",
+      "no-cache",
+      "no-store",
+      "max-age=0",
+      "must-revalidate",
+      "no-transform",
+    ]);
   });
 });

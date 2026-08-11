@@ -1,5 +1,11 @@
 const directive = (name: string, values: string[]) => `${name} ${values.join(" ")}`;
 
+// Every HTML/RSC response carries a per-request nonce and can reflect protected
+// account state. `no-transform` also prevents edge features from injecting
+// browser-side analytics scripts into the reviewed response boundary.
+export const PRIVATE_DYNAMIC_CACHE_CONTROL =
+  "private, no-cache, no-store, max-age=0, must-revalidate, no-transform";
+
 export function createNonce(): string {
   const bytes = new Uint8Array(16);
   crypto.getRandomValues(bytes);

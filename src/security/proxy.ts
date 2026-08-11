@@ -1,7 +1,11 @@
 import type { NextFetchEvent, NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
-import { createContentSecurityPolicy, createNonce } from "@/security/content-security-policy";
+import {
+  createContentSecurityPolicy,
+  createNonce,
+  PRIVATE_DYNAMIC_CACHE_CONTROL,
+} from "@/security/content-security-policy";
 
 function responseWithContentSecurityPolicy(request: NextRequest): NextResponse {
   const nonce = createNonce();
@@ -15,6 +19,7 @@ function responseWithContentSecurityPolicy(request: NextRequest): NextResponse {
 
   const response = NextResponse.next({ request: { headers: requestHeaders } });
   response.headers.set("Content-Security-Policy", contentSecurityPolicy);
+  response.headers.set("Cache-Control", PRIVATE_DYNAMIC_CACHE_CONTROL);
   return response;
 }
 
@@ -33,7 +38,7 @@ export async function authenticationProxy(request: NextRequest, event: NextFetch
   if (authMode !== "clerk") throw new Error("Unsupported authentication mode");
 
   const { clerkMiddleware } = await import("@clerk/nextjs/server");
-  return clerkMiddleware({
+  const response = await clerkMiddleware({
     contentSecurityPolicy: {
       strict: true,
       directives: {
@@ -44,4 +49,7 @@ export async function authenticationProxy(request: NextRequest, event: NextFetch
       },
     },
   })(request, event);
+  const protectedResponse = response ?? NextResponse.next();
+  protectedResponse.headers.set("Cache-Control", PRIVATE_DYNAMIC_CACHE_CONTROL);
+  return protectedResponse;
 }
