@@ -93,5 +93,7 @@ jobs:
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/provision-local-rate-limit-role.sql
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/provision-local-maintenance-role.sql
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/provision-local-rotation-role.sql
+      - name: Verify database authorization boundaries
+        run: npm run db:verify:boundaries
       - name: Run restricted-role integration tests
         run: npm run test:integration

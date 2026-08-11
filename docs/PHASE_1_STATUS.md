@@ -38,6 +38,7 @@
 - cross-account list and verification attempts are denied;
 - the real restricted runtime role is non-superuser and lacks `BYPASSRLS`;
 - all eight protected tables have enabled and forced PostgreSQL RLS;
+- a bounded read-only database preflight attests the complete standard-role, table-policy, privilege, capability-owner, `PUBLIC` execution, and fixed-`search_path` contract and runs in CI after provisioning;
 - missing tenant context fails closed, transaction-local context does not leak through the pool, and direct cross-tenant reads/writes are denied;
 - deletion receipts are isolated by a pseudonymous subject token after the user row is gone;
 - the maintenance login has no tenant-table access, the web role cannot invoke retention, and the narrowly granted RLS-bypass function owner cannot log in;

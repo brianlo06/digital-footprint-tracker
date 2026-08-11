@@ -29,6 +29,14 @@ psql postgres://owner... -v ON_ERROR_STOP=1 -f scripts/provision-local-rotation-
 
 The scripts are idempotent and intentionally contain local-only passwords. Run all four separately for the development and test databases. Never reuse those role passwords in a hosted environment.
 
+After provisioning, run the read-only boundary attestation through the owner connection:
+
+```bash
+DATABASE_URL=postgres://owner... npm run db:verify:boundaries
+```
+
+The verifier sets statement/lock timeouts and a catalog-only `search_path`, opens a read-only transaction, and rolls it back after checking the complete standard-role contract. It fails closed on missing objects, role administration or membership, unexpected table/function authority, missing forced RLS/policies, unsafe capability-function ownership, `PUBLIC` execution, or an unfixed security-definer `search_path`. Its only successful output is a fixed confirmation string; it does not select tenant rows or reveal credentials.
+
 The runtime role receives only `CONNECT`, schema/type `USAGE`, and `SELECT`, `INSERT`, `UPDATE`, and `DELETE` on the seven user-graph tables. It receives no `TRUNCATE`, schema mutation, role administration, database creation, ownership, superuser, or RLS-bypass capability. The eighth protected table, `rate_limit_windows`, has no runtime table grant or RLS policy; the runtime may call only its fixed-policy limiter function.
 
 Retention uses two additional roles. `digital_footprint_maintenance` can log in but has no direct table privileges and can execute only `run_retention_maintenance`. The security-definer function is owned by `digital_footprint_retention_owner`, which cannot log in and receives RLS bypass plus operations on only the four retention-relevant tables. The function fixes `search_path`, fully qualifies every object, validates nulls, batch size, future clock skew, and minimum audit retention in PostgreSQL, uses `SKIP LOCKED`, and is not executable by `PUBLIC` or the web runtime role.
@@ -72,6 +80,7 @@ Before any shared preview accepts personal data:
 1. Provision distinct owner, runtime, and purpose-specific maintenance/rotation credentials plus non-login capability owners through the hosting platform rather than these local scripts.
 2. Confirm the runtime role is not the table owner and has `rolsuper = false` and `rolbypassrls = false`.
 3. Run migrations with the owner credential and the complete integration suite with the hosted runtime credential.
-4. Inspect all tenant tables for both `relrowsecurity = true` and `relforcerowsecurity = true`.
-5. Keep owner, maintenance, and rotation credentials out of the web runtime and reproduce both function-only authorities.
-6. Rotate both database credentials and repeat the role/policy assertions before enabling traffic.
+4. Run `npm run db:verify:boundaries` with the hosted owner connection and retain its fixed success result with the deployment evidence.
+5. Inspect all tenant tables for both `relrowsecurity = true` and `relforcerowsecurity = true`.
+6. Keep owner, maintenance, and rotation credentials out of the web runtime and reproduce both function-only authorities.
+7. Rotate both database credentials and repeat the verifier plus role/policy assertions before enabling traffic.
