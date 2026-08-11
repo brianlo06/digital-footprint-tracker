@@ -33,7 +33,7 @@ Only `Identity → Identifiers` exists in executable form today.
 - Database-atomic per-user and shared-network throttling for every protected mutation, storing only keyed scope tokens.
 - Scoped consent, privacy-safe audit events, and a deletion receipt model.
 - Retry-safe deletion quarantine and bounded retention maintenance through a function-only database role, plus a separately deployable daily Cron Worker template.
-- Managed-auth deletion uses Clerk strict reverification and retries only after the strongest available recent credential challenge succeeds.
+- Managed-auth deletion uses Clerk strict reverification and retries only after the strongest available recent credential challenge succeeds; a signed `user.deleted` webhook safely finishes interrupted or provider-initiated deletion.
 - Deny-by-default structured logging and synthetic unit/integration coverage.
 - GitHub Actions quality/build and restricted-role PostgreSQL integration jobs using synthetic data only.
 - Request-scoped Cloudflare Hyperdrive support for restricted runtime, maintenance, and rotation roles; the public preview deliberately has none of those bindings yet.
@@ -88,6 +88,7 @@ The pinned GitHub Actions workflow runs `npm run check`, the production build, m
 ## Documentation
 
 - [Phase 1 implementation status](docs/PHASE_1_STATUS.md)
+- [Clerk authentication and deletion operations](docs/CLERK_OPERATIONS.md)
 - [Cloudflare preview operations](docs/CLOUDFLARE_PREVIEW.md)
 - [Local browser validation](docs/BROWSER_VALIDATION.md)
 - [Route and Server Action authorization matrix](docs/AUTHORIZATION_MATRIX.md)

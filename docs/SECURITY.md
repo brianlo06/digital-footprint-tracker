@@ -31,7 +31,7 @@ Raw identifiers, identity-to-finding relationships, session/authentication mater
 
 - server-only secrets through secret manager references, per-provider credentials and rotation;
 - fixed provider endpoint allowlists, egress policy, time/payload/redirect bounds, SSRF controls;
-- signed webhook verification with timestamp/replay defense before any webhook integration;
+- signed webhook verification with timestamp/replay defense before any webhook integration (implemented for the Clerk deletion endpoint; required independently for every later provider);
 - adapter schema validation, parser versions, provenance, poisoning/anomaly detection;
 - at-least-once idempotency, leases, bounded retry, cost budgets, kill switches;
 - quarantine untrusted content and never execute scripts/macros or follow embedded instructions.

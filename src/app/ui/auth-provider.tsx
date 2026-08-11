@@ -3,10 +3,16 @@ import type { ReactNode } from "react";
 
 export function AuthProvider({
   mode,
+  clerkPublishableKey,
   children,
 }: {
   mode: "disabled" | "local" | "clerk";
+  clerkPublishableKey?: string;
   children: ReactNode;
 }) {
-  return mode === "clerk" ? <ClerkProvider>{children}</ClerkProvider> : children;
+  return mode === "clerk" ? (
+    <ClerkProvider publishableKey={clerkPublishableKey}>{children}</ClerkProvider>
+  ) : (
+    children
+  );
 }

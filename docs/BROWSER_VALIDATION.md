@@ -69,5 +69,5 @@ Existing `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`, and 
 
 - The performance figures remain a local lab baseline, not field performance.
 - Local authentication is deliberately rejected under `NODE_ENV=production`, so a production-runtime browser audit depends on the isolated Clerk preview gate.
-- Clerk session, MFA/passkey, recovery, webhook, and the implemented strict managed-reauthentication behavior remain untested against a real tenant.
+- Clerk session, MFA/passkey, recovery, webhook delivery, and the implemented strict managed-reauthentication behavior remain untested against a real tenant; the signed deletion endpoint and retry recovery are covered locally.
 - Multi-user browser authorization tests still require a managed-auth preview or a dedicated browser test harness with isolated principals.

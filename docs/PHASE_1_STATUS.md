@@ -19,7 +19,7 @@
 | Application telemetry   | Canary boundary verified     | Field validators, redaction marker, sink-bypass scan; hosted traces remain off |
 | Account deletion        | Local lifecycle implemented  | Cascades foundation data; pseudonymous receipt retained for one year           |
 | Deletion failure        | Quarantined and retryable    | Pending accounts lose normal access; receipt identity is reused                |
-| Managed-auth deletion   | Implemented, tenant untested | Clerk strict reverification; hosted MFA/passkey/deletion exercise remains      |
+| Managed-auth deletion   | Implemented, tenant untested | Strict reverification plus signed, retry-safe deletion recovery webhook        |
 | Retention               | Worker template implemented  | Function-only daily Cron dry-builds; hosted binding/period approval remains    |
 | Database isolation      | Local RLS baseline verified  | Forced policies plus restricted runtime role; hosted roles not provisioned     |
 | Worker database clients | Implemented                  | Request-scoped Hyperdrive only outside local development                       |
@@ -47,7 +47,8 @@
 - limiter rows contain only namespace-separated keyed tokens, the web role has function-only access, and expired state is retention-eligible;
 - email enrollment depends on a delivery-neutral gateway whose only implementation refuses non-local operation and sends nothing;
 - deletion without recent-reauthentication authorization leaves the account intact;
-- auth-provider deletion failure quarantines the account and a retry completes against the same receipt;
+- auth-provider deletion failure quarantines the account and signed provider confirmation completes against the same receipt;
+- signed Clerk `user.deleted` events resume local purge without calling the provider, duplicate delivery is idempotent, and invalid signatures/events fail before database access;
 - bounded retention consumes expired challenges, removes expired completed receipts/orphan audits, and preserves failed receipts;
 - envelope key rewrap preserves ciphertext and decrypts only under the replacement key;
 - bounded envelope batches support dry-run, interruption recovery, and rollback through a function-only rotation role without decrypting identifier plaintext;
@@ -75,7 +76,7 @@
 
 ## Remaining Phase 1 gates
 
-1. Configure and exercise Clerk in an isolated preview tenant with MFA/passkey, session, recovery, webhook, privacy/DPA, and deletion tests.
+1. Configure and exercise Clerk in an isolated preview tenant with MFA/passkey, session, recovery, the implemented signed `user.deleted` endpoint, privacy/DPA, and deletion tests.
 2. Exercise the implemented Clerk strict-reverification deletion flow with password, passkey/MFA, cancellation, stale session, recovery, provider deletion failure, and successful deletion in that tenant.
 3. Reproduce and inspect the verified local RLS, runtime-role, and function-only retention boundaries in the hosted preview before it handles multi-user personal data.
 4. Configure and verify the trusted ingress IP source in hosted preview, calibrate the implemented distributed limits, and approve an idempotent delivery provider/outbox before replacing the local fake gateway.

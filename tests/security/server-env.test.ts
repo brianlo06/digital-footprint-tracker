@@ -75,4 +75,19 @@ describe("database connection environment boundary", () => {
     expect(env).not.toHaveProperty("DATABASE_URL");
     expect(env).not.toHaveProperty("RUNTIME_DATABASE_URL");
   });
+
+  it("requires a webhook signing secret with Clerk authentication", () => {
+    configureRequiredEnvironment();
+    vi.stubEnv("AUTH_MODE", "clerk");
+    vi.stubEnv("CLERK_SECRET_KEY", "sk_test_example");
+    vi.stubEnv("NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY", "pk_test_example");
+    vi.stubEnv("CLERK_WEBHOOK_SIGNING_SECRET", undefined);
+    resetServerEnvForTests();
+
+    expect(() => getServerEnv()).toThrow("webhook signing secret");
+
+    vi.stubEnv("CLERK_WEBHOOK_SIGNING_SECRET", "whsec_example");
+    resetServerEnvForTests();
+    expect(getServerEnv().CLERK_WEBHOOK_SIGNING_SECRET).toBe("whsec_example");
+  });
 });

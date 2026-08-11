@@ -25,11 +25,13 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
       : process.env.AUTH_MODE === "disabled"
         ? "disabled"
         : "local";
+  const clerkPublishableKey =
+    authMode === "clerk" ? process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY : undefined;
 
   return (
     <html lang="en">
       <body>
-        <AuthProvider mode={authMode}>
+        <AuthProvider mode={authMode} clerkPublishableKey={clerkPublishableKey}>
           <a className="skip-link" href="#main-content">
             Skip to main content
           </a>

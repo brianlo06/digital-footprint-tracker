@@ -12,7 +12,7 @@ import {
   identifierVerifications,
   users,
 } from "@/database/schema";
-import { deleteAccount } from "@/privacy/deletion-service";
+import { deleteAccount, resumeAccountDeletionAfterAuthRevoked } from "@/privacy/deletion-service";
 import type { AuthGateway, AuthenticatedPrincipal } from "@/security/auth";
 import { createLookupToken } from "@/security/crypto";
 import { getApplicationKeyring } from "@/security/keyring";
@@ -213,7 +213,32 @@ describeWithDatabase("synthetic account lifecycle", () => {
     await deleteAccount(guardedPrincipal, authGateway, { recentlyReauthenticated: true });
   });
 
-  it("quarantines a deletion-pending account and safely retries provider failure", async () => {
+  it("purges a provider-deleted account and converges concurrent deliveries", async () => {
+    const providerDeletedPrincipal: AuthenticatedPrincipal = {
+      subject: `integration_provider_deleted_${testRunId}`,
+      mode: "clerk",
+    };
+    const account = await createAccountIfMissing(providerDeletedPrincipal);
+    await addEmailIdentifier(account, "provider.deleted@example.test");
+
+    const deliveries = await Promise.all([
+      resumeAccountDeletionAfterAuthRevoked(providerDeletedPrincipal.subject),
+      resumeAccountDeletionAfterAuthRevoked(providerDeletedPrincipal.subject),
+    ]);
+    expect(deliveries[0].receiptId).not.toBeNull();
+    expect(deliveries[1].receiptId).toBe(deliveries[0].receiptId);
+
+    const [receipt] = await getDatabase()
+      .select({ state: deletionReceipts.state })
+      .from(deletionReceipts)
+      .where(eq(deletionReceipts.id, deliveries[0].receiptId!));
+    expect(receipt.state).toBe("COMPLETED");
+    expect(
+      await getDatabase().select({ id: users.id }).from(users).where(eq(users.id, account.userId)),
+    ).toHaveLength(0);
+  });
+
+  it("finishes a quarantined deletion after the provider confirms revocation", async () => {
     const retryPrincipal: AuthenticatedPrincipal = {
       subject: `integration_delete_retry_${testRunId}`,
       mode: "local",
@@ -255,15 +280,16 @@ describeWithDatabase("synthetic account lifecycle", () => {
       .where(eq(deletionReceipts.subjectToken, subjectToken));
     expect(failedReceipt.state).toBe("FAILED");
 
-    const retried = await deleteAccount(retryPrincipal, flakyGateway, {
-      recentlyReauthenticated: true,
-    });
-    expect(retried.receiptId).toBe(failedReceipt.id);
+    const resumed = await resumeAccountDeletionAfterAuthRevoked(retryPrincipal.subject);
+    expect(resumed.receiptId).toBe(failedReceipt.id);
     const [completedReceipt] = await getDatabase()
       .select({ state: deletionReceipts.state })
       .from(deletionReceipts)
-      .where(eq(deletionReceipts.id, retried.receiptId));
+      .where(eq(deletionReceipts.id, resumed.receiptId!));
     expect(completedReceipt.state).toBe("COMPLETED");
-    expect(deletionAttempts).toBe(2);
+    expect(deletionAttempts).toBe(1);
+
+    const redelivered = await resumeAccountDeletionAfterAuthRevoked(retryPrincipal.subject);
+    expect(redelivered.receiptId).toBe(failedReceipt.id);
   });
 });

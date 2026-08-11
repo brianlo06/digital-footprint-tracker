@@ -36,6 +36,7 @@ const serverEnvSchema = z
       .regex(/^\d{6}$/)
       .default("000000"),
     CLERK_SECRET_KEY: z.string().optional(),
+    CLERK_WEBHOOK_SIGNING_SECRET: z.string().optional(),
     NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: z.string().optional(),
   })
   .superRefine((env, context) => {
@@ -106,12 +107,14 @@ const serverEnvSchema = z
 
     if (
       env.AUTH_MODE === "clerk" &&
-      (!env.CLERK_SECRET_KEY || !env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY)
+      (!env.CLERK_SECRET_KEY ||
+        !env.CLERK_WEBHOOK_SIGNING_SECRET ||
+        !env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY)
     ) {
       context.addIssue({
         code: "custom",
         path: ["AUTH_MODE"],
-        message: "Clerk keys are required when AUTH_MODE=clerk",
+        message: "Clerk keys and webhook signing secret are required when AUTH_MODE=clerk",
       });
     }
   });
