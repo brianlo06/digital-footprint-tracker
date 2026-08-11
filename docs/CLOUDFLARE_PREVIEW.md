@@ -18,6 +18,8 @@ Do not change `AUTH_MODE` until the hosted Clerk, reauthentication, database iso
 
 `wrangler.jsonc` declares the custom domain, current compatibility date, `nodejs_compat`, static-assets binding, and privacy-conscious observability. Invocation logs and traces are disabled because automatic request logging can capture full URLs and query strings. Application logging remains deny-by-default.
 
+Every nonce-bearing application response uses `Cache-Control: private, no-cache, no-store, max-age=0, must-revalidate, no-transform`. Besides preventing shared storage of personalized responses, `no-transform` prevents Cloudflare Web Analytics or another edge transformation from injecting browser-side scripts outside the reviewed CSP/telemetry boundary. Static immutable assets retain their separate long-lived cache policy. The live browser network must be rechecked after any cache, analytics, or zone-rule change.
+
 The custom domain is managed by Cloudflare. Wrangler creates the DNS record and certificate association when the Worker trigger is deployed.
 
 Next.js 16's `proxy.ts` convention is Node-only, while the current OpenNext adapter requires Edge middleware. The repository therefore retains `src/middleware.ts` as a documented compatibility bridge. Remove it only after an adapter release supports the Node proxy bundle and the production CSP/authentication behavior has been revalidated.
@@ -50,7 +52,7 @@ curl -I https://dft.jarvisworlds.com/preview
 curl -I https://dft.jarvisworlds.com/dashboard
 ```
 
-The public routes must return `200`; the protected route must redirect to `/preview`; all must use HTTPS and carry the production security headers. Complete a Chrome DevTools console, network, keyboard, mobile-overflow, and Lighthouse pass before widening scope.
+The public routes must return `200`; the protected route must redirect to `/preview`; all must use HTTPS and carry the production security headers, including `no-transform`. Complete a Chrome DevTools console/network pass and confirm that no analytics beacon or `/cdn-cgi/rum` request appears, then complete keyboard, mobile-overflow, and Lighthouse checks before widening scope.
 
 ## Rollback
 

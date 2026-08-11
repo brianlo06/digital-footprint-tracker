@@ -12,12 +12,12 @@ Chrome DevTools MCP and direct HTTPS requests validated `https://dft.jarvisworld
 - `/dashboard` redirected to `/preview`, and the same protected-layout boundary covers onboarding, identifiers, privacy settings, and deletion routes;
 - the page exposed no forms or personal-data inputs and clearly labeled authentication and data features as disabled;
 - application scripts and styles loaded successfully from the same hostname;
-- responses carried the per-request nonce CSP, `Strict-Transport-Security`, `Permissions-Policy`, `Referrer-Policy`, `X-Content-Type-Options`, and anti-framing headers;
+- responses carried the per-request nonce CSP, private/no-store/`no-transform` cache policy, `Strict-Transport-Security`, `Permissions-Policy`, `Referrer-Policy`, `X-Content-Type-Options`, and anti-framing headers;
 - the Worker had no database, authentication-provider, encryption-key, email, scanning-provider, or scheduler binding;
 - the live accessibility tree exposed the skip link, banner, labeled primary navigation, main heading, status notice, foundation region, and footer.
 - hosted Lighthouse scored 100 for accessibility, best practices, and agentic browsing; SEO scored 63 because `noindex, nofollow` is intentional.
 
-Cloudflare's zone-level browser analytics beacon was present independently of application code. It is operational telemetry, not a Digital Footprint Tracker provider integration, and should be reassessed before any personal-data feature is enabled.
+The first hosted audit found Cloudflare's zone-level Web Analytics beacon injected independently of application code. The application now sends `Cache-Control: private, no-cache, no-store, max-age=0, must-revalidate, no-transform` on nonce-bearing dynamic responses. After deploying Worker version `48064b15-0604-4d68-b6ea-4a757463d6bc`, a cache-bypassing Chrome reload showed only same-host application requests: the `static.cloudflareinsights.com` script and `/cdn-cgi/rum` POST were absent, and the console remained clean.
 
 ## Results
 
@@ -63,7 +63,7 @@ The only quantified opportunity was the required global stylesheet, estimated at
 
 Responses now include a per-request nonce CSP with `strict-dynamic`, `object-src 'none'`, `base-uri 'self'`, `form-action 'self'`, and `frame-ancestors 'none'`. Next.js framework scripts and styles receive the nonce. Development alone permits `unsafe-eval` for React debugging and an inline-style allowance required by the development font/runtime; production policy generation omits both allowances. The route announcer's style attribute has a narrowly scoped `style-src-attr` allowance.
 
-Existing `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`, and `X-Frame-Options` headers were also present. The hosted preview additionally returned `Strict-Transport-Security: max-age=15552000` over HTTPS.
+Existing `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`, and `X-Frame-Options` headers were also present. The hosted preview additionally returned `Strict-Transport-Security: max-age=15552000` over HTTPS and the private/no-store/`no-transform` policy that prevents edge transformation of its per-request response.
 
 ## Remaining limits
 

@@ -66,6 +66,7 @@
 - the hosted preview Worker has only a static-assets binding and four non-secret configuration variables; authentication, database, provider, key, email, and scheduling bindings are absent;
 - every web build/deploy and retention dry-build now fails unless the committed Wrangler configurations preserve the exact no-data web boundary and route-less placeholder-only retention boundary;
 - Chrome DevTools verified the live semantic page structure, first-party application assets, protected-route boundary, and browser console after deployment;
+- a follow-up live network audit detected and then eliminated Cloudflare Web Analytics injection through a private/no-store/`no-transform` response policy; the deployed cache-bypassing recheck contained no analytics script or RUM request;
 - the centralized logger rejects synthetic email, token, cookie, URL, database, ciphertext, request-body, and log-injection canaries from known and unknown fields;
 - a source-boundary test prevents direct console/stdout/stderr logging and telemetry SDK imports; hosted automatic invocation logs and application traces remain disabled;
 - production startup rejects local authentication;

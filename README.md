@@ -39,6 +39,7 @@ Only `Identity → Identifiers` exists in executable form today.
 - Request-scoped Cloudflare Hyperdrive support for restricted runtime, maintenance, and rotation roles; the public preview deliberately has none of those bindings yet.
 - Cloudflare Worker preview with authentication disabled, protected routes redirected to a public boundary page, no database or secrets, and no provider activity.
 - Cloudflare builds temporarily isolate local environment files and fail if OpenNext embeds any project environment values in the deployable bundle.
+- Dynamic responses are private/no-store and `no-transform`; the deployed browser audit confirms Cloudflare does not inject a Web Analytics script or RUM request.
 
 ## Local setup
 
