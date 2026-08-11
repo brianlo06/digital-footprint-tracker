@@ -1,0 +1,2 @@
+ALTER TABLE "identifier_verifications" ADD COLUMN "attempt_count" integer DEFAULT 0 NOT NULL;--> statement-breakpoint
+ALTER TABLE "identifier_verifications" ADD COLUMN "locked_at" timestamp with time zone;

@@ -1,0 +1,49 @@
+{
+  "name": "digital-footprint-tracker",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Privacy-first personal digital footprint evidence platform",
+  "engines": {
+    "node": "^20.19 || ^22.13 || >=24"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:integration": "REQUIRE_DATABASE_TESTS=1 vitest run tests/integration",
+    "test:watch": "vitest",
+    "audit:production": "npm audit --omit=dev",
+    "check": "npm run format:check && npm run lint && npm run typecheck && npm run test",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:check": "drizzle-kit check"
+  },
+  "dependencies": {
+    "@clerk/nextjs": "^7.7.3",
+    "drizzle-orm": "^0.45.2",
+    "next": "^16.3.0",
+    "postgres": "^3.4.9",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "server-only": "^0.0.1",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^26.2.0",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "@vitest/coverage-v8": "^3.2.7",
+    "drizzle-kit": "^0.31.10",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "^16.3.0",
+    "prettier": "^3.9.6",
+    "typescript": "^6.0.3",
+    "vitest": "^3.2.7"
+  }
+}

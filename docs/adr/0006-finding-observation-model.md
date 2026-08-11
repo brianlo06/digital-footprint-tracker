@@ -1,0 +1,31 @@
+# ADR 0006: Finding and Observation Model
+
+**Status:** Proposed
+
+## Context
+
+Online exposure appears, disappears, and reappears. Overwriting a result loses remediation proof and makes provider outages look like removal.
+
+## Decision
+
+Represent a stable deduplicated `Finding` and append immutable `Observation` events with present/missing/indeterminate state, provider run, evidence, and time.
+
+## Alternatives Considered
+
+One mutable result row; full event sourcing; storing raw scan snapshots only.
+
+## Advantages
+
+Clear history, reappearance, trend comparison, provider provenance, and remediation verification without full event-sourcing complexity.
+
+## Disadvantages
+
+More rows/state rules; absence thresholds and comparable coverage need care.
+
+## Consequences
+
+Timeout/outage is indeterminate, never missing. Fingerprints are versioned. Cross-provider equivalence groups rather than blindly merges findings.
+
+## Revisit Conditions
+
+Observation volume requires partition/rollup, or validated domain rules require provider-specific presence policies.

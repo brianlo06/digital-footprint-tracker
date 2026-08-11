@@ -1,0 +1,76 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1786429901159,
+      "tag": "0000_demonic_masked_marvel",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1786459891441,
+      "tag": "0001_curly_luckman",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1786465836570,
+      "tag": "0002_cheerful_riptide",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1786468523454,
+      "tag": "0003_retention_maintenance",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1786468846827,
+      "tag": "0004_retention_argument_hardening",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1786469219854,
+      "tag": "0005_breezy_proteus",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1786469231439,
+      "tag": "0006_action_rate_limit",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1786469353126,
+      "tag": "0007_rate_limit_retention",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1786469545750,
+      "tag": "0008_rate_limit_timestamp_fix",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1786470800000,
+      "tag": "0009_identifier_key_rewrap",
+      "breakpoints": true
+    }
+  ]
+}
