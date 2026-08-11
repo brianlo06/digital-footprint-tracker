@@ -19,3 +19,4 @@ The owner authorized the Phase 1 foundation after Phase 0 review. Decisions now 
 | [0013](0013-distributed-action-rate-limits.md)      | Accepted | database-atomic user and network mutation limits         |
 | [0014](0014-email-verification-gateway.md)          | Accepted | delivery-independent verification challenge boundary     |
 | [0015](0015-bounded-identifier-key-rewrap.md)       | Accepted | bounded, restart-safe identifier KEK rewrap              |
+| [0016](0016-lookup-key-rotation.md)                 | Proposed | coordinated multi-domain lookup-key rotation             |

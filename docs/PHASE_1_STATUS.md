@@ -82,7 +82,7 @@
 2. Exercise the implemented Clerk strict-reverification deletion flow with password, passkey/MFA, cancellation, stale session, recovery, provider deletion failure, and successful deletion in that tenant.
 3. Reproduce and inspect the verified local RLS, runtime-role, and function-only retention boundaries in the hosted preview before it handles multi-user personal data.
 4. Exercise the declared Cloudflare trusted ingress IP source with the hosted data path, calibrate the implemented distributed limits, and approve an idempotent delivery provider/outbox before replacing the local fake gateway.
-5. Reproduce the verified batch rewrap, rollback, and recovery procedure against an approved production KMS with monitored invocation; separately design and approve lookup-token rotation because it requires controlled plaintext access and coordinated cutover.
+5. Reproduce the verified batch rewrap, rollback, and recovery procedure against an approved production KMS with monitored invocation; review and approve proposed [ADR 0016](adr/0016-lookup-key-rotation.md) before implementing lookup-token rotation because it requires controlled plaintext access and coordinated cutover.
 6. Repeat the multi-user and managed-auth browser checks after Clerk and the hosted database are approved; the no-data HTTPS preview baseline is recorded in `BROWSER_VALIDATION.md`.
 7. Approve legal retention periods, provision the retention Worker maintenance Hyperdrive binding, deploy its daily Cron, and verify Cron Events/alerts and backup/tombstone behavior.
 

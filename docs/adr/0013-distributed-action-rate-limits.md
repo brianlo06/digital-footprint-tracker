@@ -18,7 +18,7 @@ Per-instance memory; provider/edge-only limits; raw IP rows; `X-Forwarded-For` p
 
 ## Consequences
 
-Concurrent instances share atomic counters without another service. Raw scope values are absent from the database. Shared networks can create false positives, lookup-key rotation resets pseudonymous scopes, and the database is now on the mutation hot path. Limits require hosted calibration and are progressive friction, never proof of abuse.
+Concurrent instances share atomic counters without another service. Raw scope values are absent from the database. Shared networks can create false positives, an uncoordinated lookup-key change resets pseudonymous scopes, and the database is now on the mutation hot path. Limits require hosted calibration and are progressive friction, never proof of abuse. Proposed [ADR 0016](0016-lookup-key-rotation.md) requires atomic old/new consumption across a coordinated rotation so counters do not reset.
 
 ## Revisit Conditions
 
