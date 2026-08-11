@@ -6,4 +6,6 @@ The SQL files provision local-only restricted runtime, rate-limit owner, retenti
 
 `build-cloudflare.sh` is a deployment-safety wrapper: it isolates `.env.local` while OpenNext builds, restores it on every normal/signal exit, and rejects a bundle containing any compiled project environment values. It performs no external call itself.
 
+`verify-cloudflare-deployment-boundaries.mjs` parses both committed Wrangler files as comment-free, trailing-comma-only JSONC before any web build/deploy or retention dry-build. It freezes the current no-data preview to authentication-disabled public variables, static assets, hardened observability, and no data/provider/compute bindings; it also requires the route-less retention template to contain only its all-zero maintenance Hyperdrive placeholder, fixed Cron, and bounded non-secret settings. Hosted activation must replace this guard through an explicitly reviewed change rather than silently widening the preview.
+
 The separately deployable retention schedule lives in `workers/retention.ts`, not this directory. No provider-call script or general operational CLI is implemented. Future scripts must default to local/synthetic data, avoid external calls unless explicitly enabled, and document destructive behavior. Current quality and migration commands are declared in `package.json`.

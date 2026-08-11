@@ -64,6 +64,7 @@
 - response scripts/styles carry a per-request CSP nonce and restrictive browser headers are present;
 - the HTTPS Cloudflare preview serves its public pages, sends HSTS and the production nonce CSP, and redirects protected routes to `/preview`;
 - the hosted preview Worker has only a static-assets binding and four non-secret configuration variables; authentication, database, provider, key, email, and scheduling bindings are absent;
+- every web build/deploy and retention dry-build now fails unless the committed Wrangler configurations preserve the exact no-data web boundary and route-less placeholder-only retention boundary;
 - Chrome DevTools verified the live semantic page structure, first-party application assets, protected-route boundary, and browser console after deployment;
 - the centralized logger rejects synthetic email, token, cookie, URL, database, ciphertext, request-body, and log-injection canaries from known and unknown fields;
 - a source-boundary test prevents direct console/stdout/stderr logging and telemetry SDK imports; hosted automatic invocation logs and application traces remain disabled;

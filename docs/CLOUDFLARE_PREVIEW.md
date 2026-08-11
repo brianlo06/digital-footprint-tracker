@@ -40,6 +40,8 @@ The deploy script sets OpenNext's recursion guard before invoking Wrangler direc
 
 `npm run cf:build` temporarily moves the ignored `.env.local` out of the project while Next/OpenNext compiles, restores it on exit, and then requires every generated OpenNext environment manifest to be empty. Runtime configuration must come from Cloudflare variables, secrets, and bindings. This prevents local database URLs, fixture keys, and provider settings from being copied into an uploaded Worker version.
 
+Before that build starts, `npm run cf:verify:boundaries` parses both committed Wrangler files as comment-free JSONC with only standard trailing commas tolerated. It requires the web preview to remain `AUTH_MODE=disabled`, permits only its four reviewed public variables and static-assets binding, rejects data/storage/queue/AI/service bindings and secret-like variables, and keeps invocation logs/traces off. It separately requires the retention example to remain route-less with only its all-zero maintenance Hyperdrive placeholder, fixed Cron, and bounded variables. The retention dry-build runs the same verifier. Enabling hosted data therefore requires an explicit review and replacement of this no-data guard; changing Wrangler configuration alone fails CI and deployment.
+
 After deployment, verify at minimum:
 
 ```bash

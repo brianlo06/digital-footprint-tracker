@@ -2,6 +2,8 @@
 
 set -eu
 
+node scripts/verify-cloudflare-deployment-boundaries.mjs
+
 local_env=".env.local"
 backup_env=".env.local.cloud-build-backup"
 

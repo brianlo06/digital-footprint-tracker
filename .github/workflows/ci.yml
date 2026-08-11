@@ -41,6 +41,8 @@ jobs:
         run: npm ci
       - name: Run formatting, lint, types, and unit tests
         run: npm run check
+      - name: Verify no-data deployment boundaries
+        run: npm run cf:verify:boundaries
       - name: Build production Cloudflare Worker
         run: npm run cf:build
       - name: Verify generated Cloudflare bindings
