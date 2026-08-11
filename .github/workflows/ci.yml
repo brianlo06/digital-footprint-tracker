@@ -1,0 +1,93 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  APP_ENV: local
+  AUTH_MODE: local
+  LOCAL_AUTH_SUBJECT: ci_synthetic_subject
+  DATABASE_URL: postgres://unused:unused@127.0.0.1:5432/unused
+  RUNTIME_DATABASE_URL: postgres://unused:unused@127.0.0.1:5432/unused
+  ENCRYPTION_KEY_ID: ci-synthetic-v1
+  ENCRYPTION_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+  LOOKUP_KEY: AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=
+  LOCAL_VERIFICATION_CODE: "000000"
+
+jobs:
+  quality:
+    name: Quality and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Run formatting, lint, types, and unit tests
+        run: npm run check
+      - name: Build production application
+        run: npm run build
+
+  database-integration:
+    name: PostgreSQL integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: digital_footprint_tracker_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d digital_footprint_tracker_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/digital_footprint_tracker_test
+      RUNTIME_DATABASE_URL: postgres://digital_footprint_runtime:local_runtime_only@127.0.0.1:5432/digital_footprint_tracker_test
+      MAINTENANCE_DATABASE_URL: postgres://digital_footprint_maintenance:local_maintenance_only@127.0.0.1:5432/digital_footprint_tracker_test
+      ROTATION_DATABASE_URL: postgres://digital_footprint_rotation:local_rotation_only@127.0.0.1:5432/digital_footprint_tracker_test
+      TEST_DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/digital_footprint_tracker_test
+      TEST_RUNTIME_DATABASE_URL: postgres://digital_footprint_runtime:local_runtime_only@127.0.0.1:5432/digital_footprint_tracker_test
+      TEST_MAINTENANCE_DATABASE_URL: postgres://digital_footprint_maintenance:local_maintenance_only@127.0.0.1:5432/digital_footprint_tracker_test
+      TEST_ROTATION_DATABASE_URL: postgres://digital_footprint_rotation:local_rotation_only@127.0.0.1:5432/digital_footprint_tracker_test
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Apply database migrations
+        run: npm run db:migrate
+      - name: Provision restricted local roles
+        run: |
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/provision-local-runtime-role.sql
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/provision-local-rate-limit-role.sql
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/provision-local-maintenance-role.sql
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/provision-local-rotation-role.sql
+      - name: Run restricted-role integration tests
+        run: npm run test:integration
