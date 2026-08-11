@@ -3,6 +3,10 @@
 !.env.example
 node_modules/
 .next/
+.open-next/
+.wrangler/
+.dev.vars
+.dev.vars.*
 dist/
 coverage/
 playwright-report/
@@ -16,4 +20,3 @@ test-results/
 *.sqlite
 data/
 private-fixtures/
-

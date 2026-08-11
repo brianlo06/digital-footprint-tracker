@@ -1,6 +1,7 @@
 .next
+.open-next
 coverage
 node_modules
 package-lock.json
 drizzle
-
+cloudflare-env.d.ts

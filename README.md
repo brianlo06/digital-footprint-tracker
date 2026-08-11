@@ -4,7 +4,7 @@
 
 Digital Footprint Tracker is a privacy-first evidence platform for individuals to understand their own public online presence: what is visible, where it came from, how confidently it relates to them, how sensitive it is, how it changes over time, and what they can safely do next.
 
-Phase 0 architecture is complete. The current Phase 1 slice implements only the private application foundation: a responsive shell, an authentication boundary, an explicit account-onboarding action, envelope-encrypted email identifiers, local-only fake verification, consent/audit records, and deletion primitives. It does **not** scan, scrape, query providers, enumerate usernames, send email, schedule jobs, or deploy infrastructure.
+Phase 0 architecture is complete. The current Phase 1 slice implements the private application foundation: a responsive shell, an authentication boundary, an explicit account-onboarding action, envelope-encrypted email identifiers, local-only fake verification, consent/audit records, and deletion primitives. A public, no-data Cloudflare preview is available at [dft.jarvisworlds.com](https://dft.jarvisworlds.com). It does **not** scan, scrape, query providers, enumerate usernames, send email, or schedule jobs.
 
 ## Safety boundary
 
@@ -36,6 +36,7 @@ Only `Identity → Identifiers` exists in executable form today.
 - Managed-auth deletion fails closed until stable recent-login/MFA reauthentication is configured.
 - Deny-by-default structured logging and synthetic unit/integration coverage.
 - GitHub Actions quality/build and restricted-role PostgreSQL integration jobs using synthetic data only.
+- Cloudflare Worker preview with authentication disabled, protected routes redirected to a public boundary page, no database or secrets, and no provider activity.
 
 ## Local setup
 
@@ -66,6 +67,7 @@ The local verification fixture is `LOCAL_VERIFICATION_CODE` (default `000000`). 
 ```bash
 npm run check
 npm run build
+npm run cf:build
 ```
 
 Database integration tests are opt-in so unit tests remain local-service independent:
@@ -83,6 +85,7 @@ The pinned GitHub Actions workflow runs `npm run check`, the production build, m
 ## Documentation
 
 - [Phase 1 implementation status](docs/PHASE_1_STATUS.md)
+- [Cloudflare preview operations](docs/CLOUDFLARE_PREVIEW.md)
 - [Local browser validation](docs/BROWSER_VALIDATION.md)
 - [Route and Server Action authorization matrix](docs/AUTHORIZATION_MATRIX.md)
 - [Product definition](docs/PRODUCT.md)
@@ -102,6 +105,6 @@ The pinned GitHub Actions workflow runs `npm run check`, the production build, m
 
 ## Not implemented
 
-No real provider adapter, scan engine, finding dashboard, scheduler, notification delivery, broker workflow, owned-domain check, search/social/breach call, cloud deployment, or production authentication configuration exists. Placeholder provider contracts and documentation do not perform network activity. Phase 2 must not begin without a separate provider approval, legal/ToS/privacy/security review, and explicit owner authorization.
+No real provider adapter, scan engine, finding dashboard, scheduler, notification delivery, broker workflow, owned-domain check, search/social/breach call, hosted personal-data store, or production authentication configuration exists. The deployed Worker is a public preview shell only. Placeholder provider contracts and documentation do not perform provider network activity. Phase 2 must not begin without a separate provider approval, legal/ToS/privacy/security review, and explicit owner authorization.
 
 This project is not legal advice. Never commit secrets or real personal data.

@@ -1,6 +1,8 @@
 import Link from "next/link";
 
 export default function HomePage() {
+  const previewOnly = process.env.AUTH_MODE === "disabled";
+
   return (
     <>
       <section className="hero">
@@ -11,12 +13,22 @@ export default function HomePage() {
           explainable evidence and safer next steps. Today, only the private account and identifier
           foundation is active.
         </p>
+        {previewOnly ? (
+          <div className="notice warning" role="status">
+            This hosted preview demonstrates the public foundation only. Authentication,
+            identifiers, and all personal-data features remain disabled until their hosted security
+            gates are complete.
+          </div>
+        ) : null}
         <div className="actions">
-          <Link className="button" href="/onboarding">
-            Set up my identity
+          <Link className="button" href={previewOnly ? "/preview" : "/onboarding"}>
+            {previewOnly ? "Review preview boundary" : "Set up my identity"}
           </Link>
-          <Link className="button secondary" href="/settings/privacy">
-            Review privacy controls
+          <Link
+            className="button secondary"
+            href={previewOnly ? "#foundation-heading" : "/settings/privacy"}
+          >
+            {previewOnly ? "Explore the foundation" : "Review privacy controls"}
           </Link>
         </div>
       </section>

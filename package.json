@@ -9,6 +9,12 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "cf:build": "opennextjs-cloudflare build",
+    "cf:typegen": "wrangler types --env-file /dev/null --env-interface CloudflareEnv --include-runtime=false cloudflare-env.d.ts",
+    "cf:typecheck": "wrangler types --env-file /dev/null --env-interface CloudflareEnv --include-runtime=false --check cloudflare-env.d.ts",
+    "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
+    "deploy": "opennextjs-cloudflare build && OPEN_NEXT_DEPLOY=true wrangler deploy",
+    "upload": "opennextjs-cloudflare build && OPEN_NEXT_DEPLOY=true wrangler versions upload",
     "start": "next start",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
@@ -26,6 +32,7 @@
   },
   "dependencies": {
     "@clerk/nextjs": "^7.7.3",
+    "@opennextjs/cloudflare": "^1.20.2",
     "drizzle-orm": "^0.45.2",
     "next": "^16.3.0",
     "postgres": "^3.4.9",
@@ -44,6 +51,7 @@
     "eslint-config-next": "^16.3.0",
     "prettier": "^3.9.6",
     "typescript": "^6.0.3",
-    "vitest": "^3.2.7"
+    "vitest": "^3.2.7",
+    "wrangler": "^4.120.1"
   }
 }

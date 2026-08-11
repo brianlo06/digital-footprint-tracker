@@ -2,7 +2,8 @@
 
 import { SignInButton, UserButton, useAuth } from "@clerk/nextjs";
 
-export function AuthStatus({ mode }: { mode: "local" | "clerk" }) {
+export function AuthStatus({ mode }: { mode: "disabled" | "local" | "clerk" }) {
+  if (mode === "disabled") return <span className="auth-note">Preview only</span>;
   if (mode === "local") return <span className="auth-note">Local developer</span>;
 
   return <ClerkAuthStatus />;

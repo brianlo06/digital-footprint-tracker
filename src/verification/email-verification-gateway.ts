@@ -21,7 +21,7 @@ export class LocalFakeEmailVerificationGateway implements EmailVerificationGatew
   constructor(
     private readonly configuration: {
       readonly appEnv: "local" | "preview" | "production";
-      readonly authMode: "local" | "clerk";
+      readonly authMode: "disabled" | "local" | "clerk";
       readonly code: string;
     },
     private readonly keyring: Pick<EncryptionKeyring, "lookupKey">,

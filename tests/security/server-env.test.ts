@@ -50,4 +50,13 @@ describe("database connection environment boundary", () => {
 
     expect(() => getServerEnv()).toThrow("must use a role distinct");
   });
+
+  it("permits disabled authentication for a production preview", () => {
+    configureRequiredEnvironment();
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("AUTH_MODE", "disabled");
+    resetServerEnvForTests();
+
+    expect(getServerEnv().AUTH_MODE).toBe("disabled");
+  });
 });

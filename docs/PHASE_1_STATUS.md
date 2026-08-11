@@ -1,29 +1,30 @@
 # Phase 1 Foundation Status
 
-**Status:** In progress — the first local foundation milestone is implemented and verified; it is not production-ready.
+**Status:** In progress — the foundation is locally verified and its no-data public preview is deployed; personal-data features are not production-ready.
 
 ## Implemented scope
 
-| Capability              | State                       | Boundary                                                                   |
-| ----------------------- | --------------------------- | -------------------------------------------------------------------------- |
-| Application shell       | Implemented                 | Responsive, semantic, keyboard-checked foundation UI; no finding screens   |
-| Authentication boundary | Implemented                 | Clerk adapter plus local-only adapter; local mode rejects production       |
-| Account onboarding      | Implemented                 | Explicit authenticated Server Action; GET/render paths are read-only       |
-| Identifier model        | Implemented for email only  | Separate identity/identifier records; no scan capability                   |
-| Identifier protection   | Implemented                 | Per-record AES-256-GCM envelope; keyed lookup token; tested key rewrap     |
-| KEK rotation batches    | Local procedure verified    | Bounded dry-run/resume/rollback; production KMS and invocation not chosen  |
-| Verification            | Local fake only             | 15-minute, single-use challenge; atomic five-attempt lockout; no delivery  |
-| Verification gateway    | Interface implemented       | Local non-delivery implementation only; no provider selected               |
-| Mutation throttling     | Local baseline verified     | Atomic user/network limits; hosted trusted-IP source not configured        |
-| Consent and audit       | Foundation implemented      | Scoped consent and allowlisted events; no provider consent yet             |
-| Account deletion        | Local lifecycle implemented | Cascades foundation data; pseudonymous receipt retained for one year       |
-| Deletion failure        | Quarantined and retryable   | Pending accounts lose normal access; receipt identity is reused            |
-| Managed-auth deletion   | Fail-closed                 | Requires a stable recent-login/MFA flow before enablement                  |
-| Retention               | Bounded service implemented | Function-only role; no scheduler; purges only eligible metadata            |
-| Database isolation      | Local RLS baseline verified | Forced policies plus restricted runtime role; hosted roles not provisioned |
-| Browser security        | Local baseline implemented  | Nonce CSP and restrictive headers; HTTPS/HSTS awaits preview               |
-| Tests                   | Hosted CI verified          | Unit/build plus PostgreSQL authorization/lifecycle jobs on GitHub Actions  |
-| Providers/scans/jobs    | Not implemented             | Contracts/readmes only; zero provider network activity                     |
+| Capability              | State                       | Boundary                                                                       |
+| ----------------------- | --------------------------- | ------------------------------------------------------------------------------ |
+| Application shell       | Implemented                 | Responsive, semantic, keyboard-checked foundation UI; no finding screens       |
+| Authentication boundary | Implemented, hosted off     | Preview mode fails closed; Clerk adapter exists; local mode rejects production |
+| Account onboarding      | Implemented                 | Explicit authenticated Server Action; GET/render paths are read-only           |
+| Identifier model        | Implemented for email only  | Separate identity/identifier records; no scan capability                       |
+| Identifier protection   | Implemented                 | Per-record AES-256-GCM envelope; keyed lookup token; tested key rewrap         |
+| KEK rotation batches    | Local procedure verified    | Bounded dry-run/resume/rollback; production KMS and invocation not chosen      |
+| Verification            | Local fake only             | 15-minute, single-use challenge; atomic five-attempt lockout; no delivery      |
+| Verification gateway    | Interface implemented       | Local non-delivery implementation only; no provider selected                   |
+| Mutation throttling     | Local baseline verified     | Atomic user/network limits; hosted trusted-IP source not configured            |
+| Consent and audit       | Foundation implemented      | Scoped consent and allowlisted events; no provider consent yet                 |
+| Account deletion        | Local lifecycle implemented | Cascades foundation data; pseudonymous receipt retained for one year           |
+| Deletion failure        | Quarantined and retryable   | Pending accounts lose normal access; receipt identity is reused                |
+| Managed-auth deletion   | Fail-closed                 | Requires a stable recent-login/MFA flow before enablement                      |
+| Retention               | Bounded service implemented | Function-only role; no scheduler; purges only eligible metadata                |
+| Database isolation      | Local RLS baseline verified | Forced policies plus restricted runtime role; hosted roles not provisioned     |
+| Browser security        | HTTPS preview verified      | Nonce CSP, HSTS, restrictive headers, and protected-route redirect checked     |
+| Cloud deployment        | Public shell deployed       | `dft.jarvisworlds.com`; no auth, database, secrets, or personal-data paths     |
+| Tests                   | Hosted CI verified          | Unit/build plus PostgreSQL authorization/lifecycle jobs on GitHub Actions      |
+| Providers/scans/jobs    | Not implemented             | Contracts/readmes only; zero provider network activity                         |
 
 ## Verification evidence
 
@@ -56,6 +57,9 @@
 - a throttled mobile development trace reports 46 ms TTFB, 682 ms LCP, and 0.00 CLS;
 - all audited browser resources remained on localhost and the final console was clean;
 - response scripts/styles carry a per-request CSP nonce and restrictive browser headers are present;
+- the HTTPS Cloudflare preview serves its public pages, sends HSTS and the production nonce CSP, and redirects protected routes to `/preview`;
+- the hosted preview Worker has only a static-assets binding and four non-secret configuration variables; authentication, database, provider, key, email, and scheduling bindings are absent;
+- Chrome DevTools verified the live semantic page structure, first-party application assets, protected-route boundary, and browser console after deployment;
 - production startup rejects local authentication;
 - production dependency audit reports no known vulnerabilities.
 - GitHub Actions runs pinned quality/build actions and the complete synthetic PostgreSQL restricted-role integration suite; the first hosted run passed both jobs.
@@ -67,7 +71,7 @@
 3. Reproduce and inspect the verified local RLS, runtime-role, and function-only retention boundaries in the hosted preview before it handles multi-user personal data.
 4. Configure and verify the trusted ingress IP source in hosted preview, calibrate the implemented distributed limits, and approve an idempotent delivery provider/outbox before replacing the local fake gateway.
 5. Reproduce the verified batch rewrap, rollback, and recovery procedure against an approved production KMS with monitored invocation; separately design and approve lookup-token rotation because it requires controlled plaintext access and coordinated cutover.
-6. Repeat browser accessibility/security checks in an HTTPS production preview after a deployment target is selected; hosted CI is active and the local Chrome audit is recorded in `BROWSER_VALIDATION.md`.
+6. Repeat the multi-user and managed-auth browser checks after Clerk and the hosted database are approved; the no-data HTTPS preview baseline is recorded in `BROWSER_VALIDATION.md`.
 7. Approve legal retention periods and add a least-privileged, monitored invocation mechanism for the bounded retention service; no scheduler exists today.
 
 ## Dependency note
@@ -76,4 +80,4 @@ Production dependencies currently audit clean. Development-only `drizzle-kit` tr
 
 ## Explicit non-goals
 
-No search, breach, broker, social, domain, email, scheduling, notification, scoring, matching, finding, observation, or remediation functionality is part of this milestone. No external API was called and no infrastructure was deployed.
+No search, breach, broker, social, domain, email, scheduling, notification, scoring, matching, finding, observation, or remediation functionality is part of this milestone. The deployed infrastructure serves only the no-data preview shell; no provider API is called.

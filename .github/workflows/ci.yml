@@ -41,8 +41,10 @@ jobs:
         run: npm ci
       - name: Run formatting, lint, types, and unit tests
         run: npm run check
-      - name: Build production application
-        run: npm run build
+      - name: Build production Cloudflare Worker
+        run: npm run cf:build
+      - name: Verify generated Cloudflare bindings
+        run: npm run cf:typecheck
 
   database-integration:
     name: PostgreSQL integration

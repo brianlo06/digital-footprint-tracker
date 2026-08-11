@@ -17,7 +17,7 @@ const serverEnvSchema = z
     NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
     APP_ENV: z.enum(["local", "preview", "production"]).default("local"),
     APP_DOMAIN: z.string().default("localhost:3000"),
-    AUTH_MODE: z.enum(["local", "clerk"]).default("local"),
+    AUTH_MODE: z.enum(["disabled", "local", "clerk"]).default("local"),
     LOCAL_AUTH_SUBJECT: z.string().min(3).max(128).default("local_developer"),
     DATABASE_URL: z.string().min(1),
     RUNTIME_DATABASE_URL: z.string().min(1),

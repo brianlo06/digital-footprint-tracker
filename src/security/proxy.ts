@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 
 import { createContentSecurityPolicy, createNonce } from "@/security/content-security-policy";
 
-function localResponseWithContentSecurityPolicy(request: NextRequest): NextResponse {
+function responseWithContentSecurityPolicy(request: NextRequest): NextResponse {
   const nonce = createNonce();
   const contentSecurityPolicy = createContentSecurityPolicy(
     nonce,
@@ -20,12 +20,17 @@ function localResponseWithContentSecurityPolicy(request: NextRequest): NextRespo
 
 export async function authenticationProxy(request: NextRequest, event: NextFetchEvent) {
   const authMode = process.env.AUTH_MODE ?? "local";
-  if (authMode !== "clerk") {
+  if (authMode === "disabled") {
+    return responseWithContentSecurityPolicy(request);
+  }
+  if (authMode === "local") {
     if (process.env.NODE_ENV === "production") {
       throw new Error("Local authentication is forbidden in production");
     }
-    return localResponseWithContentSecurityPolicy(request);
+    return responseWithContentSecurityPolicy(request);
   }
+
+  if (authMode !== "clerk") throw new Error("Unsupported authentication mode");
 
   const { clerkMiddleware } = await import("@clerk/nextjs/server");
   return clerkMiddleware({

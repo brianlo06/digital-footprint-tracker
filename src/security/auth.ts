@@ -10,6 +10,16 @@ export interface AuthGateway {
   deletePrincipal(subject: string): Promise<void>;
 }
 
+export class DisabledAuthGateway implements AuthGateway {
+  async currentPrincipal(): Promise<null> {
+    return null;
+  }
+
+  async deletePrincipal(): Promise<void> {
+    throw new Error("AUTHENTICATION_DISABLED");
+  }
+}
+
 export class LocalDevelopmentAuthGateway implements AuthGateway {
   constructor(
     private readonly subject: string,
@@ -44,6 +54,7 @@ export class ClerkAuthGateway implements AuthGateway {
 }
 
 export function getAuthGateway(): AuthGateway {
+  if (process.env.AUTH_MODE === "disabled") return new DisabledAuthGateway();
   const env = getServerEnv();
   if (env.AUTH_MODE === "clerk") return new ClerkAuthGateway();
   return new LocalDevelopmentAuthGateway(env.LOCAL_AUTH_SUBJECT, env.NODE_ENV);

@@ -19,7 +19,12 @@ export const metadata: Metadata = {
 export default async function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   // Nonce-based CSP requires request-time rendering so Next.js can nonce framework scripts.
   await connection();
-  const authMode = process.env.AUTH_MODE === "clerk" ? "clerk" : "local";
+  const authMode =
+    process.env.AUTH_MODE === "clerk"
+      ? "clerk"
+      : process.env.AUTH_MODE === "disabled"
+        ? "disabled"
+        : "local";
 
   return (
     <html lang="en">
