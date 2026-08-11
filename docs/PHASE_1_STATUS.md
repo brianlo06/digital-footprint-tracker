@@ -49,6 +49,7 @@
 - deletion without recent-reauthentication authorization leaves the account intact;
 - auth-provider deletion failure quarantines the account and signed provider confirmation completes against the same receipt;
 - signed Clerk `user.deleted` events resume local purge without calling the provider, duplicate delivery is idempotent, and invalid signatures/events fail before database access;
+- the installed Clerk verifier accepts a correctly signed current synthetic deletion event and rejects both post-signature body tampering and a correctly signed stale timestamp;
 - bounded retention consumes expired challenges, removes expired completed receipts/orphan audits, and preserves failed receipts;
 - envelope key rewrap preserves ciphertext and decrypts only under the replacement key;
 - bounded envelope batches support dry-run, interruption recovery, and rollback through a function-only rotation role without decrypting identifier plaintext;
