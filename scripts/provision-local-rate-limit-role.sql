@@ -38,9 +38,19 @@ FROM digital_footprint_runtime;
 GRANT CREATE ON SCHEMA public TO digital_footprint_rate_limit_owner;
 ALTER FUNCTION public.consume_action_rate_limit(text, text, public.rate_limit_action)
 OWNER TO digital_footprint_rate_limit_owner;
+ALTER FUNCTION public.consume_action_rate_limit_dual(text, text, text, text, public.rate_limit_action)
+OWNER TO digital_footprint_rate_limit_owner;
 REVOKE CREATE ON SCHEMA public FROM digital_footprint_rate_limit_owner;
 
 REVOKE ALL ON FUNCTION public.consume_action_rate_limit(text, text, public.rate_limit_action)
 FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.consume_action_rate_limit(text, text, public.rate_limit_action)
+TO digital_footprint_runtime;
+REVOKE ALL ON FUNCTION public.consume_action_rate_limit_dual(
+  text, text, text, text, public.rate_limit_action
+)
+FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.consume_action_rate_limit_dual(
+  text, text, text, text, public.rate_limit_action
+)
 TO digital_footprint_runtime;

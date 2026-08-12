@@ -5,7 +5,7 @@ import { getServerEnv } from "@/config/server-env";
 import { withRuntimeDatabase } from "@/database/client";
 import type { AuthenticatedPrincipal } from "@/security/auth";
 import { createLookupToken } from "@/security/crypto";
-import { getApplicationKeyring } from "@/security/keyring";
+import { getApplicationLookupKeyring } from "@/security/lookup-keyring";
 import { sql } from "drizzle-orm";
 import { headers } from "next/headers";
 
@@ -48,23 +48,68 @@ export async function consumeActionRateLimit(
   networkIdentifier: string,
   action: RateLimitedAction,
 ): Promise<RateLimitDecision> {
-  const keyring = getApplicationKeyring();
-  const userScopeToken = createLookupToken(principal.subject, "rate-limit-user:v1", keyring);
-  const networkScopeToken = createLookupToken(networkIdentifier, "rate-limit-network:v1", keyring);
+  const lookupKeyring = getApplicationLookupKeyring();
 
-  const rows = await withRuntimeDatabase((database) =>
-    database.execute(sql<RateLimitRow>`
+  const rows = await withRuntimeDatabase((database) => {
+    if (!lookupKeyring.previous) {
+      const userScopeToken = createLookupToken(
+        principal.subject,
+        "rate-limit-user:v1",
+        lookupKeyring.current,
+      );
+      const networkScopeToken = createLookupToken(
+        networkIdentifier,
+        "rate-limit-network:v1",
+        lookupKeyring.current,
+      );
+      return database.execute(sql<RateLimitRow>`
+        select
+          allowed,
+          retry_after_seconds as "retryAfterSeconds",
+          limiting_scope as "limitingScope"
+        from public.consume_action_rate_limit(
+          ${userScopeToken},
+          ${networkScopeToken},
+          ${action}::public.rate_limit_action
+        )
+      `);
+    }
+
+    const previousKey = lookupKeyring.previous;
+    const oldUserScopeToken = createLookupToken(
+      principal.subject,
+      "rate-limit-user:v1",
+      previousKey,
+    );
+    const newUserScopeToken = createLookupToken(
+      principal.subject,
+      "rate-limit-user:v1",
+      lookupKeyring.current,
+    );
+    const oldNetworkScopeToken = createLookupToken(
+      networkIdentifier,
+      "rate-limit-network:v1",
+      previousKey,
+    );
+    const newNetworkScopeToken = createLookupToken(
+      networkIdentifier,
+      "rate-limit-network:v1",
+      lookupKeyring.current,
+    );
+    return database.execute(sql<RateLimitRow>`
       select
         allowed,
         retry_after_seconds as "retryAfterSeconds",
         limiting_scope as "limitingScope"
-      from public.consume_action_rate_limit(
-        ${userScopeToken},
-        ${networkScopeToken},
+      from public.consume_action_rate_limit_dual(
+        ${oldUserScopeToken},
+        ${newUserScopeToken},
+        ${oldNetworkScopeToken},
+        ${newNetworkScopeToken},
         ${action}::public.rate_limit_action
       )
-    `),
-  );
+    `);
+  });
   const [decision] = rows as unknown as RateLimitRow[];
   if (!decision) throw new Error("RATE_LIMIT_DECISION_MISSING");
   return decision;

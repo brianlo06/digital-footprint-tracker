@@ -140,6 +140,7 @@ describeWithDatabase("PostgreSQL row-level tenant isolation", () => {
         'users',
         'identities',
         'identifiers',
+        'identifier_lookup_tokens',
         'identifier_verifications',
         'consent_records',
         'audit_events',
@@ -148,7 +149,7 @@ describeWithDatabase("PostgreSQL row-level tenant isolation", () => {
       )
       order by relname
     `;
-    expect(protectedTables).toHaveLength(8);
+    expect(protectedTables).toHaveLength(9);
     expect(protectedTables.every((table) => table.enabled && table.forced)).toBe(true);
   });
 
@@ -190,6 +191,22 @@ describeWithDatabase("PostgreSQL row-level tenant isolation", () => {
         returning id
       `;
       expect(updated).toHaveLength(0);
+
+      const ownerLookupTokens = await transaction<{ identifierId: string }[]>`
+        select identifier_id as "identifierId"
+        from identifier_lookup_tokens
+        where identifier_id = ${ownerIdentifierId}
+      `;
+      expect(ownerLookupTokens).toHaveLength(0);
+    });
+
+    await withRawTenant(ownerPrincipal, async (transaction) => {
+      const ownerLookupTokens = await transaction<{ identifierId: string }[]>`
+        select identifier_id as "identifierId"
+        from identifier_lookup_tokens
+        where identifier_id = ${ownerIdentifierId}
+      `;
+      expect(ownerLookupTokens.length).toBeGreaterThan(0);
     });
 
     await expect(

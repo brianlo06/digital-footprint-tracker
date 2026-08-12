@@ -54,6 +54,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE
   users,
   identities,
   identifiers,
+  identifier_lookup_tokens,
   identifier_verifications,
   consent_records,
   audit_events,

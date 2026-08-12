@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import {
   auditEvents,
   consentRecords,
+  identifierLookupTokens,
   identifiers,
   identifierVerifications,
 } from "@/database/schema";
@@ -16,6 +17,7 @@ import {
   encryptSensitiveValue,
 } from "@/security/crypto";
 import { getApplicationKeyring } from "@/security/keyring";
+import { getApplicationLookupKeyring } from "@/security/lookup-keyring";
 import {
   getEmailVerificationGateway,
   type EmailVerificationGateway,
@@ -23,6 +25,7 @@ import {
 import { and, desc, eq, lt, sql } from "drizzle-orm";
 
 import type { AccountContext } from "./account-service";
+import { identifierLookupNamespace } from "./identifier-namespaces";
 import { maskEmail, normalizeEmail } from "./identifier-normalization";
 
 export interface IdentifierSummary {
@@ -53,13 +56,18 @@ export async function addEmailIdentifier(
   const verificationId = randomUUID();
   const correlationId = randomUUID();
   const keyring = getApplicationKeyring();
+  const namespace = identifierLookupNamespace("EMAIL");
   const maskedDisplay = maskEmail(normalized);
   const encryptedValue = encryptSensitiveValue(
     normalized,
     identifierEncryptionContext(account.identityId, identifierId),
     keyring,
   );
-  const lookupToken = createLookupToken(normalized, "identifier:email:v1", keyring);
+  const lookupToken = createLookupToken(normalized, namespace, keyring);
+  const lookupKeyring = getApplicationLookupKeyring();
+  const activeLookupKeys = lookupKeyring.previous
+    ? [lookupKeyring.current, lookupKeyring.previous]
+    : [lookupKeyring.current];
   const challenge = await verificationGateway.issueEmailChallenge({
     verificationId,
     destination: normalized,
@@ -77,6 +85,17 @@ export async function addEmailIdentifier(
       sensitivity: "SENSITIVE",
       maskedDisplay,
     });
+    await transaction.insert(identifierLookupTokens).values(
+      activeLookupKeys.map((key) => ({
+        identifierId,
+        identityId: account.identityId,
+        identifierType: "EMAIL" as const,
+        namespace,
+        normalizationVersion: "email-v1-lowercase",
+        lookupKeyId: key.keyId,
+        token: createLookupToken(normalized, namespace, key),
+      })),
+    );
     await transaction.insert(identifierVerifications).values({
       id: verificationId,
       identifierId,

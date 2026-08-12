@@ -1,10 +1,11 @@
 import "server-only";
 
 import { randomUUID } from "node:crypto";
+import type { DatabaseTransaction } from "@/database/client";
 import { auditEvents, deletionReceipts, users } from "@/database/schema";
-import { deletionSubjectToken, withTenantDatabase } from "@/database/tenant";
+import { deletionSubjectTokens, withTenantDatabase, type SubjectTokens } from "@/database/tenant";
 import type { AuthGateway, AuthenticatedPrincipal } from "@/security/auth";
-import { eq } from "drizzle-orm";
+import { and, eq, inArray, or } from "drizzle-orm";
 
 const DELETION_RECEIPT_TTL_MS = 365 * 24 * 60 * 60 * 1000;
 
@@ -24,6 +25,28 @@ async function finalizeLocalDeletion(
       .set({ state: "COMPLETED", completedAt: new Date(), failureCode: null })
       .where(eq(deletionReceipts.subjectToken, subjectToken));
   });
+}
+
+/**
+ * Migrates a still-pending receipt created under the previous lookup key to
+ * the current key before any new write, so at most one receipt per subject
+ * ever exists across a lookup-key rotation. Completed receipts are never
+ * touched here; they age out under their original key (ADR 0016).
+ */
+async function migrateReceiptToCurrentKey(
+  transaction: DatabaseTransaction,
+  tokens: SubjectTokens,
+): Promise<void> {
+  if (!tokens.previous) return;
+  await transaction
+    .update(deletionReceipts)
+    .set({ subjectToken: tokens.current.token, subjectTokenKeyId: tokens.current.keyId })
+    .where(
+      and(
+        eq(deletionReceipts.subjectToken, tokens.previous.token),
+        inArray(deletionReceipts.state, ["REQUESTED", "AUTH_REVOKED", "FAILED"]),
+      ),
+    );
 }
 
 export async function deleteAccount(
@@ -48,28 +71,52 @@ export async function deleteAccount(
 
   const receiptId = randomUUID();
   const correlationId = randomUUID();
-  const subjectToken = deletionSubjectToken(principal.subject);
+  const tokens = deletionSubjectTokens(principal.subject);
   const expiresAt = new Date(Date.now() + DELETION_RECEIPT_TTL_MS);
 
   const effectiveReceiptId = await withTenantDatabase(principal, async (transaction) => {
+    // Lock the user row inside the same transaction as the migrate-in-place
+    // step and the receipt upsert, so a concurrent duplicate deletion request
+    // for this subject cannot race the token migration.
+    const [lockedUser] = await transaction
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.id, user.id))
+      .limit(1)
+      .for("update");
+    if (!lockedUser) throw new Error("ACCOUNT_NOT_FOUND");
+
+    await migrateReceiptToCurrentKey(transaction, tokens);
+
     const [receipt] = await transaction
       .insert(deletionReceipts)
-      .values({ id: receiptId, subjectToken, state: "REQUESTED", expiresAt })
+      .values({
+        id: receiptId,
+        subjectToken: tokens.current.token,
+        subjectTokenKeyId: tokens.current.keyId,
+        state: "REQUESTED",
+        expiresAt,
+      })
       .onConflictDoUpdate({
         target: deletionReceipts.subjectToken,
-        set: { state: "REQUESTED", completedAt: null, failureCode: null },
+        set: {
+          state: "REQUESTED",
+          subjectTokenKeyId: tokens.current.keyId,
+          completedAt: null,
+          failureCode: null,
+        },
       })
       .returning({ id: deletionReceipts.id });
     await transaction
       .update(users)
       .set({ state: "DELETION_PENDING", deletionRequestedAt: new Date() })
-      .where(eq(users.id, user.id));
+      .where(eq(users.id, lockedUser.id));
     await transaction.insert(auditEvents).values({
-      userId: user.id,
+      userId: lockedUser.id,
       actorType: "USER",
       action: "ACCOUNT_DELETION_REQUESTED",
       targetType: "USER",
-      targetId: user.id,
+      targetId: lockedUser.id,
       outcome: "SUCCESS",
       correlationId,
     });
@@ -82,19 +129,19 @@ export async function deleteAccount(
       await transaction
         .update(deletionReceipts)
         .set({ state: "AUTH_REVOKED" })
-        .where(eq(deletionReceipts.subjectToken, subjectToken));
+        .where(eq(deletionReceipts.subjectToken, tokens.current.token));
     });
   } catch {
     await withTenantDatabase(principal, async (transaction) => {
       await transaction
         .update(deletionReceipts)
         .set({ state: "FAILED", failureCode: "AUTH_PROVIDER_DELETE_FAILED" })
-        .where(eq(deletionReceipts.subjectToken, subjectToken));
+        .where(eq(deletionReceipts.subjectToken, tokens.current.token));
     });
     throw new Error("ACCOUNT_DELETION_RETRY_REQUIRED");
   }
 
-  await finalizeLocalDeletion(principal, user.id, subjectToken);
+  await finalizeLocalDeletion(principal, user.id, tokens.current.token);
 
   return { receiptId: effectiveReceiptId };
 }
@@ -109,7 +156,7 @@ export async function resumeAccountDeletionAfterAuthRevoked(
   authSubject: string,
 ): Promise<{ receiptId: string | null }> {
   const principal: AuthenticatedPrincipal = { subject: authSubject, mode: "clerk" };
-  const subjectToken = deletionSubjectToken(authSubject);
+  const tokens = deletionSubjectTokens(authSubject);
   const receiptId = randomUUID();
   const correlationId = randomUUID();
   const expiresAt = new Date(Date.now() + DELETION_RECEIPT_TTL_MS);
@@ -123,25 +170,42 @@ export async function resumeAccountDeletionAfterAuthRevoked(
       .for("update");
 
     if (!user) {
+      // No local user row: either deletion already completed, or this is a
+      // duplicate webhook for a subject that never had one. Read-only lookup
+      // across both keys keeps replay idempotent without reconstructing or
+      // extending retention on a completed receipt.
       const [receipt] = await transaction
         .select({ id: deletionReceipts.id })
         .from(deletionReceipts)
-        .where(eq(deletionReceipts.subjectToken, subjectToken))
+        .where(
+          or(
+            eq(deletionReceipts.subjectToken, tokens.current.token),
+            tokens.previous ? eq(deletionReceipts.subjectToken, tokens.previous.token) : undefined,
+          ),
+        )
         .limit(1);
       return receipt ? { receiptId: receipt.id, userId: null } : null;
     }
+
+    await migrateReceiptToCurrentKey(transaction, tokens);
 
     const [receipt] = await transaction
       .insert(deletionReceipts)
       .values({
         id: receiptId,
-        subjectToken,
+        subjectToken: tokens.current.token,
+        subjectTokenKeyId: tokens.current.keyId,
         state: "AUTH_REVOKED",
         expiresAt,
       })
       .onConflictDoUpdate({
         target: deletionReceipts.subjectToken,
-        set: { state: "AUTH_REVOKED", completedAt: null, failureCode: null },
+        set: {
+          state: "AUTH_REVOKED",
+          subjectTokenKeyId: tokens.current.keyId,
+          completedAt: null,
+          failureCode: null,
+        },
       })
       .returning({ id: deletionReceipts.id });
 
@@ -164,7 +228,7 @@ export async function resumeAccountDeletionAfterAuthRevoked(
 
   if (!recovery) return { receiptId: null };
   if (recovery.userId) {
-    await finalizeLocalDeletion(principal, recovery.userId, subjectToken);
+    await finalizeLocalDeletion(principal, recovery.userId, tokens.current.token);
   }
 
   return { receiptId: recovery.receiptId };

@@ -4,6 +4,7 @@ import { rateLimitWindows } from "@/database/schema";
 import type { AuthenticatedPrincipal } from "@/security/auth";
 import { createLookupToken } from "@/security/crypto";
 import { getApplicationKeyring } from "@/security/keyring";
+import { createLookupKeyring } from "@/security/lookup-keyring";
 import { consumeActionRateLimit } from "@/security/rate-limit";
 import { inArray } from "drizzle-orm";
 import postgres from "postgres";
@@ -135,5 +136,73 @@ describeWithDatabase("distributed action rate limits", () => {
         )
       `,
     ).rejects.toMatchObject({ code: "22023" });
+  });
+
+  it("continues counting across a lookup-key rotation instead of resetting", async () => {
+    const rotationSubject = `rate_limit_rotation_${testRunId}`;
+    const rotationPrincipal: AuthenticatedPrincipal = { subject: rotationSubject, mode: "local" };
+    const rotationNetwork = `203.0.113.${(testRunId % 200) + 1}`;
+    const previousLookupKeyId = "rate-limit-lookup-v1";
+    const previousLookupKeyBase64 = Buffer.alloc(32, 73).toString("base64");
+    const nextLookupKeyId = "rate-limit-lookup-v2";
+    const nextLookupKeyBase64 = Buffer.alloc(32, 74).toString("base64");
+
+    // Phase A: consume twice under the single, pre-rotation key.
+    await consumeActionRateLimit(rotationPrincipal, rotationNetwork, "IDENTIFIER_ADD");
+    await consumeActionRateLimit(rotationPrincipal, rotationNetwork, "IDENTIFIER_ADD");
+
+    // Phase B: introduce a new write key with the original key demoted to
+    // previous, simulating a rotation in progress.
+    process.env.LOOKUP_KEY_ID = nextLookupKeyId;
+    process.env.LOOKUP_KEY = nextLookupKeyBase64;
+    process.env.PREVIOUS_LOOKUP_KEY_ID = previousLookupKeyId;
+    process.env.PREVIOUS_LOOKUP_KEY = previousLookupKeyBase64;
+    resetServerEnvForTests();
+
+    try {
+      const decision = await consumeActionRateLimit(
+        rotationPrincipal,
+        rotationNetwork,
+        "IDENTIFIER_ADD",
+      );
+      expect(decision.allowed).toBe(true);
+
+      const previousKeyring = createLookupKeyring({
+        keyId: previousLookupKeyId,
+        lookupKeyBase64: previousLookupKeyBase64,
+      });
+      const nextKeyring = createLookupKeyring({
+        keyId: nextLookupKeyId,
+        lookupKeyBase64: nextLookupKeyBase64,
+      });
+      const oldUserToken = createLookupToken(
+        rotationSubject,
+        "rate-limit-user:v1",
+        previousKeyring,
+      );
+      const newUserToken = createLookupToken(rotationSubject, "rate-limit-user:v1", nextKeyring);
+      scopeTokens.add(oldUserToken);
+      scopeTokens.add(newUserToken);
+      scopeTokens.add(createLookupToken(rotationNetwork, "rate-limit-network:v1", previousKeyring));
+      scopeTokens.add(createLookupToken(rotationNetwork, "rate-limit-network:v1", nextKeyring));
+
+      const rows = await getDatabase()
+        .select({
+          scopeToken: rateLimitWindows.scopeToken,
+          requestCount: rateLimitWindows.requestCount,
+        })
+        .from(rateLimitWindows)
+        .where(inArray(rateLimitWindows.scopeToken, [oldUserToken, newUserToken]));
+
+      expect(rows).toHaveLength(2);
+      // Phase A's two attempts must carry forward, not reset to 1.
+      expect(rows.every((row) => row.requestCount === 3)).toBe(true);
+    } finally {
+      delete process.env.PREVIOUS_LOOKUP_KEY_ID;
+      delete process.env.PREVIOUS_LOOKUP_KEY;
+      process.env.LOOKUP_KEY_ID = "rate-limit-lookup-v1";
+      process.env.LOOKUP_KEY = Buffer.alloc(32, 73).toString("base64");
+      resetServerEnvForTests();
+    }
   });
 });
