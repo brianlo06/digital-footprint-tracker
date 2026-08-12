@@ -9,9 +9,11 @@ function configureRequiredEnvironment(): void {
   vi.stubEnv("RUNTIME_DATABASE_URL", "postgres://runtime@example.test/database");
   vi.stubEnv("MAINTENANCE_DATABASE_URL", "postgres://maintenance@example.test/database");
   vi.stubEnv("ROTATION_DATABASE_URL", "postgres://rotation@example.test/database");
+  vi.stubEnv("LOOKUP_ROTATION_DATABASE_URL", "postgres://lookup-rotation@example.test/database");
   vi.stubEnv("ENCRYPTION_KEY_ID", "test-v1");
   vi.stubEnv("ENCRYPTION_KEY", Buffer.alloc(32, 61).toString("base64"));
   vi.stubEnv("LOOKUP_KEY", Buffer.alloc(32, 67).toString("base64"));
+  vi.stubEnv("LOOKUP_KEY_ID", "test-lookup-v1");
 }
 
 describe("database connection environment boundary", () => {
@@ -49,6 +51,40 @@ describe("database connection environment boundary", () => {
     resetServerEnvForTests();
 
     expect(() => getServerEnv()).toThrow("must use a role distinct");
+  });
+
+  it("rejects a lookup-rotation connection that reuses another privileged role", () => {
+    configureRequiredEnvironment();
+    vi.stubEnv("LOOKUP_ROTATION_DATABASE_URL", "postgres://rotation@example.test/database");
+    resetServerEnvForTests();
+
+    expect(() => getServerEnv()).toThrow("must use a role distinct");
+  });
+
+  it("requires previous lookup-key ID and material together", () => {
+    configureRequiredEnvironment();
+    vi.stubEnv("PREVIOUS_LOOKUP_KEY_ID", "test-lookup-v0");
+    resetServerEnvForTests();
+
+    expect(() => getServerEnv()).toThrow("must be set together");
+  });
+
+  it("rejects a previous lookup key identical to the current one", () => {
+    configureRequiredEnvironment();
+    vi.stubEnv("PREVIOUS_LOOKUP_KEY_ID", "test-lookup-v1");
+    vi.stubEnv("PREVIOUS_LOOKUP_KEY", Buffer.alloc(32, 67).toString("base64"));
+    resetServerEnvForTests();
+
+    expect(() => getServerEnv()).toThrow("must differ from LOOKUP_KEY_ID");
+  });
+
+  it("accepts a distinct previous lookup key", () => {
+    configureRequiredEnvironment();
+    vi.stubEnv("PREVIOUS_LOOKUP_KEY_ID", "test-lookup-v0");
+    vi.stubEnv("PREVIOUS_LOOKUP_KEY", Buffer.alloc(32, 68).toString("base64"));
+    resetServerEnvForTests();
+
+    expect(getServerEnv().PREVIOUS_LOOKUP_KEY_ID).toBe("test-lookup-v0");
   });
 
   it("permits disabled authentication for a production preview", () => {

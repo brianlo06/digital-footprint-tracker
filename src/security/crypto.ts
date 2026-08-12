@@ -35,7 +35,7 @@ function decode(value: string): Buffer {
   return Buffer.from(value, "base64url");
 }
 
-function assertKeyLength(key: Buffer, label: string): void {
+export function assertKeyLength(key: Buffer, label: string): void {
   if (key.length !== DATA_KEY_BYTES) {
     throw new Error(`${label} must be exactly 32 bytes`);
   }

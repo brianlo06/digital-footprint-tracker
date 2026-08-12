@@ -22,6 +22,7 @@ env:
   ENCRYPTION_KEY_ID: ci-synthetic-v1
   ENCRYPTION_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
   LOOKUP_KEY: AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=
+  LOOKUP_KEY_ID: ci-synthetic-lookup-v1
   LOCAL_VERIFICATION_CODE: "000000"
 
 jobs:
@@ -73,13 +74,16 @@ jobs:
       DFT_RUNTIME_DB_PASSWORD: ci_runtime_password_0123456789abcdef
       DFT_MAINTENANCE_DB_PASSWORD: ci_maintenance_password_0123456789abcdef
       DFT_ROTATION_DB_PASSWORD: ci_rotation_password_0123456789abcdef
+      DFT_LOOKUP_ROTATION_DB_PASSWORD: ci_lookup_rotation_password_0123456789abcdef
       RUNTIME_DATABASE_URL: postgres://digital_footprint_runtime:ci_runtime_password_0123456789abcdef@127.0.0.1:5432/digital_footprint_tracker_test
       MAINTENANCE_DATABASE_URL: postgres://digital_footprint_maintenance:ci_maintenance_password_0123456789abcdef@127.0.0.1:5432/digital_footprint_tracker_test
       ROTATION_DATABASE_URL: postgres://digital_footprint_rotation:ci_rotation_password_0123456789abcdef@127.0.0.1:5432/digital_footprint_tracker_test
+      LOOKUP_ROTATION_DATABASE_URL: postgres://digital_footprint_lookup_rotation:ci_lookup_rotation_password_0123456789abcdef@127.0.0.1:5432/digital_footprint_tracker_test
       TEST_DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/digital_footprint_tracker_test
       TEST_RUNTIME_DATABASE_URL: postgres://digital_footprint_runtime:ci_runtime_password_0123456789abcdef@127.0.0.1:5432/digital_footprint_tracker_test
       TEST_MAINTENANCE_DATABASE_URL: postgres://digital_footprint_maintenance:ci_maintenance_password_0123456789abcdef@127.0.0.1:5432/digital_footprint_tracker_test
       TEST_ROTATION_DATABASE_URL: postgres://digital_footprint_rotation:ci_rotation_password_0123456789abcdef@127.0.0.1:5432/digital_footprint_tracker_test
+      TEST_LOOKUP_ROTATION_DATABASE_URL: postgres://digital_footprint_lookup_rotation:ci_lookup_rotation_password_0123456789abcdef@127.0.0.1:5432/digital_footprint_tracker_test
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

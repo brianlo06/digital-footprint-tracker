@@ -59,6 +59,7 @@ describeWithDatabase("bounded retention maintenance", () => {
     process.env.ENCRYPTION_KEY_ID = "retention-v1";
     process.env.ENCRYPTION_KEY = Buffer.alloc(32, 41).toString("base64");
     process.env.LOOKUP_KEY = Buffer.alloc(32, 43).toString("base64");
+    process.env.LOOKUP_KEY_ID = "retention-lookup-v1";
     process.env.LOCAL_VERIFICATION_CODE = "000000";
     resetServerEnvForTests();
   });

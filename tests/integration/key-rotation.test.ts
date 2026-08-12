@@ -45,6 +45,7 @@ describeWithDatabase("bounded identifier envelope rewrap", () => {
     process.env.ENCRYPTION_KEY_ID = sourceKeyId;
     process.env.ENCRYPTION_KEY = Buffer.alloc(32, 71).toString("base64");
     process.env.LOOKUP_KEY = Buffer.alloc(32, 73).toString("base64");
+    process.env.LOOKUP_KEY_ID = "key-rotation-lookup-v1";
     process.env.LOCAL_VERIFICATION_CODE = "000000";
     resetServerEnvForTests();
   });

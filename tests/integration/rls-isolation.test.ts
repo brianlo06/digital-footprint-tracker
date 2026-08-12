@@ -59,6 +59,7 @@ describeWithDatabase("PostgreSQL row-level tenant isolation", () => {
     process.env.ENCRYPTION_KEY_ID = "rls-isolation-v1";
     process.env.ENCRYPTION_KEY = Buffer.alloc(32, 53).toString("base64");
     process.env.LOOKUP_KEY = Buffer.alloc(32, 59).toString("base64");
+    process.env.LOOKUP_KEY_ID = "rls-isolation-lookup-v1";
     process.env.LOCAL_VERIFICATION_CODE = "000000";
     resetServerEnvForTests();
 
