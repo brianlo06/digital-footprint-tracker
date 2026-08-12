@@ -209,4 +209,60 @@ describeWithDatabase("distributed action rate limits", () => {
       resetServerEnvForTests();
     }
   });
+
+  it("caps concurrent attempts for a brand-new subject during dual-key consumption", async () => {
+    // Regression test: a naive dual-key upsert that only locks rows already
+    // present would let every concurrent request for a never-seen-before
+    // subject observe "no row yet" and each write a precomputed count of 1,
+    // losing all but the last write instead of enforcing the limit.
+    const previousLookupKeyId = "rate-limit-lookup-v1";
+    const previousLookupKeyBase64 = Buffer.alloc(32, 73).toString("base64");
+    const nextLookupKeyId = "rate-limit-lookup-v3";
+    const nextLookupKeyBase64 = Buffer.alloc(32, 75).toString("base64");
+
+    process.env.LOOKUP_KEY_ID = nextLookupKeyId;
+    process.env.LOOKUP_KEY = nextLookupKeyBase64;
+    process.env.PREVIOUS_LOOKUP_KEY_ID = previousLookupKeyId;
+    process.env.PREVIOUS_LOOKUP_KEY = previousLookupKeyBase64;
+    resetServerEnvForTests();
+
+    try {
+      const concurrentSubject = `rate_limit_dual_concurrent_${testRunId}`;
+      const concurrentPrincipal: AuthenticatedPrincipal = {
+        subject: concurrentSubject,
+        mode: "local",
+      };
+      const concurrentNetwork = `198.51.100.${((testRunId + 1) % 200) + 1}`;
+      rememberTokens(concurrentSubject, concurrentNetwork);
+      const previousKeyring = createLookupKeyring({
+        keyId: previousLookupKeyId,
+        lookupKeyBase64: previousLookupKeyBase64,
+      });
+      const nextKeyring = createLookupKeyring({
+        keyId: nextLookupKeyId,
+        lookupKeyBase64: nextLookupKeyBase64,
+      });
+      scopeTokens.add(createLookupToken(concurrentSubject, "rate-limit-user:v1", previousKeyring));
+      scopeTokens.add(createLookupToken(concurrentSubject, "rate-limit-user:v1", nextKeyring));
+      scopeTokens.add(
+        createLookupToken(concurrentNetwork, "rate-limit-network:v1", previousKeyring),
+      );
+      scopeTokens.add(createLookupToken(concurrentNetwork, "rate-limit-network:v1", nextKeyring));
+
+      const decisions = await Promise.all(
+        Array.from({ length: 10 }, () =>
+          consumeActionRateLimit(concurrentPrincipal, concurrentNetwork, "ONBOARDING"),
+        ),
+      );
+
+      expect(decisions.filter((decision) => decision.allowed)).toHaveLength(5);
+      expect(decisions.filter((decision) => !decision.allowed)).toHaveLength(5);
+    } finally {
+      delete process.env.PREVIOUS_LOOKUP_KEY_ID;
+      delete process.env.PREVIOUS_LOOKUP_KEY;
+      process.env.LOOKUP_KEY_ID = "rate-limit-lookup-v1";
+      process.env.LOOKUP_KEY = Buffer.alloc(32, 73).toString("base64");
+      resetServerEnvForTests();
+    }
+  });
 });

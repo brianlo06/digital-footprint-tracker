@@ -2,13 +2,15 @@ CREATE OR REPLACE FUNCTION public.backfill_identifier_lookup_tokens(
   rotation_lookup_key_id text,
   rotation_batch_size integer
 )
-RETURNS integer
+RETURNS TABLE (
+  copied integer,
+  matched integer
+)
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = pg_catalog, pg_temp
 AS $backfill_lookup_tokens$
 DECLARE
-  inserted_count integer;
   unmapped_type public.identifier_type;
 BEGIN
   IF rotation_lookup_key_id IS NULL
@@ -43,6 +45,12 @@ BEGIN
       USING ERRCODE = '22023';
   END IF;
 
+  -- `matched` (not the insert count) drives the caller's hasMore decision:
+  -- a concurrent backfill or rotation run targeting the same key could
+  -- legitimately cause ON CONFLICT DO NOTHING to skip a row that was a
+  -- genuine candidate at listing time, which must not be misread as "no
+  -- more candidates remain".
+  RETURN QUERY
   WITH candidates AS (
     SELECT
       identifier.id AS identifier_id,
@@ -58,29 +66,32 @@ BEGIN
     )
     ORDER BY identifier.id
     LIMIT rotation_batch_size
-  )
-  INSERT INTO public.identifier_lookup_tokens (
-    identifier_id,
-    identity_id,
-    identifier_type,
-    namespace,
-    normalization_version,
-    lookup_key_id,
-    token
+  ),
+  inserted AS (
+    INSERT INTO public.identifier_lookup_tokens (
+      identifier_id,
+      identity_id,
+      identifier_type,
+      namespace,
+      normalization_version,
+      lookup_key_id,
+      token
+    )
+    SELECT
+      candidates.identifier_id,
+      candidates.identity_id,
+      candidates.type,
+      CASE candidates.type WHEN 'EMAIL' THEN 'identifier:email:v1' END,
+      candidates.normalization_version,
+      rotation_lookup_key_id,
+      candidates.lookup_token
+    FROM candidates
+    ON CONFLICT (identifier_id, lookup_key_id) DO NOTHING
+    RETURNING 1
   )
   SELECT
-    candidates.identifier_id,
-    candidates.identity_id,
-    candidates.type,
-    CASE candidates.type WHEN 'EMAIL' THEN 'identifier:email:v1' END,
-    candidates.normalization_version,
-    rotation_lookup_key_id,
-    candidates.lookup_token
-  FROM candidates
-  ON CONFLICT (identifier_id, lookup_key_id) DO NOTHING;
-
-  GET DIAGNOSTICS inserted_count = ROW_COUNT;
-  RETURN inserted_count;
+    (SELECT count(*)::integer FROM inserted),
+    (SELECT count(*)::integer FROM candidates);
 END
 $backfill_lookup_tokens$;
 
@@ -286,6 +297,7 @@ DECLARE
   new_row record;
   old_found boolean;
   new_found boolean;
+  ensure_inserted integer;
   reconciled_window_started_at timestamptz;
   reconciled_request_count integer;
   reconciled_blocked_until timestamptz;
@@ -334,19 +346,55 @@ BEGIN
         block_duration := interval '1 hour';
     END CASE;
 
-    SELECT window_started_at, request_count, blocked_until
-      INTO old_row
-      FROM public.rate_limit_windows
-      WHERE scope_kind = current_scope AND scope_token = old_token AND action = requested_action
-      FOR UPDATE;
-    old_found := FOUND;
+    -- A plain SELECT ... FOR UPDATE locks nothing when the row does not yet
+    -- exist, so two concurrent first-ever calls could both observe "missing"
+    -- and then both write a precomputed count, losing one request's count
+    -- (the original single-key function avoids this because its lone
+    -- INSERT ... ON CONFLICT DO UPDATE is itself the atomic operation). Ensure
+    -- both rows exist first, tracking whether each insert actually happened
+    -- (meaning the row was genuinely missing) versus was a no-op (meaning a
+    -- real row already existed to reconcile from), then lock the
+    -- now-guaranteed-existing rows in a fixed order to avoid deadlocking
+    -- against a concurrent call for the same scope pair.
+    INSERT INTO public.rate_limit_windows (
+      scope_kind, scope_token, action, window_started_at, request_count, blocked_until, expires_at
+    )
+    VALUES (current_scope, old_token, requested_action, rate_limit_now, 0, NULL, rate_limit_now)
+    ON CONFLICT (scope_kind, scope_token, action) DO NOTHING;
+    GET DIAGNOSTICS ensure_inserted = ROW_COUNT;
+    old_found := ensure_inserted = 0;
 
-    SELECT window_started_at, request_count, blocked_until
-      INTO new_row
-      FROM public.rate_limit_windows
-      WHERE scope_kind = current_scope AND scope_token = new_token AND action = requested_action
-      FOR UPDATE;
-    new_found := FOUND;
+    INSERT INTO public.rate_limit_windows (
+      scope_kind, scope_token, action, window_started_at, request_count, blocked_until, expires_at
+    )
+    VALUES (current_scope, new_token, requested_action, rate_limit_now, 0, NULL, rate_limit_now)
+    ON CONFLICT (scope_kind, scope_token, action) DO NOTHING;
+    GET DIAGNOSTICS ensure_inserted = ROW_COUNT;
+    new_found := ensure_inserted = 0;
+
+    IF old_token <= new_token THEN
+      SELECT window_started_at, request_count, blocked_until
+        INTO old_row
+        FROM public.rate_limit_windows
+        WHERE scope_kind = current_scope AND scope_token = old_token AND action = requested_action
+        FOR UPDATE;
+      SELECT window_started_at, request_count, blocked_until
+        INTO new_row
+        FROM public.rate_limit_windows
+        WHERE scope_kind = current_scope AND scope_token = new_token AND action = requested_action
+        FOR UPDATE;
+    ELSE
+      SELECT window_started_at, request_count, blocked_until
+        INTO new_row
+        FROM public.rate_limit_windows
+        WHERE scope_kind = current_scope AND scope_token = new_token AND action = requested_action
+        FOR UPDATE;
+      SELECT window_started_at, request_count, blocked_until
+        INTO old_row
+        FROM public.rate_limit_windows
+        WHERE scope_kind = current_scope AND scope_token = old_token AND action = requested_action
+        FOR UPDATE;
+    END IF;
 
     -- Seed a missing version from its existing counterpart; if both exist and
     -- diverge, reconcile to the stricter (higher count, later block) state.
@@ -395,33 +443,23 @@ BEGIN
 
     final_expires_at := rate_limit_now + window_duration + block_duration + interval '1 day';
 
-    INSERT INTO public.rate_limit_windows (
-      scope_kind, scope_token, action, window_started_at, request_count, blocked_until, expires_at
-    )
-    VALUES (
-      current_scope, old_token, requested_action,
-      final_window_started_at, final_request_count, final_blocked_until, final_expires_at
-    )
-    ON CONFLICT (scope_kind, scope_token, action) DO UPDATE
+    -- Both rows are already locked above, so a plain UPDATE (not another
+    -- upsert) is enough and cannot race a concurrent caller.
+    UPDATE public.rate_limit_windows
     SET
-      window_started_at = excluded.window_started_at,
-      request_count = excluded.request_count,
-      blocked_until = excluded.blocked_until,
-      expires_at = excluded.expires_at;
+      window_started_at = final_window_started_at,
+      request_count = final_request_count,
+      blocked_until = final_blocked_until,
+      expires_at = final_expires_at
+    WHERE scope_kind = current_scope AND scope_token = old_token AND action = requested_action;
 
-    INSERT INTO public.rate_limit_windows (
-      scope_kind, scope_token, action, window_started_at, request_count, blocked_until, expires_at
-    )
-    VALUES (
-      current_scope, new_token, requested_action,
-      final_window_started_at, final_request_count, final_blocked_until, final_expires_at
-    )
-    ON CONFLICT (scope_kind, scope_token, action) DO UPDATE
+    UPDATE public.rate_limit_windows
     SET
-      window_started_at = excluded.window_started_at,
-      request_count = excluded.request_count,
-      blocked_until = excluded.blocked_until,
-      expires_at = excluded.expires_at;
+      window_started_at = final_window_started_at,
+      request_count = final_request_count,
+      blocked_until = final_blocked_until,
+      expires_at = final_expires_at
+    WHERE scope_kind = current_scope AND scope_token = new_token AND action = requested_action;
 
     IF final_blocked_until IS NOT NULL AND final_blocked_until > rate_limit_now THEN
       current_retry := greatest(

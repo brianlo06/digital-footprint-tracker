@@ -212,14 +212,18 @@ export async function backfillLegacyLookupTokens(
   }
 
   return withLookupRotationDatabase(async (database) => {
-    const result = await database.execute(sql<{ copied: number }>`
-      select public.backfill_identifier_lookup_tokens(
+    const result = await database.execute(sql<{ copied: number; matched: number }>`
+      select copied, matched
+      from public.backfill_identifier_lookup_tokens(
         ${options.lookupKeyId}::text,
         ${batchSize}::integer
-      ) as copied
+      )
     `);
-    const [outcome] = result as unknown as { copied: number }[];
-    const copied = outcome?.copied ?? 0;
-    return { copied, hasMore: copied === batchSize };
+    const [outcome] = result as unknown as { copied: number; matched: number }[];
+    // `matched` (candidates found this batch), not `copied` (rows actually
+    // inserted), determines whether another batch may be needed: a
+    // concurrent backfill/rotation run can cause a genuine candidate to be
+    // skipped via ON CONFLICT DO NOTHING without that meaning the sweep is done.
+    return { copied: outcome?.copied ?? 0, hasMore: (outcome?.matched ?? 0) === batchSize };
   });
 }

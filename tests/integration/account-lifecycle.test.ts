@@ -297,4 +297,37 @@ describeWithDatabase("synthetic account lifecycle", () => {
     const redelivered = await resumeAccountDeletionAfterAuthRevoked(retryPrincipal.subject);
     expect(redelivered.receiptId).toBe(failedReceipt.id);
   });
+
+  it("verifies a challenge issued under a key that has since become the previous key", async () => {
+    const rotationPrincipal: AuthenticatedPrincipal = {
+      subject: `integration_verify_rotation_${testRunId}`,
+      mode: "local",
+    };
+    const account = await createAccountIfMissing(rotationPrincipal);
+    const created = await addEmailIdentifier(account, "verify.rotation@example.test");
+
+    // Rotate: the key active at challenge-issue time becomes the previous
+    // key, and a new key becomes current, before the code is submitted.
+    process.env.LOOKUP_KEY_ID = "account-lifecycle-lookup-v2";
+    process.env.LOOKUP_KEY = Buffer.alloc(32, 31).toString("base64");
+    process.env.PREVIOUS_LOOKUP_KEY_ID = "account-lifecycle-lookup-v1";
+    process.env.PREVIOUS_LOOKUP_KEY = Buffer.alloc(32, 29).toString("base64");
+    resetServerEnvForTests();
+
+    try {
+      await verifyEmailIdentifier(account, created.verificationId, "000000");
+      const [verified] = await getDatabase()
+        .select({ status: identifiers.verificationStatus })
+        .from(identifiers)
+        .where(eq(identifiers.id, created.identifierId));
+      expect(verified.status).toBe("VERIFIED");
+    } finally {
+      delete process.env.PREVIOUS_LOOKUP_KEY_ID;
+      delete process.env.PREVIOUS_LOOKUP_KEY;
+      process.env.LOOKUP_KEY_ID = "account-lifecycle-lookup-v1";
+      process.env.LOOKUP_KEY = Buffer.alloc(32, 29).toString("base64");
+      resetServerEnvForTests();
+      await deleteAccount(rotationPrincipal, authGateway, { recentlyReauthenticated: true });
+    }
+  });
 });

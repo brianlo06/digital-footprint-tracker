@@ -7,7 +7,10 @@ import type { AuthenticatedPrincipal } from "@/security/auth";
 import { createLookupToken } from "@/security/crypto";
 import { getApplicationKeyring } from "@/security/keyring";
 import { createLookupKeyring } from "@/security/lookup-keyring";
-import { migrateLookupTokenBatch } from "@/security/lookup-rotation-service";
+import {
+  backfillLegacyLookupTokens,
+  migrateLookupTokenBatch,
+} from "@/security/lookup-rotation-service";
 import { and, eq, inArray } from "drizzle-orm";
 import postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -324,5 +327,60 @@ describeWithDatabase("bounded lookup-token rotation worker", () => {
       ) as status
     `;
     expect(deletedStatus.status).toBe("DELETED");
+  });
+
+  it("backfills a legacy lookup token and reports hasMore from matched candidates, not inserts", async () => {
+    const account = await createAccountIfMissing({
+      subject: `lookup_rotation_backfill_${testRunId}`,
+      mode: "local",
+    });
+    const created = await addEmailIdentifier(account, "backfill.case@example.test");
+
+    // Simulate a pre-ADR identifier: it has the legacy `lookup_token` column
+    // but no identifier_lookup_tokens row for the current key.
+    await getDatabase()
+      .delete(identifierLookupTokens)
+      .where(
+        and(
+          eq(identifierLookupTokens.identifierId, created.identifierId),
+          eq(identifierLookupTokens.lookupKeyId, sourceKeyId),
+        ),
+      );
+
+    const result = await backfillLegacyLookupTokens({
+      lookupKeyId: sourceKeyId,
+      batchSize: 1000,
+    });
+    expect(result.copied).toBeGreaterThanOrEqual(1);
+    // Fewer candidates than the batch size means the sweep is complete;
+    // hasMore is derived from candidates matched, not rows actually written,
+    // so an ON CONFLICT DO NOTHING skip elsewhere can never make this
+    // under-report and silently truncate a real backfill sweep.
+    expect(result.hasMore).toBe(false);
+
+    const [restored] = await getDatabase()
+      .select({ token: identifierLookupTokens.token })
+      .from(identifierLookupTokens)
+      .where(
+        and(
+          eq(identifierLookupTokens.identifierId, created.identifierId),
+          eq(identifierLookupTokens.lookupKeyId, sourceKeyId),
+        ),
+      );
+    expect(restored?.token).toBeDefined();
+
+    // Idempotent: once nothing is missing for this identifier, re-running
+    // does not duplicate or error.
+    await backfillLegacyLookupTokens({ lookupKeyId: sourceKeyId, batchSize: 1000 });
+    const rows = await getDatabase()
+      .select({ identifierId: identifierLookupTokens.identifierId })
+      .from(identifierLookupTokens)
+      .where(
+        and(
+          eq(identifierLookupTokens.identifierId, created.identifierId),
+          eq(identifierLookupTokens.lookupKeyId, sourceKeyId),
+        ),
+      );
+    expect(rows).toHaveLength(1);
   });
 });

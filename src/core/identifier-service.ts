@@ -189,8 +189,21 @@ export async function verifyEmailIdentifier(
       return "EXPIRED" as const;
     }
 
-    const actualHash = createChallengeHash(code, verification.id, getApplicationKeyring());
-    if (!challengeMatches(verification.challengeHash, actualHash)) {
+    // A challenge may have been issued under what is now the previous lookup
+    // key if a rotation happened while it was outstanding; accept either.
+    const verificationLookupKeyring = getApplicationLookupKeyring();
+    const currentHash = createChallengeHash(
+      code,
+      verification.id,
+      verificationLookupKeyring.current,
+    );
+    const previousHash = verificationLookupKeyring.previous
+      ? createChallengeHash(code, verification.id, verificationLookupKeyring.previous)
+      : undefined;
+    const hashMatches =
+      challengeMatches(verification.challengeHash, currentHash) ||
+      (previousHash !== undefined && challengeMatches(verification.challengeHash, previousHash));
+    if (!hashMatches) {
       const nextAttemptCount = sql<number>`${identifierVerifications.attemptCount} + 1`;
       const [updated] = await transaction
         .update(identifierVerifications)
