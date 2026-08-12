@@ -70,13 +70,16 @@ jobs:
           --health-retries 10
     env:
       DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/digital_footprint_tracker_test
-      RUNTIME_DATABASE_URL: postgres://digital_footprint_runtime:local_runtime_only@127.0.0.1:5432/digital_footprint_tracker_test
-      MAINTENANCE_DATABASE_URL: postgres://digital_footprint_maintenance:local_maintenance_only@127.0.0.1:5432/digital_footprint_tracker_test
-      ROTATION_DATABASE_URL: postgres://digital_footprint_rotation:local_rotation_only@127.0.0.1:5432/digital_footprint_tracker_test
+      DFT_RUNTIME_DB_PASSWORD: ci_runtime_password_0123456789abcdef
+      DFT_MAINTENANCE_DB_PASSWORD: ci_maintenance_password_0123456789abcdef
+      DFT_ROTATION_DB_PASSWORD: ci_rotation_password_0123456789abcdef
+      RUNTIME_DATABASE_URL: postgres://digital_footprint_runtime:ci_runtime_password_0123456789abcdef@127.0.0.1:5432/digital_footprint_tracker_test
+      MAINTENANCE_DATABASE_URL: postgres://digital_footprint_maintenance:ci_maintenance_password_0123456789abcdef@127.0.0.1:5432/digital_footprint_tracker_test
+      ROTATION_DATABASE_URL: postgres://digital_footprint_rotation:ci_rotation_password_0123456789abcdef@127.0.0.1:5432/digital_footprint_tracker_test
       TEST_DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/digital_footprint_tracker_test
-      TEST_RUNTIME_DATABASE_URL: postgres://digital_footprint_runtime:local_runtime_only@127.0.0.1:5432/digital_footprint_tracker_test
-      TEST_MAINTENANCE_DATABASE_URL: postgres://digital_footprint_maintenance:local_maintenance_only@127.0.0.1:5432/digital_footprint_tracker_test
-      TEST_ROTATION_DATABASE_URL: postgres://digital_footprint_rotation:local_rotation_only@127.0.0.1:5432/digital_footprint_tracker_test
+      TEST_RUNTIME_DATABASE_URL: postgres://digital_footprint_runtime:ci_runtime_password_0123456789abcdef@127.0.0.1:5432/digital_footprint_tracker_test
+      TEST_MAINTENANCE_DATABASE_URL: postgres://digital_footprint_maintenance:ci_maintenance_password_0123456789abcdef@127.0.0.1:5432/digital_footprint_tracker_test
+      TEST_ROTATION_DATABASE_URL: postgres://digital_footprint_rotation:ci_rotation_password_0123456789abcdef@127.0.0.1:5432/digital_footprint_tracker_test
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -89,12 +92,8 @@ jobs:
         run: npm ci
       - name: Apply database migrations
         run: npm run db:migrate
-      - name: Provision restricted local roles
-        run: |
-          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/provision-local-runtime-role.sql
-          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/provision-local-rate-limit-role.sql
-          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/provision-local-maintenance-role.sql
-          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/provision-local-rotation-role.sql
+      - name: Provision restricted roles through the hosted path
+        run: npm run db:provision:hosted
       - name: Verify database authorization boundaries
         run: npm run db:verify:boundaries
       - name: Run restricted-role integration tests

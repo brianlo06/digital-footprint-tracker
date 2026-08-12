@@ -30,6 +30,7 @@
     "check": "npm run format:check && npm run lint && npm run typecheck && npm run test",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
+    "db:provision:hosted": "psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1 -f scripts/provision-hosted-database-roles.sql",
     "db:verify:boundaries": "psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1 -f scripts/verify-database-boundaries.sql",
     "db:check": "drizzle-kit check"
   },

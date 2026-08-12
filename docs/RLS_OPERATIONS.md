@@ -29,6 +29,18 @@ psql postgres://owner... -v ON_ERROR_STOP=1 -f scripts/provision-local-rotation-
 
 The scripts are idempotent and intentionally contain local-only passwords. Run all four separately for the development and test databases. Never reuse those role passwords in a hosted environment.
 
+For a dedicated hosted database, generate three distinct random passwords of at least 32 characters in a secret manager or ephemeral shell variables and run the password-free hosted provisioner after migrations:
+
+```bash
+DFT_RUNTIME_DB_PASSWORD='<generated>' \
+DFT_MAINTENANCE_DB_PASSWORD='<generated>' \
+DFT_ROTATION_DB_PASSWORD='<generated>' \
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+  -f scripts/provision-hosted-database-roles.sql
+```
+
+The password values are read from the process environment inside `psql`; do not pass them through `-v`, paste them into SQL, or retain them in shell history. The script validates that they are present, distinct, and at least 32 characters, fixes all six role flags, clears direct privilege drift, restores exact grants, and transfers the four capability functions to non-login owners in a transaction. Run it only as the dedicated database owner. Unset the three password variables immediately after creating the purpose-specific secret/Hyperdrive configurations.
+
 After provisioning, run the read-only boundary attestation through the owner connection:
 
 ```bash

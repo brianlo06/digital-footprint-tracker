@@ -2,6 +2,8 @@
 
 The SQL files provision local-only restricted runtime, rate-limit owner, retention, and key-rotation roles after migrations. They are idempotent, contain intentionally local passwords, and must not be used as hosted IAM configuration.
 
+`provision-hosted-database-roles.sql` is the hosted equivalent. It contains no password, reads three distinct 32+ character login passwords from `DFT_RUNTIME_DB_PASSWORD`, `DFT_MAINTENANCE_DB_PASSWORD`, and `DFT_ROTATION_DB_PASSWORD`, and rebuilds the complete six-role grant/function-ownership boundary in one transaction. Run it only against a dedicated migrated database as its owner, then run the read-only verifier. Keep the owner URL and generated passwords out of shell history, command arguments, repository files, and the web Worker.
+
 `verify-database-boundaries.sql` is the read-only post-provisioning preflight for both local CI and a future hosted database. It runs in a bounded read-only transaction and fails on missing roles/tables/policies, unsafe role flags or memberships, non-forced RLS, unexpected table/function grants, callable `PUBLIC` capability functions, incorrect function ownership, or an unfixed security-definer `search_path`. It emits only a fixed success message and no rows, role credentials, or tenant data.
 
 `build-cloudflare.sh` is a deployment-safety wrapper: it isolates `.env.local` while OpenNext builds, restores it on every normal/signal exit, and rejects a bundle containing any compiled project environment values. It performs no external call itself.
