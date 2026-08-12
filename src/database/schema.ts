@@ -1,6 +1,7 @@
 import type { EncryptedEnvelope } from "@/security/crypto";
 import { sql } from "drizzle-orm";
 import {
+  foreignKey,
   index,
   integer,
   jsonb,
@@ -10,6 +11,7 @@ import {
   primaryKey,
   text,
   timestamp,
+  unique,
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
@@ -130,8 +132,53 @@ export const identifiers = pgTable(
       table.type,
       table.lookupToken,
     ),
+    unique("identifiers_id_identity_type_unique").on(table.id, table.identityId, table.type),
     index("identifiers_identity_idx").on(table.identityId),
     pgPolicy("identifiers_tenant_isolation", {
+      for: "all",
+      to: "public",
+      using: sql`exists (
+        select 1 from identities
+        inner join users on users.id = identities.user_id
+        where identities.id = identity_id
+          and users.auth_subject = nullif(current_setting('app.auth_subject', true), '')
+      )`,
+      withCheck: sql`exists (
+        select 1 from identities
+        inner join users on users.id = identities.user_id
+        where identities.id = identity_id
+          and users.auth_subject = nullif(current_setting('app.auth_subject', true), '')
+      )`,
+    }),
+  ],
+).enableRLS();
+
+export const identifierLookupTokens = pgTable(
+  "identifier_lookup_tokens",
+  {
+    identifierId: uuid("identifier_id").notNull(),
+    identityId: uuid("identity_id").notNull(),
+    identifierType: identifierType("identifier_type").notNull(),
+    namespace: text("namespace").notNull(),
+    normalizationVersion: text("normalization_version").notNull(),
+    lookupKeyId: text("lookup_key_id").notNull(),
+    token: text("token").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.identifierId, table.lookupKeyId] }),
+    foreignKey({
+      columns: [table.identifierId, table.identityId, table.identifierType],
+      foreignColumns: [identifiers.id, identifiers.identityId, identifiers.type],
+    }).onDelete("cascade"),
+    uniqueIndex("identifier_lookup_tokens_identity_type_key_token_unique").on(
+      table.identityId,
+      table.identifierType,
+      table.lookupKeyId,
+      table.token,
+    ),
+    index("identifier_lookup_tokens_identifier_idx").on(table.identifierId),
+    pgPolicy("identifier_lookup_tokens_tenant_isolation", {
       for: "all",
       to: "public",
       using: sql`exists (
@@ -266,6 +313,7 @@ export const deletionReceipts = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     subjectToken: text("subject_token").notNull(),
+    subjectTokenKeyId: text("subject_token_key_id"),
     state: deletionState("state").notNull().default("REQUESTED"),
     requestedAt: timestamp("requested_at", { withTimezone: true }).notNull().defaultNow(),
     completedAt: timestamp("completed_at", { withTimezone: true }),
@@ -277,8 +325,10 @@ export const deletionReceipts = pgTable(
     pgPolicy("deletion_receipts_tenant_isolation", {
       for: "all",
       to: "public",
-      using: sql`subject_token = nullif(current_setting('app.subject_token', true), '')`,
-      withCheck: sql`subject_token = nullif(current_setting('app.subject_token', true), '')`,
+      using: sql`subject_token = nullif(current_setting('app.subject_token', true), '')
+        or subject_token = nullif(current_setting('app.subject_token_previous', true), '')`,
+      withCheck: sql`subject_token = nullif(current_setting('app.subject_token', true), '')
+        or subject_token = nullif(current_setting('app.subject_token_previous', true), '')`,
     }),
   ],
 ).enableRLS();

@@ -71,6 +71,20 @@
       "when": 1786470800000,
       "tag": "0009_identifier_key_rewrap",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1786526455015,
+      "tag": "0010_clean_sauron",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1786526692261,
+      "tag": "0011_lookup_key_rotation_functions",
+      "breakpoints": true
     }
   ]
 }
