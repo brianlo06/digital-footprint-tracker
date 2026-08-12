@@ -27,7 +27,7 @@ Only `Identity → Identifiers` exists in executable form today.
 - Clerk adapter for future managed authentication plus a local-only development adapter that is rejected under `NODE_ENV=production`.
 - Explicit POST onboarding; render-time reads never create accounts.
 - Per-record AES-256-GCM envelope encryption and separate keyed lookup tokens for email identifiers.
-- Bounded, restart-safe envelope key rewrap through a function-only database role; lookup-key rotation remains separate.
+- Bounded, restart-safe envelope key rewrap through a function-only database role; lookup-key rotation uses its own separate function-only role and bounded worker (dual-key identifier/deletion-receipt/rate-limit capability, locally verified; production key introduction remains blocked).
 - Local fake verification that is hard-gated to `APP_ENV=local` and `AUTH_MODE=local`; it sends nothing.
 - A delivery-independent email verification gateway; only the non-delivering local implementation exists.
 - Database-atomic per-user and shared-network throttling for every protected mutation, storing only keyed scope tokens.
@@ -52,7 +52,7 @@ openssl rand -base64 32
 openssl rand -base64 32
 ```
 
-Place the two generated values into `ENCRYPTION_KEY` and `LOOKUP_KEY`. Then start PostgreSQL either with the provided local Compose file or an existing local PostgreSQL service. `DATABASE_URL` is the owner/migration connection; `RUNTIME_DATABASE_URL` must use the restricted application role. Update both URLs if needed, then run migrations before granting the runtime role access:
+Place the two generated values into `ENCRYPTION_KEY` and `LOOKUP_KEY`. Also set `LOOKUP_KEY_ID` to any short opaque string (e.g. `local-lookup-v1`) — it versions the lookup key independently of `ENCRYPTION_KEY_ID` and is not generated key material. Then start PostgreSQL either with the provided local Compose file or an existing local PostgreSQL service. `DATABASE_URL` is the owner/migration connection; `RUNTIME_DATABASE_URL` must use the restricted application role. Update both URLs if needed, then run migrations before granting the runtime role access:
 
 ```bash
 npm run db:migrate
@@ -60,6 +60,7 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/provision-local-runtime-role.
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/provision-local-rate-limit-role.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/provision-local-maintenance-role.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/provision-local-rotation-role.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/provision-local-lookup-rotation-role.sql
 npm run dev
 ```
 
@@ -81,10 +82,11 @@ TEST_DATABASE_URL=postgres://owner... \
 TEST_RUNTIME_DATABASE_URL=postgres://digital_footprint_runtime... \
 TEST_MAINTENANCE_DATABASE_URL=postgres://digital_footprint_maintenance... \
 TEST_ROTATION_DATABASE_URL=postgres://digital_footprint_rotation... \
+TEST_LOOKUP_ROTATION_DATABASE_URL=postgres://digital_footprint_lookup_rotation... \
 npm run test:integration
 ```
 
-The pinned GitHub Actions workflow runs `npm run check`, the production build, migrations, local restricted-role provisioning, and all PostgreSQL integration tests on pushes to `main` and pull requests. CI uses only synthetic credentials and data.
+The pinned GitHub Actions workflow runs `npm run check`, the production build, migrations, hosted-path role provisioning, and all PostgreSQL integration tests on pushes to `main` and pull requests. CI uses only synthetic credentials and data.
 
 ## Documentation
 
@@ -102,6 +104,7 @@ The pinned GitHub Actions workflow runs `npm run check`, the production build, m
 - [Action rate limiting](docs/RATE_LIMITING.md)
 - [Verification gateway](docs/VERIFICATION_GATEWAY.md)
 - [Identifier key-rewrap operations](docs/KEY_ROTATION_OPERATIONS.md)
+- [Lookup-key rotation operations](docs/LOOKUP_KEY_ROTATION_OPERATIONS.md)
 - [Security requirements](docs/SECURITY.md) and [threat model](docs/THREAT_MODEL.md)
 - [Abuse prevention](docs/ABUSE_PREVENTION.md)
 - [Legal/provider risks](docs/LEGAL_AND_PROVIDER_RISKS.md)

@@ -1,6 +1,6 @@
 # ADR 0016: Coordinated Lookup-Key Rotation
 
-**Status:** Proposed — implementation and production use require explicit security/operations approval  
+**Status:** Accepted for local implementation — the additive dual-key capability (schema, application dual-read/dual-write, bounded rotation worker, dual rate-limit consumption) is built and locally verified; production cutover, KMS/HSM integration, and irreversible key destruction remain blocked pending the full approval list below.  
 **Date:** 2026-08-11
 
 ## Context
