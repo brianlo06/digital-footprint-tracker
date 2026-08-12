@@ -19,6 +19,8 @@ let maintenanceDatabase: Database | undefined;
 let maintenanceSqlClient: ReturnType<typeof postgres> | undefined;
 let rotationDatabase: Database | undefined;
 let rotationSqlClient: ReturnType<typeof postgres> | undefined;
+let lookupRotationDatabase: Database | undefined;
+let lookupRotationSqlClient: ReturnType<typeof postgres> | undefined;
 
 interface HyperdriveBinding {
   readonly connectionString: string;
@@ -168,12 +170,42 @@ export async function withRotationDatabase<T>(operation: DatabaseOperation<T>): 
   );
 }
 
+export function getLookupRotationDatabase(): Database {
+  if (!lookupRotationDatabase) {
+    const url = getServerEnv().LOOKUP_ROTATION_DATABASE_URL;
+    if (!url) throw new Error("LOOKUP_ROTATION_DATABASE_URL_REQUIRED");
+
+    lookupRotationSqlClient = postgres(url, {
+      max: 1,
+      idle_timeout: 20,
+      connect_timeout: 10,
+      prepare: false,
+    });
+    lookupRotationDatabase = drizzle(lookupRotationSqlClient, { schema });
+  }
+
+  return lookupRotationDatabase;
+}
+
+export async function withLookupRotationDatabase<T>(operation: DatabaseOperation<T>): Promise<T> {
+  const env = getServerEnv();
+  if (env.APP_ENV === "local") return operation(getLookupRotationDatabase());
+
+  const connectionString = hostedHyperdriveConnectionString("LOOKUP_ROTATION_DATABASE");
+  return withEphemeralDatabase(
+    requiredUrl(connectionString, "LOOKUP_ROTATION_DATABASE_BINDING_REQUIRED"),
+    1,
+    operation,
+  );
+}
+
 export async function closeDatabase(): Promise<void> {
   await Promise.all([
     sqlClient?.end({ timeout: 5 }),
     runtimeSqlClient?.end({ timeout: 5 }),
     maintenanceSqlClient?.end({ timeout: 5 }),
     rotationSqlClient?.end({ timeout: 5 }),
+    lookupRotationSqlClient?.end({ timeout: 5 }),
   ]);
   database = undefined;
   sqlClient = undefined;
@@ -183,4 +215,6 @@ export async function closeDatabase(): Promise<void> {
   maintenanceSqlClient = undefined;
   rotationDatabase = undefined;
   rotationSqlClient = undefined;
+  lookupRotationDatabase = undefined;
+  lookupRotationSqlClient = undefined;
 }

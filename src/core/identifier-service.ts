@@ -38,7 +38,7 @@ export interface IdentifierSummary {
 
 const MAX_VERIFICATION_ATTEMPTS = 5;
 
-function identifierEncryptionContext(identityId: string, identifierId: string): string {
+export function identifierEncryptionContext(identityId: string, identifierId: string): string {
   return `identifier:${identityId}:${identifierId}:value:v1`;
 }
 

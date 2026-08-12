@@ -37,6 +37,10 @@ describeWithDatabase("distributed action rate limits", () => {
   }
 
   beforeAll(() => {
+    // process.env is a shared global; another concurrently running
+    // integration test file may have left a previous lookup key set.
+    delete process.env.PREVIOUS_LOOKUP_KEY_ID;
+    delete process.env.PREVIOUS_LOOKUP_KEY;
     process.env.DATABASE_URL = testDatabaseUrl;
     process.env.RUNTIME_DATABASE_URL = testRuntimeDatabaseUrl;
     process.env.APP_ENV = "local";

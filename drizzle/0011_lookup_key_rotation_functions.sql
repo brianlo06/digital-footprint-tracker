@@ -192,6 +192,10 @@ BEGIN
       USING ERRCODE = '22023';
   END IF;
 
+  -- No row lock: this worker holds only SELECT on identifiers (it never
+  -- writes to that table), and the compare-and-swap below is against the
+  -- caller-supplied expected snapshot from the listing step, not a value
+  -- this SELECT re-derives for locking purposes.
   SELECT
     identifier.identity_id,
     identifier.type,
@@ -199,8 +203,7 @@ BEGIN
     identifier.normalization_version
     INTO current_row
     FROM public.identifiers AS identifier
-    WHERE identifier.id = rotation_identifier_id
-    FOR UPDATE;
+    WHERE identifier.id = rotation_identifier_id;
 
   IF NOT FOUND THEN
     RETURN 'DELETED';
@@ -208,10 +211,16 @@ BEGIN
 
   IF current_row.identity_id IS DISTINCT FROM rotation_identity_id
     OR current_row.type IS DISTINCT FROM rotation_identifier_type
-    OR current_row.encrypted_value IS DISTINCT FROM rotation_expected_encrypted_value
-    OR current_row.normalization_version IS DISTINCT FROM rotation_expected_normalization_version
   THEN
-    RETURN 'CONFLICT';
+    RETURN 'OWNERSHIP_CHANGED';
+  END IF;
+
+  IF current_row.encrypted_value IS DISTINCT FROM rotation_expected_encrypted_value THEN
+    RETURN 'ENVELOPE_CHANGED';
+  END IF;
+
+  IF current_row.normalization_version IS DISTINCT FROM rotation_expected_normalization_version THEN
+    RETURN 'NORMALIZATION_CHANGED';
   END IF;
 
   BEGIN
@@ -238,7 +247,7 @@ BEGIN
     GET DIAGNOSTICS inserted_count = ROW_COUNT;
   EXCEPTION
     WHEN unique_violation THEN
-      RETURN 'CONFLICT';
+      RETURN 'TOKEN_COLLISION';
   END;
 
   IF inserted_count = 1 THEN
