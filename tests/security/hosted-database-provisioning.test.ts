@@ -8,10 +8,14 @@ describe("hosted database provisioning boundary", () => {
     expect(provisioner).toContain("\\getenv runtime_password DFT_RUNTIME_DB_PASSWORD");
     expect(provisioner).toContain("\\getenv maintenance_password DFT_MAINTENANCE_DB_PASSWORD");
     expect(provisioner).toContain("\\getenv rotation_password DFT_ROTATION_DB_PASSWORD");
+    expect(provisioner).toContain(
+      "\\getenv lookup_rotation_password DFT_LOOKUP_ROTATION_DB_PASSWORD",
+    );
     expect(provisioner).not.toMatch(/PASSWORD\s+'[^']+'/i);
     expect(provisioner).not.toContain("local_runtime_only");
     expect(provisioner).not.toContain("local_maintenance_only");
     expect(provisioner).not.toContain("local_rotation_only");
+    expect(provisioner).not.toContain("local_lookup_rotation_only");
   });
 
   it("enforces distinct long passwords before beginning a write transaction", () => {
@@ -21,7 +25,9 @@ describe("hosted database provisioning boundary", () => {
     expect(validationPosition).toBeGreaterThan(0);
     expect(transactionPosition).toBeGreaterThan(validationPosition);
     expect(provisioner).toContain("length(:'runtime_password') >= 32");
+    expect(provisioner).toContain("length(:'lookup_rotation_password') >= 32");
     expect(provisioner).toContain("AND :'runtime_password' <> :'maintenance_password'");
+    expect(provisioner).toContain("AND :'rotation_password' <> :'lookup_rotation_password'");
     expect(provisioner).toContain("required hosted database password is unavailable");
   });
 });

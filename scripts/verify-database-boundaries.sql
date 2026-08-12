@@ -33,9 +33,11 @@ BEGIN
       ('digital_footprint_runtime', true, false),
       ('digital_footprint_maintenance', true, false),
       ('digital_footprint_rotation', true, false),
+      ('digital_footprint_lookup_rotation', true, false),
       ('digital_footprint_rate_limit_owner', false, true),
       ('digital_footprint_retention_owner', false, true),
-      ('digital_footprint_rotation_owner', false, true)
+      ('digital_footprint_rotation_owner', false, true),
+      ('digital_footprint_lookup_rotation_owner', false, true)
     ) AS expected(role_name, can_login, bypasses_rls)
   LOOP
     SELECT
@@ -77,7 +79,8 @@ BEGIN
     SELECT unnest(ARRAY[
       'digital_footprint_runtime',
       'digital_footprint_maintenance',
-      'digital_footprint_rotation'
+      'digital_footprint_rotation',
+      'digital_footprint_lookup_rotation'
     ])
   LOOP
     IF NOT pg_catalog.has_database_privilege(audited_role, current_database(), 'CONNECT') THEN
@@ -98,6 +101,7 @@ BEGIN
     'users',
     'identities',
     'identifiers',
+    'identifier_lookup_tokens',
     'identifier_verifications',
     'consent_records',
     'audit_events',
@@ -127,9 +131,11 @@ BEGIN
       'digital_footprint_runtime',
       'digital_footprint_maintenance',
       'digital_footprint_rotation',
+      'digital_footprint_lookup_rotation',
       'digital_footprint_rate_limit_owner',
       'digital_footprint_retention_owner',
-      'digital_footprint_rotation_owner'
+      'digital_footprint_rotation_owner',
+      'digital_footprint_lookup_rotation_owner'
     ]) THEN
       RAISE EXCEPTION 'protected table public.% has a restricted or capability role as owner', audited_table;
     END IF;
@@ -167,15 +173,18 @@ BEGIN
       'digital_footprint_runtime',
       'digital_footprint_maintenance',
       'digital_footprint_rotation',
+      'digital_footprint_lookup_rotation',
       'digital_footprint_rate_limit_owner',
       'digital_footprint_retention_owner',
-      'digital_footprint_rotation_owner'
+      'digital_footprint_rotation_owner',
+      'digital_footprint_lookup_rotation_owner'
     ])
   LOOP
     FOREACH audited_table IN ARRAY ARRAY[
       'users',
       'identities',
       'identifiers',
+      'identifier_lookup_tokens',
       'identifier_verifications',
       'consent_records',
       'audit_events',
@@ -212,6 +221,16 @@ BEGIN
             audited_role = 'digital_footprint_rotation_owner'
             AND audited_table = 'identifiers'
             AND audited_privilege = ANY(ARRAY['SELECT', 'UPDATE'])
+          )
+          OR (
+            audited_role = 'digital_footprint_lookup_rotation_owner'
+            AND audited_table = 'identifiers'
+            AND audited_privilege = 'SELECT'
+          )
+          OR (
+            audited_role = 'digital_footprint_lookup_rotation_owner'
+            AND audited_table = 'identifier_lookup_tokens'
+            AND audited_privilege = ANY(ARRAY['SELECT', 'INSERT'])
           );
 
         actual_privilege := pg_catalog.has_table_privilege(
@@ -239,6 +258,10 @@ BEGIN
         'digital_footprint_rate_limit_owner'
       ),
       (
+        'public.consume_action_rate_limit_dual(text,text,text,text,public.rate_limit_action)',
+        'digital_footprint_rate_limit_owner'
+      ),
+      (
         'public.run_retention_maintenance(timestamptz,integer,timestamptz)',
         'digital_footprint_retention_owner'
       ),
@@ -249,6 +272,18 @@ BEGIN
       (
         'public.replace_identifier_envelope_for_rewrap(uuid,jsonb,jsonb,text,text)',
         'digital_footprint_rotation_owner'
+      ),
+      (
+        'public.backfill_identifier_lookup_tokens(text,integer)',
+        'digital_footprint_lookup_rotation_owner'
+      ),
+      (
+        'public.list_identifiers_missing_lookup_token(text,integer)',
+        'digital_footprint_lookup_rotation_owner'
+      ),
+      (
+        'public.insert_identifier_lookup_token_for_rotation(uuid,uuid,public.identifier_type,text,text,text,text,jsonb,text)',
+        'digital_footprint_lookup_rotation_owner'
       )
     ) AS expected(signature, owner_name)
   LOOP
@@ -290,74 +325,75 @@ BEGIN
     END IF;
   END LOOP;
 
-  IF NOT pg_catalog.has_function_privilege(
-    'digital_footprint_runtime',
-    'public.consume_action_rate_limit(text,text,public.rate_limit_action)',
-    'EXECUTE'
-  ) THEN
-    RAISE EXCEPTION 'runtime role cannot execute the rate-limit capability';
-  END IF;
-  IF pg_catalog.has_function_privilege(
-    'digital_footprint_runtime',
-    'public.run_retention_maintenance(timestamptz,integer,timestamptz)',
-    'EXECUTE'
-  ) OR pg_catalog.has_function_privilege(
-    'digital_footprint_runtime',
-    'public.list_identifier_envelopes_for_rewrap(text,integer)',
-    'EXECUTE'
-  ) OR pg_catalog.has_function_privilege(
-    'digital_footprint_runtime',
-    'public.replace_identifier_envelope_for_rewrap(uuid,jsonb,jsonb,text,text)',
-    'EXECUTE'
-  ) THEN
-    RAISE EXCEPTION 'runtime role can execute a maintenance or rotation capability';
-  END IF;
-
-  IF NOT pg_catalog.has_function_privilege(
-    'digital_footprint_maintenance',
-    'public.run_retention_maintenance(timestamptz,integer,timestamptz)',
-    'EXECUTE'
-  ) THEN
-    RAISE EXCEPTION 'maintenance role cannot execute the retention capability';
-  END IF;
-  IF pg_catalog.has_function_privilege(
-    'digital_footprint_maintenance',
-    'public.consume_action_rate_limit(text,text,public.rate_limit_action)',
-    'EXECUTE'
-  ) OR pg_catalog.has_function_privilege(
-    'digital_footprint_maintenance',
-    'public.list_identifier_envelopes_for_rewrap(text,integer)',
-    'EXECUTE'
-  ) OR pg_catalog.has_function_privilege(
-    'digital_footprint_maintenance',
-    'public.replace_identifier_envelope_for_rewrap(uuid,jsonb,jsonb,text,text)',
-    'EXECUTE'
-  ) THEN
-    RAISE EXCEPTION 'maintenance role can execute a runtime or rotation capability';
-  END IF;
-
-  IF NOT pg_catalog.has_function_privilege(
-    'digital_footprint_rotation',
-    'public.list_identifier_envelopes_for_rewrap(text,integer)',
-    'EXECUTE'
-  ) OR NOT pg_catalog.has_function_privilege(
-    'digital_footprint_rotation',
-    'public.replace_identifier_envelope_for_rewrap(uuid,jsonb,jsonb,text,text)',
-    'EXECUTE'
-  ) THEN
-    RAISE EXCEPTION 'rotation role lacks a required rewrap capability';
-  END IF;
-  IF pg_catalog.has_function_privilege(
-    'digital_footprint_rotation',
-    'public.consume_action_rate_limit(text,text,public.rate_limit_action)',
-    'EXECUTE'
-  ) OR pg_catalog.has_function_privilege(
-    'digital_footprint_rotation',
-    'public.run_retention_maintenance(timestamptz,integer,timestamptz)',
-    'EXECUTE'
-  ) THEN
-    RAISE EXCEPTION 'rotation role can execute a runtime or maintenance capability';
-  END IF;
+  -- Every login role must execute exactly its own capability functions and
+  -- none of the others: a full cross-execution matrix, not spot checks.
+  FOR audited_role IN
+    SELECT unnest(ARRAY[
+      'digital_footprint_runtime',
+      'digital_footprint_maintenance',
+      'digital_footprint_rotation',
+      'digital_footprint_lookup_rotation'
+    ])
+  LOOP
+    FOR function_signature, expected_privilege IN
+      SELECT
+        signature,
+        (
+          (
+            audited_role = 'digital_footprint_runtime'
+            AND signature = ANY(ARRAY[
+              'public.consume_action_rate_limit(text,text,public.rate_limit_action)',
+              'public.consume_action_rate_limit_dual(text,text,text,text,public.rate_limit_action)'
+            ])
+          )
+          OR (
+            audited_role = 'digital_footprint_maintenance'
+            AND signature = 'public.run_retention_maintenance(timestamptz,integer,timestamptz)'
+          )
+          OR (
+            audited_role = 'digital_footprint_rotation'
+            AND signature = ANY(ARRAY[
+              'public.list_identifier_envelopes_for_rewrap(text,integer)',
+              'public.replace_identifier_envelope_for_rewrap(uuid,jsonb,jsonb,text,text)'
+            ])
+          )
+          OR (
+            audited_role = 'digital_footprint_lookup_rotation'
+            AND signature = ANY(ARRAY[
+              'public.backfill_identifier_lookup_tokens(text,integer)',
+              'public.list_identifiers_missing_lookup_token(text,integer)',
+              'public.insert_identifier_lookup_token_for_rotation(uuid,uuid,public.identifier_type,text,text,text,text,jsonb,text)'
+            ])
+          )
+        )
+      FROM (
+        VALUES
+          ('public.consume_action_rate_limit(text,text,public.rate_limit_action)'),
+          ('public.consume_action_rate_limit_dual(text,text,text,text,public.rate_limit_action)'),
+          ('public.run_retention_maintenance(timestamptz,integer,timestamptz)'),
+          ('public.list_identifier_envelopes_for_rewrap(text,integer)'),
+          ('public.replace_identifier_envelope_for_rewrap(uuid,jsonb,jsonb,text,text)'),
+          ('public.backfill_identifier_lookup_tokens(text,integer)'),
+          ('public.list_identifiers_missing_lookup_token(text,integer)'),
+          (
+            'public.insert_identifier_lookup_token_for_rotation(uuid,uuid,public.identifier_type,text,text,text,text,jsonb,text)'
+          )
+      ) AS all_functions(signature)
+    LOOP
+      actual_privilege := pg_catalog.has_function_privilege(
+        audited_role,
+        function_signature,
+        'EXECUTE'
+      );
+      IF actual_privilege <> expected_privilege THEN
+        RAISE EXCEPTION 'unexpected EXECUTE privilege for role % on % (expected %, found %)',
+          audited_role,
+          function_signature,
+          expected_privilege,
+          actual_privilege;
+      END IF;
+    END LOOP;
+  END LOOP;
 END
 $verify$;
 
