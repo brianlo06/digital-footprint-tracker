@@ -37,7 +37,9 @@ BEGIN
       ('digital_footprint_rate_limit_owner', false, true),
       ('digital_footprint_retention_owner', false, true),
       ('digital_footprint_rotation_owner', false, true),
-      ('digital_footprint_lookup_rotation_owner', false, true)
+      ('digital_footprint_lookup_rotation_owner', false, true),
+      ('digital_footprint_delivery', true, false),
+      ('digital_footprint_delivery_owner', false, true)
     ) AS expected(role_name, can_login, bypasses_rls)
   LOOP
     SELECT
@@ -80,7 +82,8 @@ BEGIN
       'digital_footprint_runtime',
       'digital_footprint_maintenance',
       'digital_footprint_rotation',
-      'digital_footprint_lookup_rotation'
+      'digital_footprint_lookup_rotation',
+      'digital_footprint_delivery'
     ])
   LOOP
     IF NOT pg_catalog.has_database_privilege(audited_role, current_database(), 'CONNECT') THEN
@@ -106,7 +109,8 @@ BEGIN
     'consent_records',
     'audit_events',
     'deletion_receipts',
-    'rate_limit_windows'
+    'rate_limit_windows',
+    'verification_delivery_outbox'
   ]
   LOOP
     SELECT
@@ -135,7 +139,9 @@ BEGIN
       'digital_footprint_rate_limit_owner',
       'digital_footprint_retention_owner',
       'digital_footprint_rotation_owner',
-      'digital_footprint_lookup_rotation_owner'
+      'digital_footprint_lookup_rotation_owner',
+      'digital_footprint_delivery',
+      'digital_footprint_delivery_owner'
     ]) THEN
       RAISE EXCEPTION 'protected table public.% has a restricted or capability role as owner', audited_table;
     END IF;
@@ -149,6 +155,20 @@ BEGIN
         WHERE namespace.nspname = 'public' AND relation.relname = audited_table
       ) THEN
         RAISE EXCEPTION 'public.rate_limit_windows must remain function-only without an RLS policy';
+      END IF;
+    ELSIF audited_table = 'verification_delivery_outbox' THEN
+      IF NOT EXISTS (
+        SELECT 1
+        FROM pg_catalog.pg_policy AS policy
+        INNER JOIN pg_catalog.pg_class AS relation ON relation.oid = policy.polrelid
+        INNER JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid = relation.relnamespace
+        WHERE namespace.nspname = 'public'
+          AND relation.relname = audited_table
+          AND policy.polname = 'verification_delivery_outbox_insert_only'
+          AND policy.polcmd = 'a'
+          AND policy.polroles = ARRAY[0::oid]
+      ) THEN
+        RAISE EXCEPTION 'required insert-only policy is missing on public.%', audited_table;
       END IF;
     ELSE
       expected_policy := audited_table || '_tenant_isolation';
@@ -177,7 +197,9 @@ BEGIN
       'digital_footprint_rate_limit_owner',
       'digital_footprint_retention_owner',
       'digital_footprint_rotation_owner',
-      'digital_footprint_lookup_rotation_owner'
+      'digital_footprint_lookup_rotation_owner',
+      'digital_footprint_delivery',
+      'digital_footprint_delivery_owner'
     ])
   LOOP
     FOREACH audited_table IN ARRAY ARRAY[
@@ -189,7 +211,8 @@ BEGIN
       'consent_records',
       'audit_events',
       'deletion_receipts',
-      'rate_limit_windows'
+      'rate_limit_windows',
+      'verification_delivery_outbox'
     ]
     LOOP
       FOREACH audited_privilege IN ARRAY ARRAY[
@@ -200,7 +223,28 @@ BEGIN
           (
             audited_role = 'digital_footprint_runtime'
             AND audited_table <> 'rate_limit_windows'
+            AND audited_table <> 'verification_delivery_outbox'
             AND audited_privilege = ANY(ARRAY['SELECT', 'INSERT', 'UPDATE', 'DELETE'])
+          )
+          OR (
+            audited_role = 'digital_footprint_runtime'
+            AND audited_table = 'verification_delivery_outbox'
+            AND audited_privilege = 'INSERT'
+          )
+          OR (
+            audited_role = 'digital_footprint_delivery_owner'
+            AND audited_table = 'verification_delivery_outbox'
+            AND audited_privilege = ANY(ARRAY['SELECT', 'UPDATE'])
+          )
+          OR (
+            audited_role = 'digital_footprint_delivery_owner'
+            AND audited_table = 'identifier_verifications'
+            AND audited_privilege = 'SELECT'
+          )
+          OR (
+            audited_role = 'digital_footprint_delivery_owner'
+            AND audited_table = 'users'
+            AND audited_privilege = 'SELECT'
           )
           OR (
             audited_role = 'digital_footprint_rate_limit_owner'
@@ -284,6 +328,18 @@ BEGIN
       (
         'public.insert_identifier_lookup_token_for_rotation(uuid,uuid,public.identifier_type,text,text,text,text,jsonb,text)',
         'digital_footprint_lookup_rotation_owner'
+      ),
+      (
+        'public.claim_verification_deliveries(timestamptz,integer,integer,text)',
+        'digital_footprint_delivery_owner'
+      ),
+      (
+        'public.complete_verification_delivery(timestamptz,uuid,text)',
+        'digital_footprint_delivery_owner'
+      ),
+      (
+        'public.report_verification_delivery_failure(timestamptz,uuid,text,text,integer)',
+        'digital_footprint_delivery_owner'
       )
     ) AS expected(signature, owner_name)
   LOOP
@@ -332,7 +388,8 @@ BEGIN
       'digital_footprint_runtime',
       'digital_footprint_maintenance',
       'digital_footprint_rotation',
-      'digital_footprint_lookup_rotation'
+      'digital_footprint_lookup_rotation',
+      'digital_footprint_delivery'
     ])
   LOOP
     FOR function_signature, expected_privilege IN
@@ -365,6 +422,14 @@ BEGIN
               'public.insert_identifier_lookup_token_for_rotation(uuid,uuid,public.identifier_type,text,text,text,text,jsonb,text)'
             ])
           )
+          OR (
+            audited_role = 'digital_footprint_delivery'
+            AND signature = ANY(ARRAY[
+              'public.claim_verification_deliveries(timestamptz,integer,integer,text)',
+              'public.complete_verification_delivery(timestamptz,uuid,text)',
+              'public.report_verification_delivery_failure(timestamptz,uuid,text,text,integer)'
+            ])
+          )
         )
       FROM (
         VALUES
@@ -377,7 +442,10 @@ BEGIN
           ('public.list_identifiers_missing_lookup_token(text,integer)'),
           (
             'public.insert_identifier_lookup_token_for_rotation(uuid,uuid,public.identifier_type,text,text,text,text,jsonb,text)'
-          )
+          ),
+          ('public.claim_verification_deliveries(timestamptz,integer,integer,text)'),
+          ('public.complete_verification_delivery(timestamptz,uuid,text)'),
+          ('public.report_verification_delivery_failure(timestamptz,uuid,text,text,integer)')
       ) AS all_functions(signature)
     LOOP
       actual_privilege := pg_catalog.has_function_privilege(

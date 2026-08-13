@@ -85,6 +85,20 @@
       "when": 1786526692261,
       "tag": "0011_lookup_key_rotation_functions",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1786594074680,
+      "tag": "0012_mixed_luminals",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1786594088510,
+      "tag": "0013_verification_delivery_outbox_functions",
+      "breakpoints": true
     }
   ]
 }

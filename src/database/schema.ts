@@ -1,6 +1,7 @@
 import type { EncryptedEnvelope } from "@/security/crypto";
 import { sql } from "drizzle-orm";
 import {
+  check,
   foreignKey,
   index,
   integer,
@@ -57,6 +58,14 @@ export const rateLimitAction = pgEnum("rate_limit_action", [
   "IDENTIFIER_ADD",
   "VERIFICATION_ATTEMPT",
   "ACCOUNT_DELETE",
+]);
+export const deliveryChannel = pgEnum("delivery_channel", ["EMAIL"]);
+export const deliveryState = pgEnum("delivery_state", [
+  "PENDING",
+  "CLAIMED",
+  "COMPLETED",
+  "DEAD_LETTERED",
+  "CANCELLED",
 ]);
 
 export const users = pgTable(
@@ -347,5 +356,60 @@ export const rateLimitWindows = pgTable(
   (table) => [
     primaryKey({ columns: [table.scopeKind, table.scopeToken, table.action] }),
     index("rate_limit_windows_expiry_idx").on(table.expiresAt),
+  ],
+).enableRLS();
+
+export const verificationDeliveryOutbox = pgTable(
+  "verification_delivery_outbox",
+  {
+    deliveryId: uuid("delivery_id").primaryKey(),
+    verificationId: uuid("verification_id")
+      .notNull()
+      .references(() => identifierVerifications.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    channel: deliveryChannel("channel").notNull().default("EMAIL"),
+    template: text("template").notNull(),
+    encryptedPayload: jsonb("encrypted_payload").$type<EncryptedEnvelope>(),
+    state: deliveryState("state").notNull().default("PENDING"),
+    leaseToken: text("lease_token"),
+    leaseExpiresAt: timestamp("lease_expires_at", { withTimezone: true }),
+    notBefore: timestamp("not_before", { withTimezone: true }).notNull().defaultNow(),
+    attemptCount: integer("attempt_count").notNull().default(0),
+    maxAttempts: integer("max_attempts").notNull().default(8),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("verification_delivery_outbox_verification_idx").on(table.verificationId),
+    index("verification_delivery_outbox_claim_idx").on(table.state, table.notBefore),
+    index("verification_delivery_outbox_lease_idx").on(table.state, table.leaseExpiresAt),
+    check(
+      "verification_delivery_outbox_template_allowlist",
+      sql`${table.template} IN ('EMAIL_VERIFICATION_CODE_V1')`,
+    ),
+    check(
+      "verification_delivery_outbox_max_attempts_range",
+      sql`${table.maxAttempts} BETWEEN 1 AND 20`,
+    ),
+    check(
+      "verification_delivery_outbox_payload_state_invariant",
+      sql`(${table.state} IN ('COMPLETED', 'DEAD_LETTERED', 'CANCELLED') AND ${table.encryptedPayload} IS NULL)
+        OR (${table.state} IN ('PENDING', 'CLAIMED') AND ${table.encryptedPayload} IS NOT NULL)`,
+    ),
+    pgPolicy("verification_delivery_outbox_insert_only", {
+      for: "insert",
+      to: "public",
+      withCheck: sql`exists (
+        select 1 from identifier_verifications
+        inner join identifiers on identifiers.id = identifier_verifications.identifier_id
+        inner join identities on identities.id = identifiers.identity_id
+        inner join users on users.id = identities.user_id
+        where identifier_verifications.id = verification_delivery_outbox.verification_id
+          and users.id = verification_delivery_outbox.user_id
+          and users.auth_subject = nullif(current_setting('app.auth_subject', true), '')
+      )`,
+    }),
   ],
 ).enableRLS();
