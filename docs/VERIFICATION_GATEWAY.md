@@ -4,7 +4,9 @@
 
 Identifier enrollment depends on `EmailVerificationGateway`, not on the local fixture directly. A gateway receives only the normalized destination and opaque verification ID, then returns the method, purpose-bound challenge hash, and expiry needed by the identifier service.
 
-The only implementation is `LocalFakeEmailVerificationGateway`. It is hard-gated to local application and authentication modes, creates a fifteen-minute keyed challenge hash, does not retain the destination, and sends no message or network request.
+The default implementation is `LocalFakeEmailVerificationGateway`. It is hard-gated to local application and authentication modes, creates a fifteen-minute keyed challenge hash, does not retain the destination, and sends no message or network request.
+
+A second implementation, `OutboxEmailVerificationGateway`, exists to locally exercise [ADR 0017](adr/0017-verification-delivery-outbox.md)'s encrypted transactional outbox: it returns the same challenge shape plus a `delivery` descriptor containing a pre-encrypted delivery command, which `addEmailIdentifier` inserts into `verification_delivery_outbox` inside its existing transaction. It is not wired into `getEmailVerificationGateway()` and is constructed directly only by tests; see `VERIFICATION_DELIVERY_OPERATIONS.md` for what is and is not built.
 
 ## Production gate
 

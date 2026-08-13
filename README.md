@@ -61,6 +61,7 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/provision-local-rate-limit-ro
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/provision-local-maintenance-role.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/provision-local-rotation-role.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/provision-local-lookup-rotation-role.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/provision-local-delivery-role.sql
 npm run dev
 ```
 
@@ -83,6 +84,7 @@ TEST_RUNTIME_DATABASE_URL=postgres://digital_footprint_runtime... \
 TEST_MAINTENANCE_DATABASE_URL=postgres://digital_footprint_maintenance... \
 TEST_ROTATION_DATABASE_URL=postgres://digital_footprint_rotation... \
 TEST_LOOKUP_ROTATION_DATABASE_URL=postgres://digital_footprint_lookup_rotation... \
+TEST_DELIVERY_DATABASE_URL=postgres://digital_footprint_delivery... \
 npm run test:integration
 ```
 

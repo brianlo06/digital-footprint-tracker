@@ -1,6 +1,7 @@
 # ADR 0017: Idempotent Verification Delivery Outbox
 
-**Status:** Proposed
+**Status:** Accepted for local implementation — the additive encrypted transactional outbox capability (schema with forced RLS and an insert-only tenant policy, transactional enqueue inside the existing identifier transaction, claim/complete/report-failure SQL functions behind a dedicated function-only delivery role, the pure core/service split, and a demonstration Worker exercising a synthetic no-op provider) is built and locally verified; provider selection, hosted delivery Worker deployment, production activation, and the ADR's eight-item Activation Evidence exercise remain blocked pending owner and provider approval.  
+**Date:** 2026-08-13
 
 ## Context
 

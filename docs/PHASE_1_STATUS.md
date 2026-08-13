@@ -4,30 +4,31 @@
 
 ## Implemented scope
 
-| Capability              | State                        | Boundary                                                                                                     |
-| ----------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| Application shell       | Implemented                  | Responsive, semantic, keyboard-checked foundation UI; no finding screens                                     |
-| Authentication boundary | Implemented, hosted off      | Preview mode fails closed; Clerk adapter exists; local mode rejects production                               |
-| Account onboarding      | Implemented                  | Explicit authenticated Server Action; GET/render paths are read-only                                         |
-| Identifier model        | Implemented for email only   | Separate identity/identifier records; no scan capability                                                     |
-| Identifier protection   | Implemented                  | Per-record AES-256-GCM envelope; keyed lookup token; tested key rewrap                                       |
-| KEK rotation batches    | Local procedure verified     | Bounded dry-run/resume/rollback; production KMS and invocation not chosen                                    |
-| Lookup-key rotation     | Local procedure verified     | Additive dual-key schema/app logic and bounded token-migration worker; production KMS and cutover not chosen |
-| Verification            | Local fake only              | 15-minute, single-use challenge; atomic five-attempt lockout; no delivery                                    |
-| Verification gateway    | Interface implemented        | Local non-delivery implementation only; no provider selected                                                 |
-| Mutation throttling     | Local baseline verified      | Atomic limits; Cloudflare trusted-IP header declared, hosted exercise pending                                |
-| Consent and audit       | Foundation implemented       | Scoped consent and allowlisted events; no provider consent yet                                               |
-| Application telemetry   | Canary boundary verified     | Field validators, redaction marker, sink-bypass scan; hosted traces remain off                               |
-| Account deletion        | Local lifecycle implemented  | Cascades foundation data; pseudonymous receipt retained for one year                                         |
-| Deletion failure        | Quarantined and retryable    | Pending accounts lose normal access; receipt identity is reused                                              |
-| Managed-auth deletion   | Implemented, tenant untested | Strict reverification plus signed, retry-safe deletion recovery webhook                                      |
-| Retention               | Worker template implemented  | Function-only daily Cron dry-builds; hosted binding/period approval remains                                  |
-| Database isolation      | Local RLS baseline verified  | Forced policies plus restricted runtime role; hosted roles not provisioned                                   |
-| Worker database clients | Implemented                  | Request-scoped Hyperdrive only outside local development                                                     |
-| Browser security        | HTTPS preview verified       | Nonce CSP, HSTS, restrictive headers, and protected-route redirect checked                                   |
-| Cloud deployment        | Public shell deployed        | `dft.jarvisworlds.com`; no auth, database, secrets, or personal-data paths                                   |
-| Tests                   | Hosted CI verified           | Unit/build plus PostgreSQL authorization/lifecycle jobs on GitHub Actions                                    |
-| Providers/scans/jobs    | Not implemented              | Contracts/readmes only; zero provider network activity                                                       |
+| Capability                   | State                        | Boundary                                                                                                                                                                                                         |
+| ---------------------------- | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Application shell            | Implemented                  | Responsive, semantic, keyboard-checked foundation UI; no finding screens                                                                                                                                         |
+| Authentication boundary      | Implemented, hosted off      | Preview mode fails closed; Clerk adapter exists; local mode rejects production                                                                                                                                   |
+| Account onboarding           | Implemented                  | Explicit authenticated Server Action; GET/render paths are read-only                                                                                                                                             |
+| Identifier model             | Implemented for email only   | Separate identity/identifier records; no scan capability                                                                                                                                                         |
+| Identifier protection        | Implemented                  | Per-record AES-256-GCM envelope; keyed lookup token; tested key rewrap                                                                                                                                           |
+| KEK rotation batches         | Local procedure verified     | Bounded dry-run/resume/rollback; production KMS and invocation not chosen                                                                                                                                        |
+| Lookup-key rotation          | Local procedure verified     | Additive dual-key schema/app logic and bounded token-migration worker; production KMS and cutover not chosen                                                                                                     |
+| Verification                 | Local fake only              | 15-minute, single-use challenge; atomic five-attempt lockout; no delivery                                                                                                                                        |
+| Verification gateway         | Interface implemented        | Local non-delivery implementation only; no provider selected                                                                                                                                                     |
+| Verification delivery outbox | Local procedure verified     | Additive encrypted transactional outbox, claim/complete/report-failure functions, function-only delivery role, and demonstration Worker against a synthetic provider; no provider selected, no hosted deployment |
+| Mutation throttling          | Local baseline verified      | Atomic limits; Cloudflare trusted-IP header declared, hosted exercise pending                                                                                                                                    |
+| Consent and audit            | Foundation implemented       | Scoped consent and allowlisted events; no provider consent yet                                                                                                                                                   |
+| Application telemetry        | Canary boundary verified     | Field validators, redaction marker, sink-bypass scan; hosted traces remain off                                                                                                                                   |
+| Account deletion             | Local lifecycle implemented  | Cascades foundation data; pseudonymous receipt retained for one year                                                                                                                                             |
+| Deletion failure             | Quarantined and retryable    | Pending accounts lose normal access; receipt identity is reused                                                                                                                                                  |
+| Managed-auth deletion        | Implemented, tenant untested | Strict reverification plus signed, retry-safe deletion recovery webhook                                                                                                                                          |
+| Retention                    | Worker template implemented  | Function-only daily Cron dry-builds; hosted binding/period approval remains                                                                                                                                      |
+| Database isolation           | Local RLS baseline verified  | Forced policies plus restricted runtime role; hosted roles not provisioned                                                                                                                                       |
+| Worker database clients      | Implemented                  | Request-scoped Hyperdrive only outside local development                                                                                                                                                         |
+| Browser security             | HTTPS preview verified       | Nonce CSP, HSTS, restrictive headers, and protected-route redirect checked                                                                                                                                       |
+| Cloud deployment             | Public shell deployed        | `dft.jarvisworlds.com`; no auth, database, secrets, or personal-data paths                                                                                                                                       |
+| Tests                        | Hosted CI verified           | Unit/build plus PostgreSQL authorization/lifecycle jobs on GitHub Actions                                                                                                                                        |
+| Providers/scans/jobs         | Not implemented              | Contracts/readmes only; zero provider network activity                                                                                                                                                           |
 
 ## Verification evidence
 
@@ -38,7 +39,7 @@
 - database ciphertext does not contain the normalized synthetic email;
 - cross-account list and verification attempts are denied;
 - the real restricted runtime role is non-superuser and lacks `BYPASSRLS`;
-- all nine protected tables have enabled and forced PostgreSQL RLS;
+- all ten protected tables have enabled and forced PostgreSQL RLS;
 - a bounded read-only database preflight attests the complete standard-role, table-policy, privilege, capability-owner, `PUBLIC` execution, and fixed-`search_path` contract and runs in CI after provisioning;
 - missing tenant context fails closed, transaction-local context does not leak through the pool, and direct cross-tenant reads/writes are denied;
 - deletion receipts are isolated by a pseudonymous subject token after the user row is gone;
@@ -84,14 +85,20 @@
 - the extended tenant-isolation policy still fails closed when both current and previous subject-token settings are absent;
 - the bounded lookup-token rotation worker supports dry-run, restart-safe batching, and reports a stale envelope, a removed identifier, and an undecryptable envelope as distinct opaque outcomes rather than aborting the batch;
 - its function-only role cannot read `identifiers` or `identifier_lookup_tokens` directly and can execute only its own three functions; and
-- dual-key rate-limit consumption seeds a missing window from its counterpart and persists an identical resulting state under both keys, so a rotation never resets abuse counters.
+- dual-key rate-limit consumption seeds a missing window from its counterpart and persists an identical resulting state under both keys, so a rotation never resets abuse counters;
+- the verification delivery outbox row commits atomically with the identifier, verification, consent, and audit rows in the same tenant transaction, and a forced failure elsewhere in that transaction rolls the outbox row back too, not just independently;
+- concurrent claim calls against a real multi-connection pool never double-claim a delivery, and their union covers every eligible row;
+- a claimed delivery whose lease has expired can be reclaimed under a new lease token, and a stale lease token is rejected with the row left unchanged;
+- an ineligible delivery (expired, revoked, locked, or already-verified challenge, or a `DELETION_PENDING` account) is cancelled and its encrypted payload destroyed without being returned;
+- completion and dead-lettering both destroy the encrypted payload, and a transient failure reschedules with advancing backoff before automatically dead-lettering at `max_attempts`, while a permanent failure dead-letters immediately regardless of attempt count; and
+- the delivery login has no direct table privileges and can execute only its own three functions, and every other purpose-specific login is denied execution of those same functions in both directions.
 
 ## Remaining Phase 1 gates
 
 1. Configure and exercise Clerk in an isolated preview tenant with MFA/passkey, session, recovery, the implemented signed `user.deleted` endpoint, privacy/DPA, and deletion tests.
 2. Exercise the implemented Clerk strict-reverification deletion flow with password, passkey/MFA, cancellation, stale session, recovery, provider deletion failure, and successful deletion in that tenant.
 3. Reproduce and inspect the verified local RLS, runtime-role, and function-only retention boundaries in the hosted preview before it handles multi-user personal data.
-4. Exercise the declared Cloudflare trusted ingress IP source with the hosted data path, calibrate the implemented distributed limits, and review/approve proposed [ADR 0017](adr/0017-verification-delivery-outbox.md) plus a provider before implementing its encrypted idempotent outbox or replacing the local fake gateway.
+4. Exercise the declared Cloudflare trusted ingress IP source with the hosted data path, calibrate the implemented distributed limits, and select and approve a delivery provider for [ADR 0017](adr/0017-verification-delivery-outbox.md), whose additive encrypted transactional outbox is implemented and locally verified. Provider selection, a hosted delivery Worker deployment, production activation, and the ADR's eight-item Activation Evidence exercise remain blocked before the local fake gateway can be replaced.
 5. Reproduce the verified batch rewrap, rollback, and recovery procedure against an approved production KMS with monitored invocation. [ADR 0016](adr/0016-lookup-key-rotation.md)'s dual-key capability is implemented and locally verified; production cutover still requires an approved KMS/HSM, dual-key/rollback duration approval, backup-compatibility review, and irreversible key-destruction authority per the ADR's approval questions.
 6. Repeat the multi-user and managed-auth browser checks after Clerk and the hosted database are approved; the no-data HTTPS preview baseline is recorded in `BROWSER_VALIDATION.md`.
 7. Approve legal retention periods, provision the retention Worker maintenance Hyperdrive binding, deploy its daily Cron, and verify Cron Events/alerts and backup/tombstone behavior.
