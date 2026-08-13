@@ -76,9 +76,13 @@ BEGIN
   FROM ineligible_candidates
   WHERE outbox.delivery_id = ineligible_candidates.delivery_id;
 
-  -- Pass 2: claim eligible deliveries. This is a separate statement in the
-  -- same transaction as pass 1 above, so under READ COMMITTED it sees pass
-  -- 1's writes (read-your-own-writes) - a row can never match both passes.
+  -- Pass 2: claim eligible deliveries, including a CLAIMED row whose lease
+  -- has expired (its prior holder is presumed gone) - not just PENDING
+  -- ones, otherwise a still-eligible row could never be reclaimed once its
+  -- lease lapses. This is a separate statement in the same transaction as
+  -- pass 1 above, so under READ COMMITTED it sees pass 1's writes
+  -- (read-your-own-writes) - a row can never match both passes, since
+  -- "ineligible" (pass 1) and "eligible" (pass 2) are mutually exclusive.
   RETURN QUERY
   WITH eligible_candidates AS (
     SELECT outbox.delivery_id
@@ -87,7 +91,10 @@ BEGIN
       ON verification.id = outbox.verification_id
     INNER JOIN public.users AS account
       ON account.id = outbox.user_id
-    WHERE outbox.state = 'PENDING'
+    WHERE (
+        outbox.state = 'PENDING'
+        OR (outbox.state = 'CLAIMED' AND outbox.lease_expires_at <= claim_now)
+      )
       AND outbox.not_before <= claim_now
       AND verification.status = 'PENDING'
       AND verification.expires_at > claim_now
