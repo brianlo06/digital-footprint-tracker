@@ -24,6 +24,7 @@ const serverEnvSchema = z
     MAINTENANCE_DATABASE_URL: z.string().min(1).optional(),
     ROTATION_DATABASE_URL: z.string().min(1).optional(),
     LOOKUP_ROTATION_DATABASE_URL: z.string().min(1).optional(),
+    DELIVERY_DATABASE_URL: z.string().min(1).optional(),
     TRUSTED_CLIENT_IP_HEADER: z
       .string()
       .regex(/^[a-z0-9-]+$/)
@@ -35,6 +36,8 @@ const serverEnvSchema = z
     LOOKUP_KEY_ID: z.string().min(1).max(64),
     PREVIOUS_LOOKUP_KEY_ID: z.string().min(1).max(64).optional(),
     PREVIOUS_LOOKUP_KEY: optionalBase64Key.optional(),
+    DELIVERY_ENCRYPTION_KEY_ID: z.string().min(1).max(64).optional(),
+    DELIVERY_ENCRYPTION_KEY: optionalBase64Key.optional(),
     LOCAL_VERIFICATION_CODE: z
       .string()
       .regex(/^\d{6}$/)
@@ -90,6 +93,39 @@ const serverEnvSchema = z
         code: "custom",
         path: ["PREVIOUS_LOOKUP_KEY"],
         message: "must differ from LOOKUP_KEY",
+      });
+    }
+
+    if (Boolean(env.DELIVERY_ENCRYPTION_KEY_ID) !== Boolean(env.DELIVERY_ENCRYPTION_KEY)) {
+      context.addIssue({
+        code: "custom",
+        path: ["DELIVERY_ENCRYPTION_KEY_ID"],
+        message:
+          "DELIVERY_ENCRYPTION_KEY_ID and DELIVERY_ENCRYPTION_KEY must be set together or not at all",
+      });
+    }
+
+    if (
+      env.DELIVERY_ENCRYPTION_KEY_ID &&
+      env.DELIVERY_ENCRYPTION_KEY &&
+      env.DELIVERY_ENCRYPTION_KEY_ID === env.ENCRYPTION_KEY_ID
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["DELIVERY_ENCRYPTION_KEY_ID"],
+        message: "must differ from ENCRYPTION_KEY_ID",
+      });
+    }
+
+    if (
+      env.DELIVERY_ENCRYPTION_KEY_ID &&
+      env.DELIVERY_ENCRYPTION_KEY &&
+      env.DELIVERY_ENCRYPTION_KEY === env.ENCRYPTION_KEY
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["DELIVERY_ENCRYPTION_KEY"],
+        message: "must differ from ENCRYPTION_KEY",
       });
     }
 
@@ -156,6 +192,24 @@ const serverEnvSchema = z
         path: ["LOOKUP_ROTATION_DATABASE_URL"],
         message:
           "must use a role distinct from owner, runtime, maintenance, and rotation connections",
+      });
+    }
+
+    if (
+      env.DELIVERY_DATABASE_URL &&
+      [
+        env.DATABASE_URL,
+        env.RUNTIME_DATABASE_URL,
+        env.MAINTENANCE_DATABASE_URL,
+        env.ROTATION_DATABASE_URL,
+        env.LOOKUP_ROTATION_DATABASE_URL,
+      ].includes(env.DELIVERY_DATABASE_URL)
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["DELIVERY_DATABASE_URL"],
+        message:
+          "must use a role distinct from owner, runtime, maintenance, rotation, and lookup-rotation connections",
       });
     }
 

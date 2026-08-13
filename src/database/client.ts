@@ -21,6 +21,8 @@ let rotationDatabase: Database | undefined;
 let rotationSqlClient: ReturnType<typeof postgres> | undefined;
 let lookupRotationDatabase: Database | undefined;
 let lookupRotationSqlClient: ReturnType<typeof postgres> | undefined;
+let deliveryDatabase: Database | undefined;
+let deliverySqlClient: ReturnType<typeof postgres> | undefined;
 
 interface HyperdriveBinding {
   readonly connectionString: string;
@@ -199,6 +201,35 @@ export async function withLookupRotationDatabase<T>(operation: DatabaseOperation
   );
 }
 
+export function getDeliveryDatabase(): Database {
+  if (!deliveryDatabase) {
+    const url = getServerEnv().DELIVERY_DATABASE_URL;
+    if (!url) throw new Error("DELIVERY_DATABASE_URL_REQUIRED");
+
+    deliverySqlClient = postgres(url, {
+      max: 1,
+      idle_timeout: 20,
+      connect_timeout: 10,
+      prepare: false,
+    });
+    deliveryDatabase = drizzle(deliverySqlClient, { schema });
+  }
+
+  return deliveryDatabase;
+}
+
+export async function withDeliveryDatabase<T>(operation: DatabaseOperation<T>): Promise<T> {
+  const env = getServerEnv();
+  if (env.APP_ENV === "local") return operation(getDeliveryDatabase());
+
+  const connectionString = hostedHyperdriveConnectionString("DELIVERY_DATABASE");
+  return withEphemeralDatabase(
+    requiredUrl(connectionString, "DELIVERY_DATABASE_BINDING_REQUIRED"),
+    1,
+    operation,
+  );
+}
+
 export async function closeDatabase(): Promise<void> {
   await Promise.all([
     sqlClient?.end({ timeout: 5 }),
@@ -206,6 +237,7 @@ export async function closeDatabase(): Promise<void> {
     maintenanceSqlClient?.end({ timeout: 5 }),
     rotationSqlClient?.end({ timeout: 5 }),
     lookupRotationSqlClient?.end({ timeout: 5 }),
+    deliverySqlClient?.end({ timeout: 5 }),
   ]);
   database = undefined;
   sqlClient = undefined;
@@ -217,4 +249,6 @@ export async function closeDatabase(): Promise<void> {
   rotationSqlClient = undefined;
   lookupRotationDatabase = undefined;
   lookupRotationSqlClient = undefined;
+  deliveryDatabase = undefined;
+  deliverySqlClient = undefined;
 }

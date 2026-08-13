@@ -10,6 +10,7 @@ function configureRequiredEnvironment(): void {
   vi.stubEnv("MAINTENANCE_DATABASE_URL", "postgres://maintenance@example.test/database");
   vi.stubEnv("ROTATION_DATABASE_URL", "postgres://rotation@example.test/database");
   vi.stubEnv("LOOKUP_ROTATION_DATABASE_URL", "postgres://lookup-rotation@example.test/database");
+  vi.stubEnv("DELIVERY_DATABASE_URL", "postgres://delivery@example.test/database");
   vi.stubEnv("ENCRYPTION_KEY_ID", "test-v1");
   vi.stubEnv("ENCRYPTION_KEY", Buffer.alloc(32, 61).toString("base64"));
   vi.stubEnv("LOOKUP_KEY", Buffer.alloc(32, 67).toString("base64"));
@@ -61,6 +62,14 @@ describe("database connection environment boundary", () => {
     expect(() => getServerEnv()).toThrow("must use a role distinct");
   });
 
+  it("rejects a delivery connection that reuses another privileged role", () => {
+    configureRequiredEnvironment();
+    vi.stubEnv("DELIVERY_DATABASE_URL", "postgres://lookup-rotation@example.test/database");
+    resetServerEnvForTests();
+
+    expect(() => getServerEnv()).toThrow("must use a role distinct");
+  });
+
   it("requires previous lookup-key ID and material together", () => {
     configureRequiredEnvironment();
     vi.stubEnv("PREVIOUS_LOOKUP_KEY_ID", "test-lookup-v0");
@@ -85,6 +94,41 @@ describe("database connection environment boundary", () => {
     resetServerEnvForTests();
 
     expect(getServerEnv().PREVIOUS_LOOKUP_KEY_ID).toBe("test-lookup-v0");
+  });
+
+  it("requires delivery encryption key ID and material together", () => {
+    configureRequiredEnvironment();
+    vi.stubEnv("DELIVERY_ENCRYPTION_KEY_ID", "test-delivery-v1");
+    resetServerEnvForTests();
+
+    expect(() => getServerEnv()).toThrow("must be set together");
+  });
+
+  it("rejects a delivery encryption key ID identical to the envelope key ID", () => {
+    configureRequiredEnvironment();
+    vi.stubEnv("DELIVERY_ENCRYPTION_KEY_ID", "test-v1");
+    vi.stubEnv("DELIVERY_ENCRYPTION_KEY", Buffer.alloc(32, 68).toString("base64"));
+    resetServerEnvForTests();
+
+    expect(() => getServerEnv()).toThrow("must differ from ENCRYPTION_KEY_ID");
+  });
+
+  it("rejects delivery encryption key material identical to the envelope key", () => {
+    configureRequiredEnvironment();
+    vi.stubEnv("DELIVERY_ENCRYPTION_KEY_ID", "test-delivery-v1");
+    vi.stubEnv("DELIVERY_ENCRYPTION_KEY", Buffer.alloc(32, 61).toString("base64"));
+    resetServerEnvForTests();
+
+    expect(() => getServerEnv()).toThrow("must differ from ENCRYPTION_KEY");
+  });
+
+  it("accepts a distinct delivery encryption key", () => {
+    configureRequiredEnvironment();
+    vi.stubEnv("DELIVERY_ENCRYPTION_KEY_ID", "test-delivery-v1");
+    vi.stubEnv("DELIVERY_ENCRYPTION_KEY", Buffer.alloc(32, 68).toString("base64"));
+    resetServerEnvForTests();
+
+    expect(getServerEnv().DELIVERY_ENCRYPTION_KEY_ID).toBe("test-delivery-v1");
   });
 
   it("permits disabled authentication for a production preview", () => {

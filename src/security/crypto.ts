@@ -15,6 +15,11 @@ export interface EncryptionKeyring {
   readonly lookupKey: Buffer;
 }
 
+export interface DeliveryKeyring {
+  readonly keyId: string;
+  readonly encryptionKey: Buffer;
+}
+
 export interface EncryptedEnvelope {
   readonly version: 1;
   readonly algorithm: "A256GCM_ENVELOPE";
@@ -54,10 +59,20 @@ export function createKeyring(input: {
   return { keyId: input.keyId, encryptionKey, lookupKey };
 }
 
+export function createDeliveryKeyring(input: {
+  keyId: string;
+  encryptionKeyBase64: string;
+}): DeliveryKeyring {
+  const encryptionKey = Buffer.from(input.encryptionKeyBase64, "base64");
+  assertKeyLength(encryptionKey, "encryptionKey");
+
+  return { keyId: input.keyId, encryptionKey };
+}
+
 export function encryptSensitiveValue(
   plaintext: string,
   context: string,
-  keyring: EncryptionKeyring,
+  keyring: Pick<EncryptionKeyring, "keyId" | "encryptionKey">,
 ): EncryptedEnvelope {
   const dataKey = randomBytes(DATA_KEY_BYTES);
   const nonce = randomBytes(NONCE_BYTES);
@@ -88,7 +103,7 @@ export function encryptSensitiveValue(
 export function decryptSensitiveValue(
   envelope: EncryptedEnvelope,
   context: string,
-  keyring: EncryptionKeyring,
+  keyring: Pick<EncryptionKeyring, "keyId" | "encryptionKey">,
 ): string {
   if (envelope.version !== 1 || envelope.algorithm !== "A256GCM_ENVELOPE") {
     throw new Error("Unsupported encrypted envelope");
