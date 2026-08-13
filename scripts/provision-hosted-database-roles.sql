@@ -1,14 +1,16 @@
 -- Hosted PostgreSQL role provisioning.
 -- Run as the dedicated database owner after migrations. Passwords are read
 -- from DFT_RUNTIME_DB_PASSWORD, DFT_MAINTENANCE_DB_PASSWORD,
--- DFT_ROTATION_DB_PASSWORD, and DFT_LOOKUP_ROTATION_DB_PASSWORD; they are
--- never printed or passed as psql variables.
+-- DFT_ROTATION_DB_PASSWORD, DFT_LOOKUP_ROTATION_DB_PASSWORD, and
+-- DFT_DELIVERY_DB_PASSWORD; they are never printed or passed as psql
+-- variables.
 
 \set ON_ERROR_STOP on
 \getenv runtime_password DFT_RUNTIME_DB_PASSWORD
 \getenv maintenance_password DFT_MAINTENANCE_DB_PASSWORD
 \getenv rotation_password DFT_ROTATION_DB_PASSWORD
 \getenv lookup_rotation_password DFT_LOOKUP_ROTATION_DB_PASSWORD
+\getenv delivery_password DFT_DELIVERY_DB_PASSWORD
 
 \if :{?runtime_password}
 \else
@@ -30,18 +32,28 @@
   \echo 'DFT_LOOKUP_ROTATION_DB_PASSWORD is required'
   DO $$ BEGIN RAISE EXCEPTION 'required hosted database password is unavailable'; END $$;
 \endif
+\if :{?delivery_password}
+\else
+  \echo 'DFT_DELIVERY_DB_PASSWORD is required'
+  DO $$ BEGIN RAISE EXCEPTION 'required hosted database password is unavailable'; END $$;
+\endif
 
 SELECT
   length(:'runtime_password') >= 32
   AND length(:'maintenance_password') >= 32
   AND length(:'rotation_password') >= 32
   AND length(:'lookup_rotation_password') >= 32
+  AND length(:'delivery_password') >= 32
   AND :'runtime_password' <> :'maintenance_password'
   AND :'runtime_password' <> :'rotation_password'
   AND :'runtime_password' <> :'lookup_rotation_password'
+  AND :'runtime_password' <> :'delivery_password'
   AND :'maintenance_password' <> :'rotation_password'
   AND :'maintenance_password' <> :'lookup_rotation_password'
+  AND :'maintenance_password' <> :'delivery_password'
   AND :'rotation_password' <> :'lookup_rotation_password'
+  AND :'rotation_password' <> :'delivery_password'
+  AND :'lookup_rotation_password' <> :'delivery_password'
   AS hosted_passwords_valid
 \gset
 
@@ -82,6 +94,12 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = 'digital_footprint_lookup_rotation') THEN
     CREATE ROLE digital_footprint_lookup_rotation LOGIN;
   END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = 'digital_footprint_delivery_owner') THEN
+    CREATE ROLE digital_footprint_delivery_owner NOLOGIN;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = 'digital_footprint_delivery') THEN
+    CREATE ROLE digital_footprint_delivery LOGIN;
+  END IF;
 END
 $provision$;
 
@@ -105,6 +123,11 @@ ALTER ROLE digital_footprint_lookup_rotation_owner
 ALTER ROLE digital_footprint_lookup_rotation
   WITH LOGIN PASSWORD :'lookup_rotation_password'
   NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS;
+ALTER ROLE digital_footprint_delivery_owner
+  WITH NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT BYPASSRLS;
+ALTER ROLE digital_footprint_delivery
+  WITH LOGIN PASSWORD :'delivery_password'
+  NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS;
 
 -- The dedicated database owner remains the administrator of the non-login
 -- capability owners. PostgreSQL 16+ requires this relationship to keep
@@ -113,7 +136,8 @@ ALTER ROLE digital_footprint_lookup_rotation
 GRANT digital_footprint_rate_limit_owner,
   digital_footprint_retention_owner,
   digital_footprint_rotation_owner,
-  digital_footprint_lookup_rotation_owner
+  digital_footprint_lookup_rotation_owner,
+  digital_footprint_delivery_owner
 TO CURRENT_USER WITH ADMIN OPTION;
 
 DO $remove_memberships$
@@ -129,13 +153,15 @@ BEGIN
       'digital_footprint_rate_limit_owner',
       'digital_footprint_retention_owner',
       'digital_footprint_rotation_owner',
-      'digital_footprint_lookup_rotation_owner'
+      'digital_footprint_lookup_rotation_owner',
+      'digital_footprint_delivery_owner'
     )
       AND member.rolname IN (
         'digital_footprint_runtime',
         'digital_footprint_maintenance',
         'digital_footprint_rotation',
-        'digital_footprint_lookup_rotation'
+        'digital_footprint_lookup_rotation',
+        'digital_footprint_delivery'
       )
   LOOP
     EXECUTE pg_catalog.format(
@@ -150,7 +176,7 @@ $remove_memberships$;
 DO $database_connect$
 BEGIN
   EXECUTE pg_catalog.format(
-    'GRANT CONNECT ON DATABASE %I TO digital_footprint_runtime, digital_footprint_maintenance, digital_footprint_rotation, digital_footprint_lookup_rotation',
+    'GRANT CONNECT ON DATABASE %I TO digital_footprint_runtime, digital_footprint_maintenance, digital_footprint_rotation, digital_footprint_lookup_rotation, digital_footprint_delivery',
     pg_catalog.current_database()
   );
 END
@@ -164,7 +190,9 @@ FROM digital_footprint_runtime,
   digital_footprint_retention_owner,
   digital_footprint_rotation_owner,
   digital_footprint_lookup_rotation_owner,
-  digital_footprint_lookup_rotation;
+  digital_footprint_lookup_rotation,
+  digital_footprint_delivery_owner,
+  digital_footprint_delivery;
 REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public
 FROM digital_footprint_runtime,
   digital_footprint_maintenance,
@@ -173,7 +201,9 @@ FROM digital_footprint_runtime,
   digital_footprint_retention_owner,
   digital_footprint_rotation_owner,
   digital_footprint_lookup_rotation_owner,
-  digital_footprint_lookup_rotation;
+  digital_footprint_lookup_rotation,
+  digital_footprint_delivery_owner,
+  digital_footprint_delivery;
 REVOKE CREATE ON SCHEMA public
 FROM digital_footprint_runtime,
   digital_footprint_maintenance,
@@ -182,7 +212,9 @@ FROM digital_footprint_runtime,
   digital_footprint_retention_owner,
   digital_footprint_rotation_owner,
   digital_footprint_lookup_rotation_owner,
-  digital_footprint_lookup_rotation;
+  digital_footprint_lookup_rotation,
+  digital_footprint_delivery_owner,
+  digital_footprint_delivery;
 
 GRANT USAGE ON SCHEMA public
 TO digital_footprint_runtime,
@@ -192,7 +224,9 @@ TO digital_footprint_runtime,
   digital_footprint_retention_owner,
   digital_footprint_rotation_owner,
   digital_footprint_lookup_rotation_owner,
-  digital_footprint_lookup_rotation;
+  digital_footprint_lookup_rotation,
+  digital_footprint_delivery_owner,
+  digital_footprint_delivery;
 
 GRANT USAGE ON TYPE
   public.account_state,
@@ -214,6 +248,15 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE
   public.consent_records,
   public.audit_events,
   public.deletion_receipts
+TO digital_footprint_runtime;
+
+-- Deliberately asymmetric to the full-CRUD grant above: the runtime
+-- transaction that enqueues a delivery only ever inserts a row, never reads,
+-- updates, or deletes one - the outbox worker under its own role owns every
+-- subsequent state transition.
+GRANT USAGE ON TYPE public.delivery_channel, public.delivery_state
+TO digital_footprint_runtime;
+GRANT INSERT ON TABLE public.verification_delivery_outbox
 TO digital_footprint_runtime;
 
 GRANT USAGE ON TYPE public.rate_limit_scope_kind, public.rate_limit_action
@@ -241,11 +284,21 @@ TO digital_footprint_lookup_rotation_owner;
 GRANT SELECT, INSERT ON TABLE public.identifier_lookup_tokens
 TO digital_footprint_lookup_rotation_owner;
 
+GRANT USAGE ON TYPE public.delivery_channel, public.delivery_state
+TO digital_footprint_delivery_owner;
+GRANT SELECT, UPDATE ON TABLE public.verification_delivery_outbox
+TO digital_footprint_delivery_owner;
+-- Read-only: the claim function's eligibility check joins these tables but
+-- never mutates a verification or an account.
+GRANT SELECT ON TABLE public.identifier_verifications, public.users
+TO digital_footprint_delivery_owner;
+
 GRANT CREATE ON SCHEMA public
 TO digital_footprint_rate_limit_owner,
   digital_footprint_retention_owner,
   digital_footprint_rotation_owner,
-  digital_footprint_lookup_rotation_owner;
+  digital_footprint_lookup_rotation_owner,
+  digital_footprint_delivery_owner;
 ALTER FUNCTION public.consume_action_rate_limit(text, text, public.rate_limit_action)
 OWNER TO digital_footprint_rate_limit_owner;
 ALTER FUNCTION public.consume_action_rate_limit_dual(
@@ -266,11 +319,20 @@ ALTER FUNCTION public.insert_identifier_lookup_token_for_rotation(
   uuid, uuid, public.identifier_type, text, text, text, text, jsonb, text
 )
 OWNER TO digital_footprint_lookup_rotation_owner;
+ALTER FUNCTION public.claim_verification_deliveries(timestamptz, integer, integer, text)
+OWNER TO digital_footprint_delivery_owner;
+ALTER FUNCTION public.complete_verification_delivery(timestamptz, uuid, text)
+OWNER TO digital_footprint_delivery_owner;
+ALTER FUNCTION public.report_verification_delivery_failure(
+  timestamptz, uuid, text, text, integer
+)
+OWNER TO digital_footprint_delivery_owner;
 REVOKE CREATE ON SCHEMA public
 FROM digital_footprint_rate_limit_owner,
   digital_footprint_retention_owner,
   digital_footprint_rotation_owner,
-  digital_footprint_lookup_rotation_owner;
+  digital_footprint_lookup_rotation_owner,
+  digital_footprint_delivery_owner;
 
 REVOKE ALL ON FUNCTION
   public.consume_action_rate_limit(text, text, public.rate_limit_action),
@@ -282,12 +344,16 @@ REVOKE ALL ON FUNCTION
   public.list_identifiers_missing_lookup_token(text, integer),
   public.insert_identifier_lookup_token_for_rotation(
     uuid, uuid, public.identifier_type, text, text, text, text, jsonb, text
-  )
+  ),
+  public.claim_verification_deliveries(timestamptz, integer, integer, text),
+  public.complete_verification_delivery(timestamptz, uuid, text),
+  public.report_verification_delivery_failure(timestamptz, uuid, text, text, integer)
 FROM PUBLIC,
   digital_footprint_runtime,
   digital_footprint_maintenance,
   digital_footprint_rotation,
-  digital_footprint_lookup_rotation;
+  digital_footprint_lookup_rotation,
+  digital_footprint_delivery;
 GRANT EXECUTE ON FUNCTION public.consume_action_rate_limit(text, text, public.rate_limit_action)
 TO digital_footprint_runtime;
 GRANT EXECUTE ON FUNCTION public.consume_action_rate_limit_dual(
@@ -307,6 +373,11 @@ GRANT EXECUTE ON FUNCTION
     uuid, uuid, public.identifier_type, text, text, text, text, jsonb, text
   )
 TO digital_footprint_lookup_rotation;
+GRANT EXECUTE ON FUNCTION
+  public.claim_verification_deliveries(timestamptz, integer, integer, text),
+  public.complete_verification_delivery(timestamptz, uuid, text),
+  public.report_verification_delivery_failure(timestamptz, uuid, text, text, integer)
+TO digital_footprint_delivery;
 
 COMMIT;
 
@@ -314,4 +385,5 @@ COMMIT;
 \unset maintenance_password
 \unset rotation_password
 \unset lookup_rotation_password
+\unset delivery_password
 \echo 'Hosted database roles provisioned; run npm run db:verify:boundaries next.'

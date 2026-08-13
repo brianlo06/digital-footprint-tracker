@@ -60,3 +60,10 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE
   audit_events,
   deletion_receipts
 TO digital_footprint_runtime;
+
+-- Deliberately asymmetric to the full-CRUD grant above: the runtime
+-- transaction that enqueues a delivery only ever inserts a row, never reads,
+-- updates, or deletes one - the outbox worker under its own role owns every
+-- subsequent state transition. See ADR 0017.
+GRANT USAGE ON TYPE delivery_channel, delivery_state TO digital_footprint_runtime;
+GRANT INSERT ON TABLE verification_delivery_outbox TO digital_footprint_runtime;
