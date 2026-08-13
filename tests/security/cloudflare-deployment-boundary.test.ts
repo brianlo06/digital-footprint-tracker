@@ -6,20 +6,27 @@ import { afterEach, describe, expect, it } from "vitest";
 
 const temporaryDirectories: string[] = [];
 
-function configurationFixtures(): { preview: string; retention: string } {
+function configurationFixtures(): {
+  preview: string;
+  retention: string;
+  verificationDelivery: string;
+} {
   const directory = mkdtempSync(join(tmpdir(), "dft-cloudflare-boundary-"));
   temporaryDirectories.push(directory);
   const preview = join(directory, "wrangler.jsonc");
   const retention = join(directory, "wrangler.retention.example.jsonc");
+  const verificationDelivery = join(directory, "wrangler.verification-delivery.example.jsonc");
   copyFileSync("wrangler.jsonc", preview);
   copyFileSync("wrangler.retention.example.jsonc", retention);
-  return { preview, retention };
+  copyFileSync("wrangler.verification-delivery.example.jsonc", verificationDelivery);
+  return { preview, retention, verificationDelivery };
 }
 
-function verify(preview: string, retention: string): void {
+function verify(preview: string, retention: string, verificationDelivery: string): void {
   verifyDeploymentBoundaries({
     previewConfigurationPath: preview,
     retentionConfigurationPath: retention,
+    verificationDeliveryConfigurationPath: verificationDelivery,
   });
 }
 
@@ -31,22 +38,22 @@ describe("Cloudflare deployment boundary verifier", () => {
   });
 
   it("accepts the committed no-data web and placeholder retention boundaries", () => {
-    const { preview, retention } = configurationFixtures();
-    expect(() => verify(preview, retention)).not.toThrow();
+    const { preview, retention, verificationDelivery } = configurationFixtures();
+    expect(() => verify(preview, retention, verificationDelivery)).not.toThrow();
   });
 
   it("rejects enabling authentication in the no-data preview", () => {
-    const { preview, retention } = configurationFixtures();
+    const { preview, retention, verificationDelivery } = configurationFixtures();
     writeFileSync(
       preview,
       readFileSync(preview, "utf8").replace('"AUTH_MODE": "disabled"', '"AUTH_MODE": "clerk"'),
     );
 
-    expect(() => verify(preview, retention)).toThrow("PREVIEW:AUTH_MODE");
+    expect(() => verify(preview, retention, verificationDelivery)).toThrow("PREVIEW:AUTH_MODE");
   });
 
   it("rejects a web Hyperdrive binding", () => {
-    const { preview, retention } = configurationFixtures();
+    const { preview, retention, verificationDelivery } = configurationFixtures();
     writeFileSync(
       preview,
       readFileSync(preview, "utf8").replace(
@@ -55,21 +62,23 @@ describe("Cloudflare deployment boundary verifier", () => {
       ),
     );
 
-    expect(() => verify(preview, retention)).toThrow("FORBIDDEN_BINDING_hyperdrive");
+    expect(() => verify(preview, retention, verificationDelivery)).toThrow(
+      "FORBIDDEN_BINDING_hyperdrive",
+    );
   });
 
   it("rejects an unknown future root binding until it is reviewed", () => {
-    const { preview, retention } = configurationFixtures();
+    const { preview, retention, verificationDelivery } = configurationFixtures();
     writeFileSync(
       preview,
       readFileSync(preview, "utf8").replace('"vars": {', '"future_binding": {}, "vars": {'),
     );
 
-    expect(() => verify(preview, retention)).toThrow("PREVIEW:ROOT:KEYS");
+    expect(() => verify(preview, retention, verificationDelivery)).toThrow("PREVIEW:ROOT:KEYS");
   });
 
   it("rejects secret-like values placed in public vars", () => {
-    const { preview, retention } = configurationFixtures();
+    const { preview, retention, verificationDelivery } = configurationFixtures();
     writeFileSync(
       preview,
       readFileSync(preview, "utf8").replace(
@@ -78,28 +87,30 @@ describe("Cloudflare deployment boundary verifier", () => {
       ),
     );
 
-    expect(() => verify(preview, retention)).toThrow("SECRET_LIKE_VAR_CLERK_SECRET_KEY");
+    expect(() => verify(preview, retention, verificationDelivery)).toThrow(
+      "SECRET_LIKE_VAR_CLERK_SECRET_KEY",
+    );
   });
 
   it("rejects comments that could hide unparsed configuration", () => {
-    const { preview, retention } = configurationFixtures();
+    const { preview, retention, verificationDelivery } = configurationFixtures();
     writeFileSync(preview, `// synthetic hidden change\n${readFileSync(preview, "utf8")}`);
 
-    expect(() => verify(preview, retention)).toThrow("COMMENTS_FORBIDDEN");
+    expect(() => verify(preview, retention, verificationDelivery)).toThrow("COMMENTS_FORBIDDEN");
   });
 
   it("rejects automatic invocation logging", () => {
-    const { preview, retention } = configurationFixtures();
+    const { preview, retention, verificationDelivery } = configurationFixtures();
     writeFileSync(
       preview,
       readFileSync(preview, "utf8").replace('"invocation_logs": false', '"invocation_logs": true'),
     );
 
-    expect(() => verify(preview, retention)).toThrow("INVOCATION_LOGS");
+    expect(() => verify(preview, retention, verificationDelivery)).toThrow("INVOCATION_LOGS");
   });
 
   it("rejects replacing the retention placeholder in the committed template", () => {
-    const { preview, retention } = configurationFixtures();
+    const { preview, retention, verificationDelivery } = configurationFixtures();
     writeFileSync(
       retention,
       readFileSync(retention, "utf8").replace(
@@ -108,6 +119,53 @@ describe("Cloudflare deployment boundary verifier", () => {
       ),
     );
 
-    expect(() => verify(preview, retention)).toThrow("MAINTENANCE_BINDING_TEMPLATE");
+    expect(() => verify(preview, retention, verificationDelivery)).toThrow(
+      "MAINTENANCE_BINDING_TEMPLATE",
+    );
+  });
+
+  it("rejects replacing the verification-delivery database placeholder in the committed template", () => {
+    const { preview, retention, verificationDelivery } = configurationFixtures();
+    writeFileSync(
+      verificationDelivery,
+      readFileSync(verificationDelivery, "utf8").replace(
+        "00000000000000000000000000000000",
+        "11111111111111111111111111111111",
+      ),
+    );
+
+    expect(() => verify(preview, retention, verificationDelivery)).toThrow(
+      "DATABASE_BINDING_TEMPLATE",
+    );
+  });
+
+  it("rejects disabling the verification-delivery kill switch's default-on posture", () => {
+    const { preview, retention, verificationDelivery } = configurationFixtures();
+    writeFileSync(
+      verificationDelivery,
+      readFileSync(verificationDelivery, "utf8").replace(
+        '"DELIVERY_KILL_SWITCH": "true"',
+        '"DELIVERY_KILL_SWITCH": "false"',
+      ),
+    );
+
+    expect(() => verify(preview, retention, verificationDelivery)).toThrow(
+      "KILL_SWITCH_DEFAULT_ON",
+    );
+  });
+
+  it("rejects a verification-delivery provider secret placed in a plain var", () => {
+    const { preview, retention, verificationDelivery } = configurationFixtures();
+    writeFileSync(
+      verificationDelivery,
+      readFileSync(verificationDelivery, "utf8").replace(
+        '"DELIVERY_ENCRYPTION_KEY_ID": "example-delivery-v1",',
+        '"DELIVERY_ENCRYPTION_KEY_ID": "example-delivery-v1", "PROVIDER_API_KEY": "synthetic",',
+      ),
+    );
+
+    expect(() => verify(preview, retention, verificationDelivery)).toThrow(
+      "SECRET_LIKE_VAR_PROVIDER_API_KEY",
+    );
   });
 });

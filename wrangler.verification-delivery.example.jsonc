@@ -1,0 +1,41 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "digital-footprint-tracker-verification-delivery-preview",
+  "main": "workers/verification-delivery.ts",
+  "compatibility_date": "2026-08-11",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": false,
+  "preview_urls": false,
+  "placement": { "mode": "smart" },
+  "triggers": {
+    "crons": ["* * * * *"],
+  },
+  "hyperdrive": [
+    {
+      "binding": "DELIVERY_DATABASE",
+      "id": "00000000000000000000000000000000",
+    },
+  ],
+  "secrets_store_secrets": [
+    {
+      "binding": "DELIVERY_ENCRYPTION_KEY",
+      "store_id": "00000000000000000000000000000000",
+      "secret_name": "delivery-encryption-key",
+    },
+  ],
+  "observability": {
+    "enabled": true,
+    "logs": {
+      "enabled": true,
+      "head_sampling_rate": 1,
+      "invocation_logs": false,
+    },
+    "traces": { "enabled": false },
+  },
+  "vars": {
+    "DELIVERY_ENCRYPTION_KEY_ID": "example-delivery-v1",
+    "DELIVERY_KILL_SWITCH": "true",
+    "DELIVERY_CLAIM_BATCH_SIZE": "25",
+    "DELIVERY_CLAIM_LEASE_SECONDS": "120",
+  },
+}

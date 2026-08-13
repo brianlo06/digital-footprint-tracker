@@ -14,6 +14,7 @@
     "cf:typecheck": "wrangler types --env-file /dev/null --env-interface CloudflareEnv --include-runtime=false --strict-vars=false --check cloudflare-env.d.ts",
     "cf:verify:boundaries": "node scripts/verify-cloudflare-deployment-boundaries.mjs",
     "cf:retention:build": "npm run cf:verify:boundaries && wrangler deploy --dry-run --config wrangler.retention.example.jsonc --outdir .wrangler/retention-build",
+    "cf:verification-delivery:build": "npm run cf:verify:boundaries && wrangler deploy --dry-run --config wrangler.verification-delivery.example.jsonc --outdir .wrangler/verification-delivery-build",
     "preview": "npm run cf:build && opennextjs-cloudflare preview",
     "deploy": "npm run cf:build && OPEN_NEXT_DEPLOY=true wrangler deploy",
     "upload": "npm run cf:build && OPEN_NEXT_DEPLOY=true wrangler versions upload",

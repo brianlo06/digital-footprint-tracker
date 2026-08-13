@@ -3,6 +3,7 @@ import { pathToFileURL } from "node:url";
 
 const previewPath = "wrangler.jsonc";
 const retentionPath = "wrangler.retention.example.jsonc";
+const verificationDeliveryPath = "wrangler.verification-delivery.example.jsonc";
 
 const forbiddenBindingKeys = [
   "ai",
@@ -241,14 +242,97 @@ function verifyRetentionTemplateBoundary(configuration, path) {
   expect(configuration.vars.ORPHAN_AUDIT_RETENTION_DAYS === "365", "RETENTION:AUDIT_DAYS");
 }
 
+function verifyVerificationDeliveryTemplateBoundary(configuration, path) {
+  verifyCommonWorkerBoundary(configuration, path);
+  for (const key of forbiddenBindingKeys) {
+    if (key === "hyperdrive" || key === "secrets_store_secrets") continue;
+    expect(!(key in configuration), `DELIVERY:FORBIDDEN_BINDING_${key}`);
+  }
+  expectExactKeys(
+    configuration,
+    [
+      "$schema",
+      "name",
+      "main",
+      "compatibility_date",
+      "compatibility_flags",
+      "workers_dev",
+      "preview_urls",
+      "placement",
+      "triggers",
+      "hyperdrive",
+      "secrets_store_secrets",
+      "observability",
+      "vars",
+    ],
+    "DELIVERY:ROOT",
+  );
+  expect(
+    configuration.name === "digital-footprint-tracker-verification-delivery-preview",
+    "DELIVERY:NAME",
+  );
+  expect(configuration.main === "workers/verification-delivery.ts", "DELIVERY:MAIN");
+  expect(
+    JSON.stringify(configuration.placement) === JSON.stringify({ mode: "smart" }),
+    "DELIVERY:PLACEMENT",
+  );
+  expect(
+    JSON.stringify(configuration.triggers) === JSON.stringify({ crons: ["* * * * *"] }),
+    "DELIVERY:CRON",
+  );
+  expect(!("routes" in configuration), "DELIVERY:ROUTES");
+  expect(!("assets" in configuration), "DELIVERY:ASSETS");
+  expect(
+    JSON.stringify(configuration.hyperdrive) ===
+      JSON.stringify([
+        {
+          binding: "DELIVERY_DATABASE",
+          id: "00000000000000000000000000000000",
+        },
+      ]),
+    "DELIVERY:DATABASE_BINDING_TEMPLATE",
+  );
+  expect(
+    JSON.stringify(configuration.secrets_store_secrets) ===
+      JSON.stringify([
+        {
+          binding: "DELIVERY_ENCRYPTION_KEY",
+          store_id: "00000000000000000000000000000000",
+          secret_name: "delivery-encryption-key",
+        },
+      ]),
+    "DELIVERY:ENCRYPTION_KEY_SECRET_TEMPLATE",
+  );
+  expectExactKeys(
+    configuration.vars,
+    [
+      "DELIVERY_ENCRYPTION_KEY_ID",
+      "DELIVERY_KILL_SWITCH",
+      "DELIVERY_CLAIM_BATCH_SIZE",
+      "DELIVERY_CLAIM_LEASE_SECONDS",
+    ],
+    "DELIVERY:VARS",
+  );
+  // The kill switch must ship default-on: only an explicit "false" enables
+  // claiming, so a missing or mistyped variable fails closed.
+  expect(configuration.vars.DELIVERY_KILL_SWITCH === "true", "DELIVERY:KILL_SWITCH_DEFAULT_ON");
+  expect(configuration.vars.DELIVERY_CLAIM_BATCH_SIZE === "25", "DELIVERY:CLAIM_BATCH_SIZE");
+  expect(configuration.vars.DELIVERY_CLAIM_LEASE_SECONDS === "120", "DELIVERY:CLAIM_LEASE_SECONDS");
+}
+
 export function verifyDeploymentBoundaries({
   previewConfigurationPath = previewPath,
   retentionConfigurationPath = retentionPath,
+  verificationDeliveryConfigurationPath = verificationDeliveryPath,
 } = {}) {
   verifyPreviewBoundary(parseConfiguration(previewConfigurationPath), previewConfigurationPath);
   verifyRetentionTemplateBoundary(
     parseConfiguration(retentionConfigurationPath),
     retentionConfigurationPath,
+  );
+  verifyVerificationDeliveryTemplateBoundary(
+    parseConfiguration(verificationDeliveryConfigurationPath),
+    verificationDeliveryConfigurationPath,
   );
 }
 

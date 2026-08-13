@@ -50,6 +50,8 @@ jobs:
         run: npm run cf:typecheck
       - name: Build least-privileged retention Worker
         run: npm run cf:retention:build
+      - name: Build least-privileged verification-delivery Worker
+        run: npm run cf:verification-delivery:build
 
   database-integration:
     name: PostgreSQL integration

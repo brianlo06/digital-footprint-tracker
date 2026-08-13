@@ -17,10 +17,14 @@ import {
   type DeliveryProvider,
 } from "../src/verification/delivery-provider";
 
+interface SecretsStoreSecret {
+  get(): Promise<string>;
+}
+
 interface VerificationDeliveryWorkerEnv {
   readonly DELIVERY_DATABASE: { readonly connectionString: string };
   readonly DELIVERY_ENCRYPTION_KEY_ID: string;
-  readonly DELIVERY_ENCRYPTION_KEY: string;
+  readonly DELIVERY_ENCRYPTION_KEY: SecretsStoreSecret;
   readonly DELIVERY_KILL_SWITCH?: string;
   readonly DELIVERY_CLAIM_BATCH_SIZE?: string;
   readonly DELIVERY_CLAIM_LEASE_SECONDS?: string;
@@ -42,7 +46,10 @@ const verificationDeliveryWorker = {
   },
 
   async scheduled(controller: ScheduledEvent, env: VerificationDeliveryWorkerEnv): Promise<void> {
-    if (env.DELIVERY_KILL_SWITCH === "true") return;
+    // Default-on: any value other than the explicit opt-out blocks claiming,
+    // so an accidental deployment or a missing/misconfigured variable fails
+    // closed instead of silently starting to send.
+    if (env.DELIVERY_KILL_SWITCH !== "false") return;
 
     const now = new Date(controller.scheduledTime);
     const client = postgres(env.DELIVERY_DATABASE.connectionString, {
@@ -55,7 +62,7 @@ const verificationDeliveryWorker = {
       const database = drizzle(client, { schema });
       const keyring = createDeliveryKeyring({
         keyId: env.DELIVERY_ENCRYPTION_KEY_ID,
-        encryptionKeyBase64: env.DELIVERY_ENCRYPTION_KEY,
+        encryptionKeyBase64: await env.DELIVERY_ENCRYPTION_KEY.get(),
       });
       // Phase 1: no real provider is approved yet. A hosted deployment must
       // replace this with an approved provider before it can send anything.
