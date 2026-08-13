@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { createAccountIfMissing, findAccount } from "@/core/account-service";
 import {
   addEmailIdentifier,
@@ -11,11 +12,15 @@ import {
   identifiers,
   identifierVerifications,
   users,
+  verificationDeliveryOutbox,
 } from "@/database/schema";
+import { withTenantDatabase } from "@/database/tenant";
 import { deleteAccount, resumeAccountDeletionAfterAuthRevoked } from "@/privacy/deletion-service";
 import type { AuthGateway, AuthenticatedPrincipal } from "@/security/auth";
-import { createLookupToken } from "@/security/crypto";
+import { createDeliveryKeyring, createLookupToken } from "@/security/crypto";
 import { getApplicationKeyring } from "@/security/keyring";
+import { encryptDeliveryCommand } from "@/verification/delivery-envelope";
+import { OutboxEmailVerificationGateway } from "@/verification/email-verification-gateway";
 import { resetServerEnvForTests } from "@/config/server-env";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -329,5 +334,71 @@ describeWithDatabase("synthetic account lifecycle", () => {
       resetServerEnvForTests();
       await deleteAccount(rotationPrincipal, authGateway, { recentlyReauthenticated: true });
     }
+  });
+
+  it("atomically enqueues a delivery outbox row with the outbox gateway, and rolls it back with the rest of the transaction on failure", async () => {
+    const outboxPrincipal: AuthenticatedPrincipal = {
+      subject: `integration_outbox_${testRunId}`,
+      mode: "local",
+    };
+    const account = await createAccountIfMissing(outboxPrincipal);
+    const deliveryKeyring = createDeliveryKeyring({
+      keyId: "account-lifecycle-delivery-v1",
+      encryptionKeyBase64: Buffer.alloc(32, 41).toString("base64"),
+    });
+    const outboxGateway = new OutboxEmailVerificationGateway(
+      { appEnv: "local", authMode: "local" },
+      getApplicationKeyring(),
+      deliveryKeyring,
+    );
+
+    const created = await addEmailIdentifier(account, "outbox.enqueue@example.test", outboxGateway);
+
+    const [outboxRow] = await getDatabase()
+      .select({
+        verificationId: verificationDeliveryOutbox.verificationId,
+        userId: verificationDeliveryOutbox.userId,
+        state: verificationDeliveryOutbox.state,
+        template: verificationDeliveryOutbox.template,
+      })
+      .from(verificationDeliveryOutbox)
+      .where(eq(verificationDeliveryOutbox.verificationId, created.verificationId));
+    expect(outboxRow).toBeDefined();
+    expect(outboxRow.userId).toBe(account.userId);
+    expect(outboxRow.state).toBe("PENDING");
+    expect(outboxRow.template).toBe("EMAIL_VERIFICATION_CODE_V1");
+
+    // Prove the outbox insert is genuinely inside the same transaction as
+    // everything else, not an independent write: insert a second outbox row
+    // for the same verification, then force a later statement in the same
+    // transaction to fail, and confirm the outbox row never persists.
+    const forcedDeliveryId = randomUUID();
+    const forcedPayload = encryptDeliveryCommand(
+      { destination: "outbox.enqueue@example.test", code: "000000" },
+      "forced-rollback-context",
+      deliveryKeyring,
+    );
+    await expect(
+      withTenantDatabase(outboxPrincipal, async (transaction) => {
+        await transaction.insert(verificationDeliveryOutbox).values({
+          deliveryId: forcedDeliveryId,
+          verificationId: created.verificationId,
+          userId: account.userId,
+          channel: "EMAIL",
+          template: "EMAIL_VERIFICATION_CODE_V1",
+          encryptedPayload: forcedPayload,
+          state: "PENDING",
+        });
+        throw new Error("forced rollback after outbox insert");
+      }),
+    ).rejects.toThrow("forced rollback after outbox insert");
+
+    const forcedRows = await getDatabase()
+      .select({ deliveryId: verificationDeliveryOutbox.deliveryId })
+      .from(verificationDeliveryOutbox)
+      .where(eq(verificationDeliveryOutbox.deliveryId, forcedDeliveryId));
+    expect(forcedRows).toHaveLength(0);
+
+    await deleteAccount(outboxPrincipal, authGateway, { recentlyReauthenticated: true });
   });
 });

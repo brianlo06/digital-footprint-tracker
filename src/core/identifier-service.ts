@@ -7,6 +7,7 @@ import {
   identifierLookupTokens,
   identifiers,
   identifierVerifications,
+  verificationDeliveryOutbox,
 } from "@/database/schema";
 import { withTenantDatabase } from "@/database/tenant";
 import type { AuthenticatedPrincipal } from "@/security/auth";
@@ -104,6 +105,17 @@ export async function addEmailIdentifier(
       status: "PENDING",
       expiresAt: challenge.expiresAt,
     });
+    if (challenge.delivery) {
+      await transaction.insert(verificationDeliveryOutbox).values({
+        deliveryId: challenge.delivery.deliveryId,
+        verificationId,
+        userId: account.userId,
+        channel: challenge.delivery.channel,
+        template: challenge.delivery.template,
+        encryptedPayload: challenge.delivery.encryptedPayload,
+        state: "PENDING",
+      });
+    }
     await transaction.insert(consentRecords).values({
       userId: account.userId,
       identityId: account.identityId,

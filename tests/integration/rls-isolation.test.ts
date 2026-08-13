@@ -3,7 +3,13 @@ import { createAccountIfMissing } from "@/core/account-service";
 import { addEmailIdentifier } from "@/core/identifier-service";
 import { resetServerEnvForTests } from "@/config/server-env";
 import { closeDatabase, getDatabase } from "@/database/client";
-import { deletionReceipts, identifiers, users } from "@/database/schema";
+import {
+  deletionReceipts,
+  identifiers,
+  identifierVerifications,
+  users,
+  verificationDeliveryOutbox,
+} from "@/database/schema";
 import { deletionSubjectToken } from "@/database/tenant";
 import type { AuthenticatedPrincipal } from "@/security/auth";
 import { eq, inArray } from "drizzle-orm";
@@ -149,12 +155,52 @@ describeWithDatabase("PostgreSQL row-level tenant isolation", () => {
         'consent_records',
         'audit_events',
         'deletion_receipts',
-        'rate_limit_windows'
+        'rate_limit_windows',
+        'verification_delivery_outbox'
       )
       order by relname
     `;
-    expect(protectedTables).toHaveLength(9);
+    expect(protectedTables).toHaveLength(10);
     expect(protectedTables.every((table) => table.enabled && table.forced)).toBe(true);
+  });
+
+  it("lets runtime insert into the delivery outbox but denies direct read or write", async () => {
+    const [verificationRow] = await getDatabase()
+      .select({ id: identifierVerifications.id })
+      .from(identifierVerifications)
+      .where(eq(identifierVerifications.identifierId, ownerIdentifierId));
+
+    const deliveryId = randomUUID();
+    await expect(
+      withRawTenant(ownerPrincipal, async (transaction) => {
+        await transaction`
+          insert into verification_delivery_outbox (
+            delivery_id, verification_id, user_id, template, encrypted_payload, state
+          ) values (
+            ${deliveryId}, ${verificationRow.id}, ${ownerUserId},
+            'EMAIL_VERIFICATION_CODE_V1', ${JSON.stringify({ placeholder: true })}, 'PENDING'
+          )
+        `;
+      }),
+    ).resolves.not.toThrow();
+
+    await expect(
+      runtimeSql`select 1 from verification_delivery_outbox where delivery_id = ${deliveryId}`,
+    ).rejects.toMatchObject({ code: "42501" });
+    await expect(
+      runtimeSql`
+        update verification_delivery_outbox
+        set state = 'CANCELLED'
+        where delivery_id = ${deliveryId}
+      `,
+    ).rejects.toMatchObject({ code: "42501" });
+    await expect(
+      runtimeSql`delete from verification_delivery_outbox where delivery_id = ${deliveryId}`,
+    ).rejects.toMatchObject({ code: "42501" });
+
+    await getDatabase()
+      .delete(verificationDeliveryOutbox)
+      .where(eq(verificationDeliveryOutbox.deliveryId, deliveryId));
   });
 
   it("fails closed without context and does not leak transaction-local identity", async () => {
