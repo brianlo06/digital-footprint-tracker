@@ -163,4 +163,19 @@ The recorded approval does not authorize a live personal-data call. That remains
 
 Verification: `npm run check` passed with 169 service-independent tests, `npm run build` passed, and `npm run cf:verify:boundaries` confirmed the no-provider hosted Worker boundary.
 
-Remaining synthetic-only Phase 2 work includes the verification/consent invocation service, quota and cost-reservation ledger, normalized provenance persistence/display, user-visible coverage guidance, and a complete kill-switch rollback exercise. A live HIBP adapter, credential binding, real email, and nonzero budget remain out of scope.
+### Slice 2 — invocation authorization and local reservation controls (complete 2026-08-15)
+
+- a persistence-neutral invocation service requires exact account, identity, identifier, and consent ownership alignment before provider work;
+- the account and identity must be active, and the email must be product-verified no more than 24 hours before invocation;
+- consent must be granted, unwithdrawn, non-future, and match purpose `BREACH_METADATA_LOOKUP`, policy `phase2-breach-v1`, and both the `EMAIL_IDENTIFIER` and `BREACH_METADATA` categories;
+- a local single-process ledger reserves user/provider daily requests, provider monthly requests, and provider daily/monthly cost units before dispatch;
+- every omitted quota and cost limit defaults to zero, including the zero-cost synthetic adapter's request allowance;
+- opaque request fingerprints bind idempotency keys to one invocation, concurrent duplicate reservations cannot consume capacity twice, and completed or failed invocations cannot redispatch;
+- dispatched provider failures remain counted, while only an explicitly released pre-dispatch reservation restores capacity; and
+- the invocation passes only an opaque identifier UUID to the adapter and does not introduce a route, raw email, credential, network client, hosted activation, or nonzero cost.
+
+The ledger implementation is intentionally in-memory and local-only. It proves the contract and fail-closed behavior but is not a distributed consistency boundary. A PostgreSQL-backed ledger and authorization snapshot adapter, including migrations and RLS tests, are required before any hosted invocation path can exist.
+
+Verification: the focused provider suite passes 47 tests, `npm run check` passes with 192 service-independent tests, `npm run build` passes, and `npm run cf:verify:boundaries` confirms the no-provider hosted Worker boundary.
+
+Remaining synthetic-only Phase 2 work includes durable tenant-isolated invocation persistence, a purpose-specific consent creation flow, normalized provenance persistence/display, user-visible coverage guidance, and a complete kill-switch rollback exercise. A live HIBP adapter, credential binding, real email, nonzero budget, route-level provider activation, and external network use remain out of scope.
