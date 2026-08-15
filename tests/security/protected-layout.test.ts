@@ -24,7 +24,7 @@ describe("protected layout authentication", () => {
   });
 
   afterEach(() => {
-    if (originalAuthMode === undefined) delete process.env.AUTH_MODE;
+    if (originalAuthMode === undefined) Reflect.deleteProperty(process.env, "AUTH_MODE");
     else process.env.AUTH_MODE = originalAuthMode;
   });
 
