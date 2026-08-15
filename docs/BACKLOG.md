@@ -69,7 +69,7 @@ This is planning inventory. Do not execute items until their phase is approved.
 
 ### P0-10 Provider approval gate and first-provider decision
 
-**Status:** Internal readiness packet complete; HIBP is conditionally preferred, live budget is zero, and customer-facing commercial permission remains an external blocker. See `PHASE_2_READINESS.md`.
+**Status:** Synthetic-only Phase 2 approved; HIBP is conditionally preferred, live budget is zero, and customer-facing commercial permission remains an external blocker. See `PHASE_2_READINESS.md`.
 **Reason:** technical availability does not equal permitted/recommended use.  
 **Dependencies:** legal/privacy/security review, value research, hard budget.  
 **Acceptance criteria:** completed checklist, current terms/API evidence, DPA/security/cost/retention, kill switch, exit plan, explicit owner approval.  

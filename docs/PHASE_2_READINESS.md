@@ -1,21 +1,21 @@
 # Phase 2 Readiness and First-Provider Decision
 
-**Status:** Internal preflight complete on 2026-08-15; ready for owner review. Phase 2 implementation and all non-synthetic provider use remain unauthorized.
+**Status:** Synthetic-only Phase 2 approved by the owner on 2026-08-15 and in progress. All non-synthetic provider use remains unauthorized.
 
 **Review boundary:** Product, engineering, privacy, and security review only. This is not legal advice. Qualified counsel must review the contract and launch obligations before external users or non-synthetic personal data are introduced.
 
 ## Decision summary
 
-| Decision                | Recorded position                                                                                                                                                   |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Initial persona         | One adult in the United States monitoring only their own recently verified email                                                                                    |
-| Excluded users and uses | Minors, family/delegated accounts, employers, background checks, third-party lookup, public search, bulk input, and arbitrary email queries                         |
-| First capability        | User-triggered exact-email breach metadata; no scheduling or fallback provider                                                                                      |
-| Preferred provider      | Have I Been Pwned (HIBP), conditional on written confirmation that the contracted service permits this customer-facing self-monitoring use                          |
-| Implementation mode     | Mock and HIBP-documented synthetic accounts only; real-provider feature flag and spend budget default to zero/off                                                   |
-| Live-provider budget    | USD 0 until a compatible contract and quote receive separate owner approval                                                                                         |
-| Adapter architecture    | ADR 0003 accepted; server-only, replaceable, capability-gated, and unable to write findings directly                                                                |
-| Phase 2 start           | Requires the owner's explicit approval of this packet after the commercial-use question is resolved or explicitly deferred to a synthetic-only implementation slice |
+| Decision                | Recorded position                                                                                                                           |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| Initial persona         | One adult in the United States monitoring only their own recently verified email                                                            |
+| Excluded users and uses | Minors, family/delegated accounts, employers, background checks, third-party lookup, public search, bulk input, and arbitrary email queries |
+| First capability        | User-triggered exact-email breach metadata; no scheduling or fallback provider                                                              |
+| Preferred provider      | Have I Been Pwned (HIBP), conditional on written confirmation that the contracted service permits this customer-facing self-monitoring use  |
+| Implementation mode     | Mock and HIBP-documented synthetic accounts only; real-provider feature flag and spend budget default to zero/off                           |
+| Live-provider budget    | USD 0 until a compatible contract and quote receive separate owner approval                                                                 |
+| Adapter architecture    | ADR 0003 accepted; server-only, replaceable, capability-gated, and unable to write findings directly                                        |
+| Phase 2 start           | Owner approved the synthetic-only implementation slice on 2026-08-15; contracted and live-provider work remains blocked                     |
 
 The United States scope is an engineering evaluation boundary, not a conclusion that one nationwide legal analysis is sufficient. No external-user launch is authorized until applicable state privacy, breach-notification, consumer-protection, and business obligations are mapped by qualified counsel.
 
@@ -139,11 +139,28 @@ Rollback order:
 5. Delete or quarantine provider-derived data according to the approved contract and notify affected users if required.
 6. Keep the provider disabled until a new dated approval packet and explicit owner authorization exist.
 
-## Remaining owner/external commitments
+## Authorization recorded
 
-Before unrestricted Phase 2 implementation begins, the owner must choose one of two bounded authorizations:
+The owner selected the first bounded authorization on 2026-08-15:
 
-1. **Synthetic-only Phase 2:** implement contracts, fixtures, disabled HIBP adapter, zero budget, provenance UI, and rollback tests while the vendor inquiry is pending; or
-2. **Contracted Phase 2:** first obtain written HIBP permission/terms and a quote, record counsel and owner approval, then implement against those exact constraints.
+1. **Approved — synthetic-only Phase 2:** implement contracts, fixtures, disabled-by-default synthetic breach adapter, zero budget, provenance UI, and rollback tests while the vendor inquiry is pending.
+2. **Not approved — contracted Phase 2:** first obtain written HIBP permission/terms and a quote, record counsel and owner approval, then implement against those exact constraints.
 
-Neither choice authorizes a live personal-data call. That remains the separately approved exit test above.
+The recorded approval does not authorize a live personal-data call. That remains the separately approved exit test above.
+
+## Implementation progress
+
+### Slice 1 — synthetic provider boundary (complete 2026-08-15)
+
+- the generic provider contract now has a typed verified-email breach capability, bounded error descriptors, and opaque safe-code errors;
+- a server-only synthetic breach adapter accepts only an opaque UUID email reference with the exact `VERIFIED_EMAIL_SELF` scope;
+- fictional success, empty, duplicate, malformed, hostile, schema-change, timeout, authentication, rate-limit, outage, and pagination fixtures exercise the contract without a credential or network client;
+- strict response schemas reject extra or unsafe fields before normalization;
+- scan context enforces UUIDs, idempotency-key shape, deadline, result bound, and an exact zero-unit budget;
+- the registry requires an explicit local environment, synthetic selection, feature flag, and released kill switch together;
+- server environment validation rejects mixed configurations, every hosted synthetic configuration, and every non-empty breach API key; and
+- source-boundary tests reject network clients, live HIBP endpoints/headers, provider credential access, and direct `process.env` reads anywhere under `src/providers`.
+
+Verification: `npm run check` passed with 169 service-independent tests, `npm run build` passed, and `npm run cf:verify:boundaries` confirmed the no-provider hosted Worker boundary.
+
+Remaining synthetic-only Phase 2 work includes the verification/consent invocation service, quota and cost-reservation ledger, normalized provenance persistence/display, user-visible coverage guidance, and a complete kill-switch rollback exercise. A live HIBP adapter, credential binding, real email, and nonzero budget remain out of scope.

@@ -170,4 +170,59 @@ describe("database connection environment boundary", () => {
     resetServerEnvForTests();
     expect(getServerEnv().CLERK_WEBHOOK_SIGNING_SECRET).toBe("whsec_example");
   });
+
+  it("defaults to a fully disabled breach-provider configuration", () => {
+    configureRequiredEnvironment();
+    vi.stubEnv("BREACH_PROVIDER", undefined);
+    vi.stubEnv("BREACH_PROVIDER_KILL_SWITCH", undefined);
+    vi.stubEnv("FEATURE_BREACH_SCAN", undefined);
+    vi.stubEnv("BREACH_API_KEY", undefined);
+    resetServerEnvForTests();
+
+    expect(getServerEnv()).toMatchObject({
+      BREACH_PROVIDER: "disabled",
+      BREACH_PROVIDER_KILL_SWITCH: true,
+      FEATURE_BREACH_SCAN: false,
+    });
+  });
+
+  it("accepts only the exact local synthetic breach-provider configuration", () => {
+    configureRequiredEnvironment();
+    vi.stubEnv("APP_ENV", "local");
+    vi.stubEnv("BREACH_PROVIDER", "synthetic");
+    vi.stubEnv("BREACH_PROVIDER_KILL_SWITCH", "false");
+    vi.stubEnv("FEATURE_BREACH_SCAN", "true");
+    resetServerEnvForTests();
+
+    expect(getServerEnv()).toMatchObject({
+      BREACH_PROVIDER: "synthetic",
+      BREACH_PROVIDER_KILL_SWITCH: false,
+      FEATURE_BREACH_SCAN: true,
+    });
+  });
+
+  it("rejects mixed or hosted synthetic breach-provider configurations", () => {
+    configureRequiredEnvironment();
+    vi.stubEnv("BREACH_PROVIDER", "synthetic");
+    vi.stubEnv("BREACH_PROVIDER_KILL_SWITCH", "false");
+    vi.stubEnv("FEATURE_BREACH_SCAN", "true");
+    resetServerEnvForTests();
+
+    expect(() => getServerEnv()).toThrow("explicitly enabled local synthetic configuration");
+
+    vi.stubEnv("APP_ENV", "local");
+    vi.stubEnv("BREACH_PROVIDER_KILL_SWITCH", "true");
+    resetServerEnvForTests();
+    expect(() => getServerEnv()).toThrow("fully disabled");
+  });
+
+  it("rejects every live breach-provider credential during synthetic-only Phase 2", () => {
+    configureRequiredEnvironment();
+    vi.stubEnv("BREACH_API_KEY", "synthetic-provider-key-must-not-be-accepted");
+    resetServerEnvForTests();
+
+    expect(() => getServerEnv()).toThrow(
+      "live breach-provider credentials are forbidden in synthetic-only Phase 2",
+    );
+  });
 });

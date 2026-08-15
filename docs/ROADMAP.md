@@ -18,7 +18,7 @@ No later phase begins without explicit owner approval. Security/privacy/legal ga
 **Risks:** auth lock-in, premature UI breadth, encryption/log leakage, deletion gaps.  
 **Exit Criteria:** threat-reviewed auth/authorization; no real providers; synthetic E2E add/mask/delete flow; PII log canary and tenant-isolation tests pass. Met on 2026-08-15; see `PHASE_1_STATUS.md`. Hosted personal-data activation remains separately gated there.
 
-## Phase 2 — First low-risk provider
+## Phase 2 — First low-risk provider (in progress, synthetic-only)
 
 **Objective:** prove one provider end-to-end without building a general scanner.  
 **Deliverables:** provider selection memo and legal/ToS/security review; feature flag/kill switch; synthetic contract fixtures; server-only adapter; verified-email capability gate; hard quota/cost ledger; provenance display. HIBP is the conditional preferred breach-metadata provider; `PHASE_2_READINESS.md` blocks non-synthetic use pending compatible written terms.

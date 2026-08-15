@@ -13,7 +13,12 @@ export default defineConfig({
     include: ["tests/**/*.test.ts"],
     coverage: {
       reporter: ["text", "html"],
-      include: ["src/core/**/*.ts", "src/privacy/**/*.ts", "src/security/**/*.ts"],
+      include: [
+        "src/core/**/*.ts",
+        "src/privacy/**/*.ts",
+        "src/providers/**/*.ts",
+        "src/security/**/*.ts",
+      ],
     },
   },
 });

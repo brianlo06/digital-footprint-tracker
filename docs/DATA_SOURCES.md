@@ -1,6 +1,6 @@
 # Future Data Sources
 
-**Status:** Research only. No provider is integrated or called.  
+**Status:** Conditional provider research plus a local-only synthetic breach adapter. No live provider is integrated or called.
 **Research date:** 2026-08-15; availability, terms, prices, and limits must be rechecked at contract acceptance, implementation, live test, and launch.
 
 ## Evaluation framework

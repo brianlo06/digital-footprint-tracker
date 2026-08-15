@@ -4,7 +4,7 @@
 
 Digital Footprint Tracker is a privacy-first evidence platform for individuals to understand their own public online presence: what is visible, where it came from, how confidently it relates to them, how sensitive it is, how it changes over time, and what they can safely do next.
 
-Phase 0 architecture and the Phase 1 local-first application foundation are complete. The foundation includes a responsive shell, an authentication boundary, an explicit account-onboarding action, envelope-encrypted email identifiers, local-only fake verification, consent/audit records, and deletion primitives. A public, no-data Cloudflare preview is available at [dft.jarvisworlds.com](https://dft.jarvisworlds.com). It does **not** scan, scrape, query providers, enumerate usernames, send email, or schedule jobs. Hosted personal-data features remain disabled behind the pre-production activation gates in the [Phase 1 status](docs/PHASE_1_STATUS.md).
+Phase 0 architecture and the Phase 1 local-first application foundation are complete. Phase 2 is approved for synthetic-only provider work: fictional contract fixtures and disabled-by-default adapters may run locally, with zero live-provider spend or calls. The foundation includes a responsive shell, an authentication boundary, an explicit account-onboarding action, envelope-encrypted email identifiers, local-only fake verification, consent/audit records, and deletion primitives. A public, no-data Cloudflare preview is available at [dft.jarvisworlds.com](https://dft.jarvisworlds.com). It does **not** scan, scrape, query live providers, enumerate usernames, send email, or schedule jobs. Hosted personal-data features remain disabled behind the pre-production activation gates in the [Phase 1 status](docs/PHASE_1_STATUS.md).
 
 ## Safety boundary
 
@@ -115,6 +115,6 @@ The pinned GitHub Actions workflow runs `npm run check`, the production build, m
 
 ## Not implemented
 
-No real provider adapter, scan engine, finding dashboard, notification delivery, broker workflow, owned-domain check, search/social/breach call, hosted personal-data store, or production authentication configuration exists. The retention Cron source is operational infrastructure only and is not deployed. The deployed Worker is a public preview shell. Placeholder provider contracts and documentation do not perform provider network activity. Phase 2 must not begin without a separate provider approval, legal/ToS/privacy/security review, and explicit owner authorization.
+No live provider adapter, scan engine, finding dashboard, notification delivery, broker workflow, owned-domain check, search/social/breach call, hosted personal-data store, or production authentication configuration exists. The retention Cron source is operational infrastructure only and is not deployed. The deployed Worker is a public preview shell. The approved Phase 2 synthetic adapter and fictional fixtures contain no network client and cannot accept a live credential. Contracted or live-provider work must not begin without compatible written terms, legal/ToS/privacy/security review, a nonzero budget decision, and separate owner authorization.
 
 This project is not legal advice. Never commit secrets or real personal data.

@@ -16,12 +16,16 @@ function sourceFiles(directory: string): string[] {
 }
 
 describe("closed provider boundary", () => {
-  it("contains no network client or executable adapter", () => {
+  it("contains no network client, live endpoint, or provider credential access", () => {
     const forbiddenPatterns = [
       /\bfetch\s*\(/,
       /https?\.request\s*\(/,
       /from\s+["'](?:axios|got|undici)["']/,
-      /class\s+\w+Provider\s+implements/,
+      /from\s+["']node:https?["']/,
+      /hibp-api-key/i,
+      /haveibeenpwned\.com\/api/i,
+      /BREACH_API_KEY/,
+      /process\.env/,
     ];
 
     for (const path of sourceFiles(providersRoot)) {

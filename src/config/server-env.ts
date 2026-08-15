@@ -12,6 +12,17 @@ const optionalBase64Key = z.string().refine(
   { message: "must be a base64-encoded 32-byte key" },
 );
 
+const optionalNonEmptyString = z.preprocess(
+  (value) => (value === "" ? undefined : value),
+  z.string().min(1).optional(),
+);
+
+const environmentBoolean = (defaultValue: "true" | "false") =>
+  z
+    .enum(["true", "false"])
+    .default(defaultValue)
+    .transform((value) => value === "true");
+
 const serverEnvSchema = z
   .object({
     NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
@@ -45,8 +56,39 @@ const serverEnvSchema = z
     CLERK_SECRET_KEY: z.string().optional(),
     CLERK_WEBHOOK_SIGNING_SECRET: z.string().optional(),
     NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: z.string().optional(),
+    BREACH_PROVIDER: z.enum(["disabled", "synthetic"]).default("disabled"),
+    BREACH_PROVIDER_KILL_SWITCH: environmentBoolean("true"),
+    FEATURE_BREACH_SCAN: environmentBoolean("false"),
+    BREACH_API_KEY: optionalNonEmptyString,
   })
   .superRefine((env, context) => {
+    const breachProviderDisabled =
+      env.BREACH_PROVIDER === "disabled" &&
+      !env.FEATURE_BREACH_SCAN &&
+      env.BREACH_PROVIDER_KILL_SWITCH;
+    const localSyntheticBreachProvider =
+      env.APP_ENV === "local" &&
+      env.BREACH_PROVIDER === "synthetic" &&
+      env.FEATURE_BREACH_SCAN &&
+      !env.BREACH_PROVIDER_KILL_SWITCH;
+
+    if (!breachProviderDisabled && !localSyntheticBreachProvider) {
+      context.addIssue({
+        code: "custom",
+        path: ["BREACH_PROVIDER"],
+        message:
+          "must be fully disabled or use the explicitly enabled local synthetic configuration",
+      });
+    }
+
+    if (env.BREACH_API_KEY) {
+      context.addIssue({
+        code: "custom",
+        path: ["BREACH_API_KEY"],
+        message: "live breach-provider credentials are forbidden in synthetic-only Phase 2",
+      });
+    }
+
     if (env.NODE_ENV === "production" && env.AUTH_MODE === "local") {
       context.addIssue({
         code: "custom",
