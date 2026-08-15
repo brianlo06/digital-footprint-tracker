@@ -365,7 +365,11 @@ describeWithDatabase("synthetic account lifecycle", () => {
       .where(eq(verificationDeliveryOutbox.verificationId, created.verificationId));
     expect(outboxRow).toBeDefined();
     expect(outboxRow.userId).toBe(account.userId);
-    expect(outboxRow.state).toBe("PENDING");
+    // A concurrently running delivery-worker integration file may claim the
+    // globally visible row immediately after this transaction commits. Both
+    // states prove the atomic enqueue; no consumer can observe it before
+    // commit, and the rollback assertion below covers the failure path.
+    expect(["PENDING", "CLAIMED"]).toContain(outboxRow.state);
     expect(outboxRow.template).toBe("EMAIL_VERIFICATION_CODE_V1");
 
     // Prove the outbox insert is genuinely inside the same transaction as

@@ -74,7 +74,7 @@ describeWithDatabase("bounded retention maintenance", () => {
     resetServerEnvForTests();
   });
 
-  it("uses a function-only maintenance role with a non-login bypass owner", async () => {
+  it("uses a function-only maintenance role with a non-login capability owner", async () => {
     const [capabilities] = await maintenanceSql<
       {
         currentUser: string;
@@ -116,7 +116,7 @@ describeWithDatabase("bounded retention maintenance", () => {
       where procedure.oid =
         'public.run_retention_maintenance(timestamptz,integer,timestamptz)'::regprocedure
     `;
-    expect(functionOwner).toEqual({ canLogin: false, bypassRls: true });
+    expect(functionOwner).toEqual({ canLogin: false, bypassRls: false });
 
     await expect(
       maintenanceSql`select id from public.identifier_verifications limit 1`,

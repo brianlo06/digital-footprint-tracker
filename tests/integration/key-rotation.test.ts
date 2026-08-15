@@ -131,8 +131,8 @@ describeWithDatabase("bounded identifier envelope rewrap", () => {
       order by procedure.proname
     `;
     expect(functionOwners).toEqual([
-      { canLogin: false, bypassRls: true },
-      { canLogin: false, bypassRls: true },
+      { canLogin: false, bypassRls: false },
+      { canLogin: false, bypassRls: false },
     ]);
 
     await expect(rotationSql`select id from public.identifiers limit 1`).rejects.toMatchObject({

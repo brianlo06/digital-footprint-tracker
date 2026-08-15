@@ -12,7 +12,7 @@ No email is sent. `LocalFakeEmailVerificationGateway` remains the default gatewa
 - a pure core/service split (`delivery-outbox-core.ts`, `delivery-outbox-service.ts`) and a demonstration `workers/verification-delivery.ts` that claims, decrypts, and hands each delivery to a `DeliveryProvider` — today only `SyntheticNoopDeliveryProvider`, which always succeeds and sends nothing;
 - a route-less dry-build template, `wrangler.verification-delivery.example.jsonc`, showing only a `DELIVERY_DATABASE` Hyperdrive binding, a `DELIVERY_ENCRYPTION_KEY` Secrets Store secret reference (never a plain `vars` entry), fixed non-secret limits, and no route or `assets` binding. `npm run cf:verification-delivery:build` dry-builds and inspects it in CI on every push, mirroring `cf:retention:build`.
 
-What remains absent: a selected and approved provider, an actual hosted Hyperdrive binding and Secrets Store secret (the template's `id`/`store_id` are synthetic zeros, not provisioned resources), a hosted deployment or CI _deploy_ step (only a dry build runs in CI), and any quota/alerting operational tooling beyond the code-level `DELIVERY_KILL_SWITCH` flag, which is default-on (blocks claiming unless explicitly set to `"false"`) and is checked first.
+What remains absent: a selected and approved provider, an attached Worker binding and Secrets Store secret (a dedicated preview Hyperdrive exists, while the committed template's `id`/`store_id` remain synthetic zeros), a hosted deployment or CI _deploy_ step (only a dry build runs in CI), and any quota/alerting operational tooling beyond the code-level `DELIVERY_KILL_SWITCH` flag, which is default-on (blocks claiming unless explicitly set to `"false"`) and is checked first.
 
 ## Approval record
 

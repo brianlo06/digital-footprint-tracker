@@ -13,7 +13,7 @@ BEGIN
       NOCREATEDB
       NOCREATEROLE
       NOINHERIT
-      BYPASSRLS;
+      NOBYPASSRLS;
   END IF;
 
   IF NOT EXISTS (
@@ -37,7 +37,7 @@ ALTER ROLE digital_footprint_retention_owner
   NOCREATEDB
   NOCREATEROLE
   NOINHERIT
-  BYPASSRLS;
+  NOBYPASSRLS;
 
 ALTER ROLE digital_footprint_maintenance
   WITH LOGIN
@@ -61,6 +61,8 @@ GRANT USAGE ON SCHEMA public
 TO digital_footprint_retention_owner, digital_footprint_maintenance;
 
 GRANT SELECT, UPDATE ON TABLE public.identifier_verifications
+TO digital_footprint_retention_owner;
+GRANT SELECT ON TABLE public.identifiers, public.identities, public.users
 TO digital_footprint_retention_owner;
 -- UPDATE is required for SELECT ... FOR UPDATE SKIP LOCKED even though the
 -- function only deletes from these two tables.

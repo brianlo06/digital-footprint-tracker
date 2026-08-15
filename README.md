@@ -36,7 +36,7 @@ Only `Identity → Identifiers` exists in executable form today.
 - Managed-auth deletion uses Clerk strict reverification and retries only after the strongest available recent credential challenge succeeds; a signed `user.deleted` webhook safely finishes interrupted or provider-initiated deletion.
 - Deny-by-default structured logging and synthetic unit/integration coverage.
 - GitHub Actions quality/build and restricted-role PostgreSQL integration jobs using synthetic data only.
-- Request-scoped Cloudflare Hyperdrive support for restricted runtime, maintenance, and rotation roles; the public preview deliberately has none of those bindings yet.
+- Request-scoped Cloudflare Hyperdrive support for restricted runtime, maintenance, and rotation roles; five preview configurations are provisioned, while the public no-data Worker deliberately has none of those bindings attached yet.
 - Cloudflare Worker preview with authentication disabled, protected routes redirected to a public boundary page, no database or secrets, and no provider activity.
 - Cloudflare builds temporarily isolate local environment files and fail if OpenNext embeds any project environment values in the deployable bundle.
 - Dynamic responses are private/no-store and `no-transform`; the deployed browser audit confirms Cloudflare does not inject a Web Analytics script or RUM request.

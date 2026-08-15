@@ -15,7 +15,7 @@ BEGIN
       NOCREATEDB
       NOCREATEROLE
       NOINHERIT
-      BYPASSRLS;
+      NOBYPASSRLS;
   END IF;
 
   IF NOT EXISTS (
@@ -39,7 +39,7 @@ ALTER ROLE digital_footprint_delivery_owner
   NOCREATEDB
   NOCREATEROLE
   NOINHERIT
-  BYPASSRLS;
+  NOBYPASSRLS;
 
 ALTER ROLE digital_footprint_delivery
   WITH LOGIN
@@ -70,14 +70,21 @@ TO digital_footprint_delivery_owner;
 GRANT SELECT, UPDATE ON TABLE public.verification_delivery_outbox
 TO digital_footprint_delivery_owner;
 
--- Read-only on the two tables the claim function's eligibility check joins
--- against: this worker never mutates a verification or an account.
-GRANT SELECT ON TABLE public.identifier_verifications, public.users
+-- Read-only on the tables the claim eligibility check uses plus the
+-- identities/identifiers dependencies of the verification tenant policy.
+-- This worker never mutates any of them.
+GRANT SELECT ON TABLE
+  public.identifier_verifications,
+  public.identifiers,
+  public.identities,
+  public.users
 TO digital_footprint_delivery_owner;
 
 REVOKE ALL PRIVILEGES ON TABLE
   public.verification_delivery_outbox,
   public.identifier_verifications,
+  public.identifiers,
+  public.identities,
   public.users
 FROM digital_footprint_delivery;
 

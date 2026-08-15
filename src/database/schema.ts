@@ -85,6 +85,30 @@ export const users = pgTable(
       using: sql`auth_subject = nullif(current_setting('app.auth_subject', true), '')`,
       withCheck: sql`auth_subject = nullif(current_setting('app.auth_subject', true), '')`,
     }),
+    pgPolicy("users_delivery_capability", {
+      for: "all",
+      to: "public",
+      using: sql`current_user = 'digital_footprint_delivery_owner'`,
+      withCheck: sql`current_user = 'digital_footprint_delivery_owner'`,
+    }),
+    pgPolicy("users_rotation_capability", {
+      for: "all",
+      to: "public",
+      using: sql`current_user = 'digital_footprint_rotation_owner'`,
+      withCheck: sql`current_user = 'digital_footprint_rotation_owner'`,
+    }),
+    pgPolicy("users_lookup_rotation_capability", {
+      for: "all",
+      to: "public",
+      using: sql`current_user = 'digital_footprint_lookup_rotation_owner'`,
+      withCheck: sql`current_user = 'digital_footprint_lookup_rotation_owner'`,
+    }),
+    pgPolicy("users_retention_capability", {
+      for: "all",
+      to: "public",
+      using: sql`current_user = 'digital_footprint_retention_owner'`,
+      withCheck: sql`current_user = 'digital_footprint_retention_owner'`,
+    }),
   ],
 ).enableRLS();
 
@@ -114,6 +138,30 @@ export const identities = pgTable(
         where users.id = user_id
           and users.auth_subject = nullif(current_setting('app.auth_subject', true), '')
       )`,
+    }),
+    pgPolicy("identities_rotation_capability", {
+      for: "all",
+      to: "public",
+      using: sql`current_user = 'digital_footprint_rotation_owner'`,
+      withCheck: sql`current_user = 'digital_footprint_rotation_owner'`,
+    }),
+    pgPolicy("identities_lookup_rotation_capability", {
+      for: "all",
+      to: "public",
+      using: sql`current_user = 'digital_footprint_lookup_rotation_owner'`,
+      withCheck: sql`current_user = 'digital_footprint_lookup_rotation_owner'`,
+    }),
+    pgPolicy("identities_retention_capability", {
+      for: "all",
+      to: "public",
+      using: sql`current_user = 'digital_footprint_retention_owner'`,
+      withCheck: sql`current_user = 'digital_footprint_retention_owner'`,
+    }),
+    pgPolicy("identities_delivery_capability", {
+      for: "all",
+      to: "public",
+      using: sql`current_user = 'digital_footprint_delivery_owner'`,
+      withCheck: sql`current_user = 'digital_footprint_delivery_owner'`,
     }),
   ],
 ).enableRLS();
@@ -159,6 +207,30 @@ export const identifiers = pgTable(
           and users.auth_subject = nullif(current_setting('app.auth_subject', true), '')
       )`,
     }),
+    pgPolicy("identifiers_rotation_capability", {
+      for: "all",
+      to: "public",
+      using: sql`current_user = 'digital_footprint_rotation_owner'`,
+      withCheck: sql`current_user = 'digital_footprint_rotation_owner'`,
+    }),
+    pgPolicy("identifiers_lookup_rotation_capability", {
+      for: "all",
+      to: "public",
+      using: sql`current_user = 'digital_footprint_lookup_rotation_owner'`,
+      withCheck: sql`current_user = 'digital_footprint_lookup_rotation_owner'`,
+    }),
+    pgPolicy("identifiers_retention_capability", {
+      for: "all",
+      to: "public",
+      using: sql`current_user = 'digital_footprint_retention_owner'`,
+      withCheck: sql`current_user = 'digital_footprint_retention_owner'`,
+    }),
+    pgPolicy("identifiers_delivery_capability", {
+      for: "all",
+      to: "public",
+      using: sql`current_user = 'digital_footprint_delivery_owner'`,
+      withCheck: sql`current_user = 'digital_footprint_delivery_owner'`,
+    }),
   ],
 ).enableRLS();
 
@@ -203,6 +275,12 @@ export const identifierLookupTokens = pgTable(
           and users.auth_subject = nullif(current_setting('app.auth_subject', true), '')
       )`,
     }),
+    pgPolicy("identifier_lookup_tokens_lookup_rotation_capability", {
+      for: "all",
+      to: "public",
+      using: sql`current_user = 'digital_footprint_lookup_rotation_owner'`,
+      withCheck: sql`current_user = 'digital_footprint_lookup_rotation_owner'`,
+    }),
   ],
 ).enableRLS();
 
@@ -241,6 +319,18 @@ export const identifierVerifications = pgTable(
         where identifiers.id = identifier_id
           and users.auth_subject = nullif(current_setting('app.auth_subject', true), '')
       )`,
+    }),
+    pgPolicy("identifier_verifications_retention_capability", {
+      for: "all",
+      to: "public",
+      using: sql`current_user = 'digital_footprint_retention_owner'`,
+      withCheck: sql`current_user = 'digital_footprint_retention_owner'`,
+    }),
+    pgPolicy("identifier_verifications_delivery_capability", {
+      for: "all",
+      to: "public",
+      using: sql`current_user = 'digital_footprint_delivery_owner'`,
+      withCheck: sql`current_user = 'digital_footprint_delivery_owner'`,
     }),
   ],
 ).enableRLS();
@@ -314,6 +404,12 @@ export const auditEvents = pgTable(
           and users.auth_subject = nullif(current_setting('app.auth_subject', true), '')
       )`,
     }),
+    pgPolicy("audit_events_retention_capability", {
+      for: "all",
+      to: "public",
+      using: sql`current_user = 'digital_footprint_retention_owner'`,
+      withCheck: sql`current_user = 'digital_footprint_retention_owner'`,
+    }),
   ],
 ).enableRLS();
 
@@ -339,6 +435,12 @@ export const deletionReceipts = pgTable(
       withCheck: sql`subject_token = nullif(current_setting('app.subject_token', true), '')
         or subject_token = nullif(current_setting('app.subject_token_previous', true), '')`,
     }),
+    pgPolicy("deletion_receipts_retention_capability", {
+      for: "all",
+      to: "public",
+      using: sql`current_user = 'digital_footprint_retention_owner'`,
+      withCheck: sql`current_user = 'digital_footprint_retention_owner'`,
+    }),
   ],
 ).enableRLS();
 
@@ -356,6 +458,18 @@ export const rateLimitWindows = pgTable(
   (table) => [
     primaryKey({ columns: [table.scopeKind, table.scopeToken, table.action] }),
     index("rate_limit_windows_expiry_idx").on(table.expiresAt),
+    pgPolicy("rate_limit_windows_rate_limit_capability", {
+      for: "all",
+      to: "public",
+      using: sql`current_user = 'digital_footprint_rate_limit_owner'`,
+      withCheck: sql`current_user = 'digital_footprint_rate_limit_owner'`,
+    }),
+    pgPolicy("rate_limit_windows_retention_capability", {
+      for: "all",
+      to: "public",
+      using: sql`current_user = 'digital_footprint_retention_owner'`,
+      withCheck: sql`current_user = 'digital_footprint_retention_owner'`,
+    }),
   ],
 ).enableRLS();
 
@@ -410,6 +524,12 @@ export const verificationDeliveryOutbox = pgTable(
           and users.id = verification_delivery_outbox.user_id
           and users.auth_subject = nullif(current_setting('app.auth_subject', true), '')
       )`,
+    }),
+    pgPolicy("verification_delivery_outbox_delivery_capability", {
+      for: "all",
+      to: "public",
+      using: sql`current_user = 'digital_footprint_delivery_owner'`,
+      withCheck: sql`current_user = 'digital_footprint_delivery_owner'`,
     }),
   ],
 ).enableRLS();

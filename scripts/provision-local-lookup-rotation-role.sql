@@ -15,7 +15,7 @@ BEGIN
       NOCREATEDB
       NOCREATEROLE
       NOINHERIT
-      BYPASSRLS;
+      NOBYPASSRLS;
   END IF;
 
   IF NOT EXISTS (
@@ -39,7 +39,7 @@ ALTER ROLE digital_footprint_lookup_rotation_owner
   NOCREATEDB
   NOCREATEROLE
   NOINHERIT
-  BYPASSRLS;
+  NOBYPASSRLS;
 
 ALTER ROLE digital_footprint_lookup_rotation
   WITH LOGIN
@@ -68,12 +68,18 @@ TO digital_footprint_lookup_rotation_owner;
 -- Read-only on identifiers: this worker never mutates the parent row.
 GRANT SELECT ON TABLE public.identifiers
 TO digital_footprint_lookup_rotation_owner;
+GRANT SELECT ON TABLE public.identities, public.users
+TO digital_footprint_lookup_rotation_owner;
 
 -- Insert-only on the child table: rows are never updated or deleted here.
 GRANT SELECT, INSERT ON TABLE public.identifier_lookup_tokens
 TO digital_footprint_lookup_rotation_owner;
 
-REVOKE ALL PRIVILEGES ON TABLE public.identifiers, public.identifier_lookup_tokens
+REVOKE ALL PRIVILEGES ON TABLE
+  public.identifiers,
+  public.identifier_lookup_tokens,
+  public.identities,
+  public.users
 FROM digital_footprint_lookup_rotation;
 
 GRANT CREATE ON SCHEMA public TO digital_footprint_lookup_rotation_owner;

@@ -17,7 +17,7 @@ The per-verification-record five-attempt lockout remains independent and stricte
 
 Authentication subjects and network addresses are converted to separate HMAC-SHA-256 lookup tokens before persistence. The database stores only scope kind, keyed token, action, window/count state, block expiry, and retention expiry. Raw IP addresses and authentication subjects are never written to the limiter table or returned by its function.
 
-`rate_limit_windows` has forced RLS and no tenant policy, so ordinary direct access fails closed. The web runtime has no table grant and may execute only `consume_action_rate_limit`. That function is owned by a narrowly granted, RLS-bypass role that cannot log in. Limits are fixed inside PostgreSQL rather than supplied by callers, and one atomic upsert serializes concurrent attempts for each scope/action.
+`rate_limit_windows` has forced RLS and no tenant policy, so ordinary direct access fails closed. The web runtime has no table grant and may execute only `consume_action_rate_limit`. That function is owned by a narrowly granted non-login role that remains `NOBYPASSRLS` and is named by an exact fixed-role capability policy. Limits are fixed inside PostgreSQL rather than supplied by callers, and one atomic upsert serializes concurrent attempts for each scope/action.
 
 Expired limiter state is removed by bounded retention maintenance. Lookup-key rotation intentionally starts new pseudonymous scopes; treat that as part of the documented rotation procedure.
 

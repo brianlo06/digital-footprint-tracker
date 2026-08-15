@@ -8,7 +8,7 @@ Per-record verification lockout does not limit repeated onboarding, identifier e
 
 ## Decision
 
-Consume fixed per-user and shared-network policies in one PostgreSQL security-definer function before form validation on every protected mutation. HMAC-tokenize the authentication subject and trusted ingress IP under separate namespaces before persistence. Give the web role function execution but no table access; own the function with a non-login, narrowly granted RLS-bypass role. Force RLS with no direct policy on limiter state and delete expired rows through bounded retention.
+Consume fixed per-user and shared-network policies in one PostgreSQL security-definer function before form validation on every protected mutation. HMAC-tokenize the authentication subject and trusted ingress IP under separate namespaces before persistence. Give the web role function execution but no table access; own the function with a non-login, narrowly granted `NOBYPASSRLS` role named by an exact fixed-role capability policy. Force RLS with no tenant policy on limiter state and delete expired rows through bounded retention.
 
 Local mode uses one synthetic network. Preview and production fail closed until a single-value client-IP header rewritten by trusted ingress is explicitly configured.
 

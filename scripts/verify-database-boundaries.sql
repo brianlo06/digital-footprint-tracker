@@ -25,6 +25,11 @@ DECLARE
   function_signature text;
   expected_function_owner text;
   expected_policy text;
+  capability_policy text;
+  capability_owner text;
+  capability_using text;
+  capability_check text;
+  capability_permissive boolean;
   public_can_execute boolean;
 BEGIN
   FOR audited_role, expected_login, expected_bypass IN
@@ -34,12 +39,12 @@ BEGIN
       ('digital_footprint_maintenance', true, false),
       ('digital_footprint_rotation', true, false),
       ('digital_footprint_lookup_rotation', true, false),
-      ('digital_footprint_rate_limit_owner', false, true),
-      ('digital_footprint_retention_owner', false, true),
-      ('digital_footprint_rotation_owner', false, true),
-      ('digital_footprint_lookup_rotation_owner', false, true),
+      ('digital_footprint_rate_limit_owner', false, false),
+      ('digital_footprint_retention_owner', false, false),
+      ('digital_footprint_rotation_owner', false, false),
+      ('digital_footprint_lookup_rotation_owner', false, false),
       ('digital_footprint_delivery', true, false),
-      ('digital_footprint_delivery_owner', false, true)
+      ('digital_footprint_delivery_owner', false, false)
     ) AS expected(role_name, can_login, bypasses_rls)
   LOOP
     SELECT
@@ -147,15 +152,7 @@ BEGIN
     END IF;
 
     IF audited_table = 'rate_limit_windows' THEN
-      IF EXISTS (
-        SELECT 1
-        FROM pg_catalog.pg_policy AS policy
-        INNER JOIN pg_catalog.pg_class AS relation ON relation.oid = policy.polrelid
-        INNER JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid = relation.relnamespace
-        WHERE namespace.nspname = 'public' AND relation.relname = audited_table
-      ) THEN
-        RAISE EXCEPTION 'public.rate_limit_windows must remain function-only without an RLS policy';
-      END IF;
+      NULL; -- Capability policies are verified below; there is no tenant policy.
     ELSIF audited_table = 'verification_delivery_outbox' THEN
       IF NOT EXISTS (
         SELECT 1
@@ -185,6 +182,90 @@ BEGIN
       ) THEN
         RAISE EXCEPTION 'required public all-command tenant policy is missing on public.%', audited_table;
       END IF;
+    END IF;
+  END LOOP;
+
+  -- Every security-definer owner remains NOBYPASSRLS. Its permissive policy
+  -- is an exact CURRENT_USER equality for one fixed non-login role; table
+  -- grants separately constrain which commands that role can perform.
+  FOR audited_table, capability_policy, capability_owner IN
+    SELECT *
+    FROM (VALUES
+      ('users', 'users_delivery_capability', 'digital_footprint_delivery_owner'),
+      ('users', 'users_rotation_capability', 'digital_footprint_rotation_owner'),
+      ('users', 'users_lookup_rotation_capability', 'digital_footprint_lookup_rotation_owner'),
+      ('users', 'users_retention_capability', 'digital_footprint_retention_owner'),
+      ('identities', 'identities_rotation_capability', 'digital_footprint_rotation_owner'),
+      (
+        'identities',
+        'identities_lookup_rotation_capability',
+        'digital_footprint_lookup_rotation_owner'
+      ),
+      ('identities', 'identities_retention_capability', 'digital_footprint_retention_owner'),
+      ('identities', 'identities_delivery_capability', 'digital_footprint_delivery_owner'),
+      ('identifiers', 'identifiers_rotation_capability', 'digital_footprint_rotation_owner'),
+      ('identifiers', 'identifiers_lookup_rotation_capability', 'digital_footprint_lookup_rotation_owner'),
+      ('identifiers', 'identifiers_retention_capability', 'digital_footprint_retention_owner'),
+      ('identifiers', 'identifiers_delivery_capability', 'digital_footprint_delivery_owner'),
+      (
+        'identifier_lookup_tokens',
+        'identifier_lookup_tokens_lookup_rotation_capability',
+        'digital_footprint_lookup_rotation_owner'
+      ),
+      (
+        'identifier_verifications',
+        'identifier_verifications_retention_capability',
+        'digital_footprint_retention_owner'
+      ),
+      (
+        'identifier_verifications',
+        'identifier_verifications_delivery_capability',
+        'digital_footprint_delivery_owner'
+      ),
+      ('audit_events', 'audit_events_retention_capability', 'digital_footprint_retention_owner'),
+      (
+        'deletion_receipts',
+        'deletion_receipts_retention_capability',
+        'digital_footprint_retention_owner'
+      ),
+      (
+        'rate_limit_windows',
+        'rate_limit_windows_rate_limit_capability',
+        'digital_footprint_rate_limit_owner'
+      ),
+      (
+        'rate_limit_windows',
+        'rate_limit_windows_retention_capability',
+        'digital_footprint_retention_owner'
+      ),
+      (
+        'verification_delivery_outbox',
+        'verification_delivery_outbox_delivery_capability',
+        'digital_footprint_delivery_owner'
+      )
+    ) AS expected(table_name, policy_name, owner_name)
+  LOOP
+    SELECT
+      pg_catalog.pg_get_expr(policy.polqual, policy.polrelid),
+      pg_catalog.pg_get_expr(policy.polwithcheck, policy.polrelid),
+      policy.polpermissive
+    INTO capability_using, capability_check, capability_permissive
+    FROM pg_catalog.pg_policy AS policy
+    INNER JOIN pg_catalog.pg_class AS relation ON relation.oid = policy.polrelid
+    INNER JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid = relation.relnamespace
+    WHERE namespace.nspname = 'public'
+      AND relation.relname = audited_table
+      AND policy.polname = capability_policy
+      AND policy.polcmd = '*'
+      AND policy.polroles = ARRAY[0::oid];
+
+    IF NOT FOUND
+      OR NOT capability_permissive
+      OR capability_using <> pg_catalog.format('(CURRENT_USER = %L::name)', capability_owner)
+      OR capability_check <> pg_catalog.format('(CURRENT_USER = %L::name)', capability_owner) THEN
+      RAISE EXCEPTION 'capability policy % on public.% is missing or unsafe',
+        capability_policy,
+        audited_table;
     END IF;
   END LOOP;
 
@@ -243,7 +324,7 @@ BEGIN
           )
           OR (
             audited_role = 'digital_footprint_delivery_owner'
-            AND audited_table = 'users'
+            AND audited_table = ANY(ARRAY['users', 'identities', 'identifiers'])
             AND audited_privilege = 'SELECT'
           )
           OR (
@@ -258,6 +339,11 @@ BEGIN
           )
           OR (
             audited_role = 'digital_footprint_retention_owner'
+            AND audited_table = ANY(ARRAY['users', 'identities', 'identifiers'])
+            AND audited_privilege = 'SELECT'
+          )
+          OR (
+            audited_role = 'digital_footprint_retention_owner'
             AND audited_table = ANY(ARRAY['deletion_receipts', 'audit_events', 'rate_limit_windows'])
             AND audited_privilege = ANY(ARRAY['SELECT', 'UPDATE', 'DELETE'])
           )
@@ -265,6 +351,11 @@ BEGIN
             audited_role = 'digital_footprint_rotation_owner'
             AND audited_table = 'identifiers'
             AND audited_privilege = ANY(ARRAY['SELECT', 'UPDATE'])
+          )
+          OR (
+            audited_role = 'digital_footprint_rotation_owner'
+            AND audited_table = ANY(ARRAY['users', 'identities'])
+            AND audited_privilege = 'SELECT'
           )
           OR (
             audited_role = 'digital_footprint_lookup_rotation_owner'
@@ -275,6 +366,11 @@ BEGIN
             audited_role = 'digital_footprint_lookup_rotation_owner'
             AND audited_table = 'identifier_lookup_tokens'
             AND audited_privilege = ANY(ARRAY['SELECT', 'INSERT'])
+          )
+          OR (
+            audited_role = 'digital_footprint_lookup_rotation_owner'
+            AND audited_table = ANY(ARRAY['users', 'identities'])
+            AND audited_privilege = 'SELECT'
           );
 
         actual_privilege := pg_catalog.has_table_privilege(

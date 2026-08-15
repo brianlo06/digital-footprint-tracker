@@ -10,7 +10,7 @@ Database authority is separated:
 
 - `ROTATION_DATABASE_URL` uses the `digital_footprint_rotation` login, which has no direct table privileges.
 - The login can execute only the bounded list and validated replace functions.
-- Both functions are owned by the non-login `digital_footprint_rotation_owner`, whose RLS bypass and table grants are limited to identifier envelope selection and update.
+- Both functions are owned by the non-login, `NOBYPASSRLS` `digital_footprint_rotation_owner`, whose fixed-role policies and table grants are limited to identifier envelope selection/update plus read-only `identities`/`users` dependencies required to evaluate the identifier tenant policy.
 - The replacement function rejects nulls, oversized batches, unchanged key IDs, malformed envelopes, and any attempted change to identifier ciphertext, nonce, or authentication tag.
 
 The integration exercise verifies dry-run behavior, a one-record run followed by recovery, successful decryption under the replacement key, rollback while the original key remains available, denied direct table access, and denied execution by the web runtime role.

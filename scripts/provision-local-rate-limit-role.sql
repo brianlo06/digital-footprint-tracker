@@ -13,7 +13,7 @@ BEGIN
       NOCREATEDB
       NOCREATEROLE
       NOINHERIT
-      BYPASSRLS;
+      NOBYPASSRLS;
   END IF;
 END
 $provision$;
@@ -24,7 +24,7 @@ ALTER ROLE digital_footprint_rate_limit_owner
   NOCREATEDB
   NOCREATEROLE
   NOINHERIT
-  BYPASSRLS;
+  NOBYPASSRLS;
 
 GRANT USAGE ON SCHEMA public TO digital_footprint_rate_limit_owner;
 GRANT USAGE ON TYPE public.rate_limit_scope_kind, public.rate_limit_action

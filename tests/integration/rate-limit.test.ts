@@ -121,7 +121,7 @@ describeWithDatabase("distributed action rate limits", () => {
       where procedure.oid =
         'public.consume_action_rate_limit(text,text,rate_limit_action)'::regprocedure
     `;
-    expect(functionOwner).toEqual({ canLogin: false, bypassRls: true });
+    expect(functionOwner).toEqual({ canLogin: false, bypassRls: false });
 
     const stored = await getDatabase()
       .select({ scopeToken: rateLimitWindows.scopeToken })

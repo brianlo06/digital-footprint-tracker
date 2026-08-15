@@ -35,4 +35,12 @@ describe("hosted database provisioning boundary", () => {
     expect(provisioner).toContain("AND :'lookup_rotation_password' <> :'delivery_password'");
     expect(provisioner).toContain("required hosted database password is unavailable");
   });
+
+  it("keeps capability owners portable to managed PostgreSQL", () => {
+    expect(provisioner).toContain("OR actual.rolbypassrls");
+    expect(provisioner).toContain("OR actual.rolsuper");
+    expect(provisioner.replace(/^--.*$/gm, "")).not.toMatch(/\bBYPASSRLS\b/);
+    expect(provisioner).not.toContain("TO CURRENT_USER WITH ADMIN OPTION");
+    expect(provisioner).toContain("TO CURRENT_USER;");
+  });
 });

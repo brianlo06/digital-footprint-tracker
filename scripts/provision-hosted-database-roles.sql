@@ -104,41 +104,79 @@ END
 $provision$;
 
 ALTER ROLE digital_footprint_runtime
-  WITH LOGIN PASSWORD :'runtime_password'
-  NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS;
+  WITH LOGIN PASSWORD :'runtime_password' NOINHERIT;
 ALTER ROLE digital_footprint_rate_limit_owner
-  WITH NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT BYPASSRLS;
+  WITH NOLOGIN NOINHERIT;
 ALTER ROLE digital_footprint_retention_owner
-  WITH NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT BYPASSRLS;
+  WITH NOLOGIN NOINHERIT;
 ALTER ROLE digital_footprint_maintenance
-  WITH LOGIN PASSWORD :'maintenance_password'
-  NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS;
+  WITH LOGIN PASSWORD :'maintenance_password' NOINHERIT;
 ALTER ROLE digital_footprint_rotation_owner
-  WITH NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT BYPASSRLS;
+  WITH NOLOGIN NOINHERIT;
 ALTER ROLE digital_footprint_rotation
-  WITH LOGIN PASSWORD :'rotation_password'
-  NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS;
+  WITH LOGIN PASSWORD :'rotation_password' NOINHERIT;
 ALTER ROLE digital_footprint_lookup_rotation_owner
-  WITH NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT BYPASSRLS;
+  WITH NOLOGIN NOINHERIT;
 ALTER ROLE digital_footprint_lookup_rotation
-  WITH LOGIN PASSWORD :'lookup_rotation_password'
-  NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS;
+  WITH LOGIN PASSWORD :'lookup_rotation_password' NOINHERIT;
 ALTER ROLE digital_footprint_delivery_owner
-  WITH NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT BYPASSRLS;
+  WITH NOLOGIN NOINHERIT;
 ALTER ROLE digital_footprint_delivery
-  WITH LOGIN PASSWORD :'delivery_password'
-  NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS;
+  WITH LOGIN PASSWORD :'delivery_password' NOINHERIT;
 
--- The dedicated database owner remains the administrator of the non-login
--- capability owners. PostgreSQL 16+ requires this relationship to keep
--- ownership transfers and later idempotent repairs manageable without making
--- any application login a member of those roles.
+-- Managed PostgreSQL commonly reserves SUPERUSER and BYPASSRLS attribute
+-- changes for the provider's true superuser. New roles receive safe defaults;
+-- existing roles are checked fail-closed rather than attempting a privileged
+-- attribute repair that the dedicated database owner may not be allowed to
+-- perform.
+DO $validate_role_flags$
+DECLARE
+  audited_role text;
+  expected_login boolean;
+  actual record;
+BEGIN
+  FOR audited_role, expected_login IN
+    SELECT *
+    FROM (VALUES
+      ('digital_footprint_runtime', true),
+      ('digital_footprint_rate_limit_owner', false),
+      ('digital_footprint_retention_owner', false),
+      ('digital_footprint_maintenance', true),
+      ('digital_footprint_rotation_owner', false),
+      ('digital_footprint_rotation', true),
+      ('digital_footprint_lookup_rotation_owner', false),
+      ('digital_footprint_lookup_rotation', true),
+      ('digital_footprint_delivery_owner', false),
+      ('digital_footprint_delivery', true)
+    ) AS expected(role_name, can_login)
+  LOOP
+    SELECT rolcanlogin, rolsuper, rolcreatedb, rolcreaterole, rolinherit, rolbypassrls
+    INTO STRICT actual
+    FROM pg_catalog.pg_roles
+    WHERE rolname = audited_role;
+
+    IF actual.rolcanlogin <> expected_login
+      OR actual.rolsuper
+      OR actual.rolcreatedb
+      OR actual.rolcreaterole
+      OR actual.rolinherit
+      OR actual.rolbypassrls THEN
+      RAISE EXCEPTION 'role % has unsafe or unexpected attributes', audited_role;
+    END IF;
+  END LOOP;
+END
+$validate_role_flags$;
+
+-- The dedicated database owner can SET ROLE to the non-login capability
+-- owners. PostgreSQL 16+ requires this membership for ownership transfers;
+-- the role creator already holds the authority needed to manage roles, and
+-- managed PostgreSQL rejects granting ADMIN OPTION back to that same grantor.
 GRANT digital_footprint_rate_limit_owner,
   digital_footprint_retention_owner,
   digital_footprint_rotation_owner,
   digital_footprint_lookup_rotation_owner,
   digital_footprint_delivery_owner
-TO CURRENT_USER WITH ADMIN OPTION;
+TO CURRENT_USER;
 
 DO $remove_memberships$
 DECLARE
@@ -266,6 +304,8 @@ TO digital_footprint_rate_limit_owner;
 
 GRANT SELECT, UPDATE ON TABLE public.identifier_verifications
 TO digital_footprint_retention_owner;
+GRANT SELECT ON TABLE public.identifiers, public.identities, public.users
+TO digital_footprint_retention_owner;
 GRANT SELECT, UPDATE, DELETE ON TABLE
   public.deletion_receipts,
   public.audit_events,
@@ -274,12 +314,16 @@ TO digital_footprint_retention_owner;
 
 GRANT SELECT, UPDATE ON TABLE public.identifiers
 TO digital_footprint_rotation_owner;
+GRANT SELECT ON TABLE public.identities, public.users
+TO digital_footprint_rotation_owner;
 
 GRANT USAGE ON TYPE public.identifier_type
 TO digital_footprint_lookup_rotation_owner;
 -- Read-only on identifiers: the lookup-rotation worker never mutates the
 -- parent row, only inserts into the child token table.
 GRANT SELECT ON TABLE public.identifiers
+TO digital_footprint_lookup_rotation_owner;
+GRANT SELECT ON TABLE public.identities, public.users
 TO digital_footprint_lookup_rotation_owner;
 GRANT SELECT, INSERT ON TABLE public.identifier_lookup_tokens
 TO digital_footprint_lookup_rotation_owner;
@@ -288,9 +332,13 @@ GRANT USAGE ON TYPE public.delivery_channel, public.delivery_state
 TO digital_footprint_delivery_owner;
 GRANT SELECT, UPDATE ON TABLE public.verification_delivery_outbox
 TO digital_footprint_delivery_owner;
--- Read-only: the claim function's eligibility check joins these tables but
--- never mutates a verification or an account.
-GRANT SELECT ON TABLE public.identifier_verifications, public.users
+-- Read-only: the claim eligibility check uses verifications/accounts, while
+-- identifiers/identities are dependencies of the verification tenant policy.
+GRANT SELECT ON TABLE
+  public.identifier_verifications,
+  public.identifiers,
+  public.identities,
+  public.users
 TO digital_footprint_delivery_owner;
 
 GRANT CREATE ON SCHEMA public

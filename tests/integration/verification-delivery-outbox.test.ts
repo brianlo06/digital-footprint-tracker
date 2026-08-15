@@ -247,9 +247,9 @@ describeWithDatabase("bounded verification delivery outbox worker", () => {
         order by procedure.proname
       `;
       expect(functionOwners).toEqual([
-        { canLogin: false, bypassRls: true },
-        { canLogin: false, bypassRls: true },
-        { canLogin: false, bypassRls: true },
+        { canLogin: false, bypassRls: false },
+        { canLogin: false, bypassRls: false },
+        { canLogin: false, bypassRls: false },
       ]);
 
       await expect(

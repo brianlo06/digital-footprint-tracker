@@ -65,7 +65,6 @@ describeWithDatabase("identifier lookup tokens across a lookup-key rotation", ()
       .from(identifierLookupTokens)
       .where(eq(identifierLookupTokens.identifierId, created.identifierId));
 
-    expect(rows).toHaveLength(2);
     expect(rows.every((row) => row.namespace === "identifier:email:v1")).toBe(true);
 
     const currentKeyring = createLookupKeyring({
@@ -88,6 +87,12 @@ describeWithDatabase("identifier lookup tokens across a lookup-key rotation", ()
     );
 
     const byKeyId = new Map(rows.map((row) => [row.lookupKeyId, row.token]));
+    // The global lookup-rotation integration worker may concurrently add its
+    // own target-key row. This test owns only the two active application keys
+    // and verifies that both were written atomically and exactly once.
+    expect(
+      rows.filter((row) => [currentKeyId, previousKeyId].includes(row.lookupKeyId)),
+    ).toHaveLength(2);
     expect(byKeyId.get(currentKeyId)).toBe(expectedCurrentToken);
     expect(byKeyId.get(previousKeyId)).toBe(expectedPreviousToken);
   });

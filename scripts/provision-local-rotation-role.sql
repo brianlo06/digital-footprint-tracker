@@ -13,7 +13,7 @@ BEGIN
       NOCREATEDB
       NOCREATEROLE
       NOINHERIT
-      BYPASSRLS;
+      NOBYPASSRLS;
   END IF;
 
   IF NOT EXISTS (
@@ -37,7 +37,7 @@ ALTER ROLE digital_footprint_rotation_owner
   NOCREATEDB
   NOCREATEROLE
   NOINHERIT
-  BYPASSRLS;
+  NOBYPASSRLS;
 
 ALTER ROLE digital_footprint_rotation
   WITH LOGIN
@@ -62,8 +62,12 @@ TO digital_footprint_rotation_owner, digital_footprint_rotation;
 
 GRANT SELECT, UPDATE ON TABLE public.identifiers
 TO digital_footprint_rotation_owner;
+-- Read-only dependencies of identifiers_tenant_isolation. PostgreSQL checks
+-- their ACLs even when the fixed-role capability policy authorizes a row.
+GRANT SELECT ON TABLE public.identities, public.users
+TO digital_footprint_rotation_owner;
 
-REVOKE ALL PRIVILEGES ON TABLE public.identifiers
+REVOKE ALL PRIVILEGES ON TABLE public.identifiers, public.identities, public.users
 FROM digital_footprint_rotation;
 
 GRANT CREATE ON SCHEMA public TO digital_footprint_rotation_owner;
