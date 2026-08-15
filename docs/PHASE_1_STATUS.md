@@ -78,7 +78,7 @@
 - managed deletion requires subject continuity plus Clerk strict reverification before consuming the deletion rate limit or mutating data;
 - the managed deletion UI retries the Server Action only after Clerk completes its strongest available credential challenge and treats cancellation as a no-op;
 - hosted database helpers accept only request-context Hyperdrive bindings and close their Postgres.js clients after each operation;
-- a route-less retention Cron Worker reuses the bounded retention core through a distinct maintenance binding and dry-builds in CI; and
+- a route-less retention Cron Worker validates its scheduled time and bounded settings before database-client construction, reuses the retention core through a distinct generated maintenance binding, and dry-builds in CI; and
 - the Cloudflare build fails if OpenNext embeds any `.env` project values, preventing local database URLs or key material from entering an uploaded bundle.
 - GitHub Actions runs pinned quality/build actions and the complete synthetic PostgreSQL restricted-role integration suite; the first hosted run passed both jobs.
 - dual-key identifier equality writes a token per active key in one tenant transaction, and duplicate enrollment under either key is denied;

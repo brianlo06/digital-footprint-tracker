@@ -4,6 +4,7 @@ import { sql } from "drizzle-orm";
 const DEFAULT_BATCH_SIZE = 100;
 const MAX_BATCH_SIZE = 1_000;
 const DEFAULT_ORPHAN_AUDIT_RETENTION_DAYS = 365;
+const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1_000;
 
 export interface RetentionMaintenanceOptions {
   readonly now?: Date;
@@ -24,16 +25,27 @@ interface RetentionMaintenanceRow {
 }
 
 export function assertRetentionMaintenanceOptions(options: RetentionMaintenanceOptions): void {
+  if (
+    options.now !== undefined &&
+    (!(options.now instanceof Date) || !Number.isFinite(options.now.getTime()))
+  ) {
+    throw new Error("RETENTION_NOW_INVALID");
+  }
+
   const batchSize = options.batchSize ?? DEFAULT_BATCH_SIZE;
   const orphanAuditRetentionDays =
     options.orphanAuditRetentionDays ?? DEFAULT_ORPHAN_AUDIT_RETENTION_DAYS;
 
-  if (!Number.isInteger(batchSize) || batchSize < 1 || batchSize > MAX_BATCH_SIZE) {
+  if (!Number.isSafeInteger(batchSize) || batchSize < 1 || batchSize > MAX_BATCH_SIZE) {
     throw new Error("RETENTION_BATCH_SIZE_INVALID");
   }
-  if (!Number.isInteger(orphanAuditRetentionDays) || orphanAuditRetentionDays < 1) {
+  if (!Number.isSafeInteger(orphanAuditRetentionDays) || orphanAuditRetentionDays < 1) {
     throw new Error("AUDIT_RETENTION_DAYS_INVALID");
   }
+
+  const now = options.now ?? new Date();
+  const cutoff = new Date(now.getTime() - orphanAuditRetentionDays * MILLISECONDS_PER_DAY);
+  if (!Number.isFinite(cutoff.getTime())) throw new Error("AUDIT_RETENTION_DAYS_INVALID");
 }
 
 export async function executeRetentionMaintenance(
@@ -48,7 +60,7 @@ export async function executeRetentionMaintenance(
   assertRetentionMaintenanceOptions(options);
 
   const orphanAuditCutoff = new Date(
-    now.getTime() - orphanAuditRetentionDays * 24 * 60 * 60 * 1_000,
+    now.getTime() - orphanAuditRetentionDays * MILLISECONDS_PER_DAY,
   );
 
   const rows = await database.execute(sql<RetentionMaintenanceRow>`

@@ -39,7 +39,7 @@ A database failure rolls back the batch and should be retried later with bounded
 
 - The Worker has no route and returns 404 if fetched directly.
 - It creates one short-lived Postgres.js client per invocation and always closes it.
-- Batch size and orphan-audit period are bounded again in application code and in PostgreSQL.
+- Scheduled time, batch size, and orphan-audit period are parsed and bounded before a database client is constructed, then bounded again in the maintenance core and PostgreSQL; unsafe integers and date-range overflow fail with stable codes.
 - Its Hyperdrive binding is distinct from the web runtime binding; no owner or runtime credential is available.
 - It emits no application log. Cloudflare Cron Events and aggregate Worker analytics provide invocation success/failure without request bodies, identifiers, or database results.
 - `npm run cf:retention:build` dry-builds the Worker in CI without provisioning or invoking a database.

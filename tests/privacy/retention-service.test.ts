@@ -12,5 +12,11 @@ describe("retention maintenance bounds", () => {
     await expect(runRetentionMaintenance({ orphanAuditRetentionDays: 0 })).rejects.toThrow(
       "AUDIT_RETENTION_DAYS_INVALID",
     );
+    await expect(
+      runRetentionMaintenance({ orphanAuditRetentionDays: Number.MAX_SAFE_INTEGER }),
+    ).rejects.toThrow("AUDIT_RETENTION_DAYS_INVALID");
+    await expect(runRetentionMaintenance({ now: new Date(Number.NaN) })).rejects.toThrow(
+      "RETENTION_NOW_INVALID",
+    );
   });
 });
