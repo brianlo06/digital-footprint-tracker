@@ -1,9 +1,9 @@
 import { findAccount } from "@/core/account-service";
 import { listIdentifiers } from "@/core/identifier-service";
-import { requirePrincipal } from "@/security/auth";
 import { redirect } from "next/navigation";
 
 import { addEmailAction, verifyEmailAction } from "./actions";
+import { requireProtectedPagePrincipal } from "../principal";
 
 export const metadata = { title: "My identifiers" };
 
@@ -11,7 +11,7 @@ type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 export default async function IdentitiesPage({ searchParams }: { searchParams: SearchParams }) {
   const parameters = await searchParams;
-  const account = await findAccount(await requirePrincipal());
+  const account = await findAccount(await requireProtectedPagePrincipal());
   if (!account) redirect("/onboarding");
   const identifierList = await listIdentifiers(account);
   const verificationId =

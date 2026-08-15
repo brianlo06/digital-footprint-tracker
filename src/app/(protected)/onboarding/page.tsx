@@ -1,8 +1,8 @@
 import { findAccount } from "@/core/account-service";
-import { requirePrincipal } from "@/security/auth";
 import { redirect } from "next/navigation";
 
 import { initializeAccountAction } from "./actions";
+import { requireProtectedPagePrincipal } from "../principal";
 
 export const metadata = { title: "Set up account" };
 
@@ -10,7 +10,7 @@ type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 export default async function OnboardingPage({ searchParams }: { searchParams: SearchParams }) {
   const parameters = await searchParams;
-  const existingAccount = await findAccount(await requirePrincipal());
+  const existingAccount = await findAccount(await requireProtectedPagePrincipal());
   if (existingAccount) redirect("/dashboard");
 
   return (

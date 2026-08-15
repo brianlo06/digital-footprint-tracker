@@ -19,6 +19,18 @@ Chrome DevTools MCP and direct HTTPS requests validated `https://dft.jarvisworld
 
 The first hosted audit found Cloudflare's zone-level Web Analytics beacon injected independently of application code. The application now sends `Cache-Control: private, no-cache, no-store, max-age=0, must-revalidate, no-transform` on nonce-bearing dynamic responses. After deploying Worker version `48064b15-0604-4d68-b6ea-4a757463d6bc`, a cache-bypassing Chrome reload showed only same-host application requests: the `static.cloudflareinsights.com` script and `/cdn-cgi/rum` POST were absent, and the console remained clean.
 
+## Local Clerk preflight — 2026-08-15
+
+Chrome DevTools exercised the application in `AUTH_MODE=clerk` against the isolated Clerk development tenant without creating or authenticating a user:
+
+- Clerk's browser handshake and client-environment requests completed successfully;
+- the sign-in modal rendered its configured GitHub, Google, and email choices;
+- Clerk's scripts loaded under the nonce policy after `ClerkProvider` was configured for dynamic rendering and nonce propagation;
+- the resulting console contained no CSP violation, only Clerk's expected development-key warning; and
+- a signed-out request to `/dashboard` returned a redirect to `/` without logging an authentication exception.
+
+This is configuration and signed-out-boundary evidence only. It does not complete the managed-auth gate: synthetic user creation, session, passkey/MFA, recovery, strict reverification, deletion, and webhook exercises remain outstanding.
+
 ## Results
 
 - Direct access to a protected route redirected an uninitialized local principal to onboarding.
@@ -69,5 +81,5 @@ Existing `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`, and 
 
 - The performance figures remain a local lab baseline, not field performance.
 - Local authentication is deliberately rejected under `NODE_ENV=production`, so a production-runtime browser audit depends on the isolated Clerk preview gate.
-- Clerk session, MFA/passkey, recovery, webhook delivery, and the implemented strict managed-reauthentication behavior remain untested against a real tenant; the signed deletion endpoint and retry recovery are covered locally.
+- Clerk's local development-tenant handshake, sign-in surface, CSP integration, and signed-out redirect are verified. Authenticated session, MFA/passkey, recovery, webhook delivery, and the implemented strict managed-reauthentication behavior remain untested against a tenant user; the signed deletion endpoint and retry recovery are covered locally.
 - Multi-user browser authorization tests still require a managed-auth preview or a dedicated browser test harness with isolated principals.

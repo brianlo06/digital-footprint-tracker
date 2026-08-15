@@ -11,7 +11,9 @@ export function AuthProvider({
   children: ReactNode;
 }) {
   return mode === "clerk" ? (
-    <ClerkProvider publishableKey={clerkPublishableKey}>{children}</ClerkProvider>
+    <ClerkProvider dynamic publishableKey={clerkPublishableKey}>
+      {children}
+    </ClerkProvider>
   ) : (
     children
   );

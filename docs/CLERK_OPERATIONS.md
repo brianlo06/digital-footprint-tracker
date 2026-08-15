@@ -1,6 +1,6 @@
 # Clerk Authentication and Deletion Operations
 
-**Status:** Phase 1 application boundary implemented; isolated hosted-tenant configuration and exercises remain required.
+**Status:** Phase 1 application boundary implemented; local development-tenant preflight passed; isolated hosted-tenant configuration and authenticated exercises remain required.
 
 ## Required configuration
 
@@ -10,9 +10,13 @@ Clerk mode requires all three values:
 - `CLERK_SECRET_KEY` as a Worker secret; and
 - `CLERK_WEBHOOK_SIGNING_SECRET` as a distinct Worker secret.
 
-The root layout passes the publishable key to `ClerkProvider` at request time. This preserves the Cloudflare build rule that no project `.env` value may be embedded in the deployable OpenNext bundle. Never commit or place either secret in Wrangler `vars`.
+The root layout passes the publishable key to a dynamically rendered `ClerkProvider` at request time. Dynamic rendering propagates the request nonce to Clerk's script under the strict CSP. Supplying the key at runtime also preserves the Cloudflare build rule that no project `.env` value may be embedded in the deployable OpenNext bundle. Never commit or place either secret in Wrangler `vars`.
 
 Keep `AUTH_MODE=disabled` until the isolated Clerk tenant, restricted hosted database, Hyperdrive binding, encryption keys, and remaining gates in `PHASE_1_STATUS.md` are ready together. A partial enablement fails closed but is not a supported deployment.
+
+## Local browser preflight
+
+On 2026-08-15, the configured Clerk development tenant completed its browser handshake, loaded its scripts without a CSP violation, and rendered the sign-in modal. A signed-out `/dashboard` request redirected to `/` without an application error. No user was created or authenticated, so this evidence does not replace the hosted acceptance exercise below.
 
 ## Deletion webhook
 

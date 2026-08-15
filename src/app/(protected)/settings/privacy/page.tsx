@@ -1,9 +1,9 @@
 import { findAccount } from "@/core/account-service";
-import { requirePrincipal } from "@/security/auth";
 import { redirect } from "next/navigation";
 
 import { deleteAccountAction } from "./actions";
 import { ManagedDeleteForm } from "./managed-delete-form";
+import { requireProtectedPagePrincipal } from "../../principal";
 
 export const metadata = { title: "Privacy settings" };
 
@@ -15,7 +15,7 @@ export default async function PrivacySettingsPage({
   searchParams: SearchParams;
 }) {
   const parameters = await searchParams;
-  const account = await findAccount(await requirePrincipal());
+  const account = await findAccount(await requireProtectedPagePrincipal());
   if (!account) redirect("/onboarding");
   const managedAuthentication = process.env.AUTH_MODE === "clerk";
 
