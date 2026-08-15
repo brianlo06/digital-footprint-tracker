@@ -83,7 +83,7 @@
 - a previous-key deletion receipt is migrated to the current key in place inside the same transaction as its lock and upsert, exactly once, with no duplicate row;
 - a completed receipt created under a previous key ages out untouched, and idempotent webhook replay against it stays read-only;
 - the extended tenant-isolation policy still fails closed when both current and previous subject-token settings are absent;
-- the bounded lookup-token rotation worker supports dry-run, restart-safe batching, and reports a stale envelope, a removed identifier, and an undecryptable envelope as distinct opaque outcomes rather than aborting the batch;
+- the bounded lookup-token rotation worker supports dry-run and restart-safe batching, reports a stale envelope, a removed identifier, and an undecryptable envelope as distinct opaque outcomes rather than aborting the batch, and its legacy-token backfill skips a parent removed by concurrent account deletion without widening the function owner's table privileges;
 - its function-only role cannot read `identifiers` or `identifier_lookup_tokens` directly and can execute only its own three functions; and
 - dual-key rate-limit consumption seeds a missing window from its counterpart and persists an identical resulting state under both keys, so a rotation never resets abuse counters;
 - the verification delivery outbox row commits atomically with the identifier, verification, consent, and audit rows in the same tenant transaction, and a forced failure elsewhere in that transaction rolls the outbox row back too, not just independently;

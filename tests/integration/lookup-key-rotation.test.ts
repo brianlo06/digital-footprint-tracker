@@ -42,6 +42,8 @@ describeWithDatabase("bounded lookup-token rotation worker", () => {
   const allTestSubjects = [
     ...principals.map((principal) => principal.subject),
     `lookup_rotation_edgecases_${testRunId}`,
+    `lookup_rotation_backfill_${testRunId}`,
+    `lookup_rotation_delete_race_${testRunId}`,
   ];
   const lookupRotationSql = postgres(testLookupRotationDatabaseUrl!, { max: 1, prepare: false });
 
@@ -382,5 +384,47 @@ describeWithDatabase("bounded lookup-token rotation worker", () => {
         ),
       );
     expect(rows).toHaveLength(1);
+  });
+
+  it("skips a legacy candidate that is concurrently being deleted", async () => {
+    const account = await createAccountIfMissing({
+      subject: `lookup_rotation_delete_race_${testRunId}`,
+      mode: "local",
+    });
+    const created = await addEmailIdentifier(account, "backfill.delete-race@example.test");
+
+    await getDatabase()
+      .delete(identifierLookupTokens)
+      .where(
+        and(
+          eq(identifierLookupTokens.identifierId, created.identifierId),
+          eq(identifierLookupTokens.lookupKeyId, sourceKeyId),
+        ),
+      );
+
+    const deletionSql = postgres(testDatabaseUrl!, { max: 1, prepare: false });
+    let backfill: ReturnType<typeof backfillLegacyLookupTokens> | undefined;
+    try {
+      await deletionSql.begin(async (transaction) => {
+        await transaction`
+          delete from public.identifiers
+          where id = ${created.identifierId}::uuid
+        `;
+        backfill = backfillLegacyLookupTokens({ lookupKeyId: sourceKeyId, batchSize: 1000 });
+        void backfill.catch(() => undefined);
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      });
+
+      if (!backfill) throw new Error("lookup-token backfill did not start");
+      await expect(backfill).resolves.toMatchObject({ hasMore: false });
+    } finally {
+      await deletionSql.end({ timeout: 5 });
+    }
+
+    const remainingTokens = await getDatabase()
+      .select({ identifierId: identifierLookupTokens.identifierId })
+      .from(identifierLookupTokens)
+      .where(eq(identifierLookupTokens.identifierId, created.identifierId));
+    expect(remainingTokens).toHaveLength(0);
   });
 });

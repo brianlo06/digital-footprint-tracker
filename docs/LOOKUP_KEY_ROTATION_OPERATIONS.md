@@ -19,7 +19,7 @@ Database authority is separated from envelope-key rewrap:
 - All three are owned by the non-login `digital_footprint_lookup_rotation_owner`, which holds read-only `SELECT` on `identifiers` (this worker never mutates the parent row) and `SELECT, INSERT` on `identifier_lookup_tokens` (rows are never updated or deleted).
 - This role pair is dedicated and separate from `digital_footprint_rotation`/`_owner` (envelope rewrap), so a compromised or misused credential cannot trigger both kinds of rotation.
 
-The integration exercise verifies: function-only role boundaries and denied direct table access; dry-run, bounded restart-safe batching, and dual-token verification; a stale envelope reported as a conflict and a concurrently deleted identifier reported as skipped, both via direct compare-and-swap calls; dual-key identifier equality and duplicate-enrollment denial; deletion-receipt migration-in-place and completed-receipt idempotent replay; and dual rate-limit consumption preserving counts across a simulated rotation.
+The integration exercise verifies: function-only role boundaries and denied direct table access; dry-run, bounded restart-safe batching, and dual-token verification; a stale envelope reported as a conflict and a concurrently deleted identifier reported as skipped through the compare-and-swap path; legacy-token backfill continuing safely when account deletion removes a selected parent; dual-key identifier equality and duplicate-enrollment denial; deletion-receipt migration-in-place and completed-receipt idempotent replay; and dual rate-limit consumption preserving counts across a simulated rotation.
 
 ## Safe rotation sequence
 
