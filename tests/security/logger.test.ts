@@ -12,6 +12,15 @@ const CANARY_VALUES = [
   '{"email":"pii-canary@example.test"}',
 ] as const;
 
+const DELIVERY_CANARY_VALUES = [
+  "delivery-canary@example.test",
+  "739204",
+  "Your verification code is 739204",
+  "delivery-ciphertext-q83vM8zT+piiCanary==",
+  "provider-api-key-pii-canary",
+  '{"provider_message_id":"pii-canary-message","status":"accepted"}',
+] as const;
+
 afterEach(() => {
   vi.restoreAllMocks();
 });
@@ -71,6 +80,37 @@ describe("privacy-safe logging", () => {
     for (const canary of CANARY_VALUES) expect(output).not.toContain(canary);
     expect(output).not.toContain("requestBody");
     expect(output).not.toContain("query");
+  });
+
+  it("drops every verification-delivery value class from allowed and unknown fields", () => {
+    const output = serializeSafeLog({
+      event: "DELIVERY_CANARY_ATTEMPTED",
+      environment: DELIVERY_CANARY_VALUES[0],
+      serviceVersion: DELIVERY_CANARY_VALUES[1],
+      requestId: DELIVERY_CANARY_VALUES[2],
+      correlationId: DELIVERY_CANARY_VALUES[3],
+      outcome: DELIVERY_CANARY_VALUES[4],
+      errorCode: DELIVERY_CANARY_VALUES[5],
+      destination: DELIVERY_CANARY_VALUES[0],
+      code: DELIVERY_CANARY_VALUES[1],
+      content: DELIVERY_CANARY_VALUES[2],
+      ciphertext: DELIVERY_CANARY_VALUES[3],
+      providerCredential: DELIVERY_CANARY_VALUES[4],
+      providerResponse: DELIVERY_CANARY_VALUES[5],
+    });
+
+    expect(JSON.parse(output)).toEqual({ event: "DELIVERY_CANARY_ATTEMPTED", redacted: true });
+    for (const canary of DELIVERY_CANARY_VALUES) expect(output).not.toContain(canary);
+    for (const field of [
+      "destination",
+      "code",
+      "content",
+      "ciphertext",
+      "providerCredential",
+      "providerResponse",
+    ]) {
+      expect(output).not.toContain(field);
+    }
   });
 
   it("replaces an invalid event and blocks log injection", () => {

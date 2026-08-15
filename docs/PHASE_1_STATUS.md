@@ -71,8 +71,8 @@
 - every web build/deploy and retention dry-build now fails unless the committed Wrangler configurations preserve the exact no-data web boundary and route-less placeholder-only retention boundary; a third dry-build does the same for the route-less verification-delivery template, including that its Secrets Store key reference never becomes a plain `vars` entry and its kill switch ships default-on;
 - Chrome DevTools verified the live semantic page structure, first-party application assets, protected-route boundary, and browser console after deployment;
 - a follow-up live network audit detected and then eliminated Cloudflare Web Analytics injection through a private/no-store/`no-transform` response policy; the deployed cache-bypassing recheck contained no analytics script or RUM request;
-- the centralized logger rejects synthetic email, token, cookie, URL, database, ciphertext, request-body, and log-injection canaries from known and unknown fields;
-- a source-boundary test prevents direct console/stdout/stderr logging and telemetry SDK imports; hosted automatic invocation logs and application traces remain disabled;
+- the centralized logger rejects synthetic email, token, cookie, URL, database, ciphertext, request-body, and log-injection canaries from known and unknown fields, including delivery-specific destination, code, content, provider-credential, and provider-response canaries;
+- a source-boundary test prevents direct console/stdout/stderr logging and telemetry SDK imports across both application code and standalone Workers; every committed Worker configuration disables automatic invocation logs and application traces;
 - production startup rejects local authentication;
 - production dependency audit reports no known vulnerabilities.
 - managed deletion requires subject continuity plus Clerk strict reverification before consuming the deletion rate limit or mutating data;

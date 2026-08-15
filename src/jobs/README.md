@@ -1,5 +1,5 @@
 # Job system boundary
 
-The only executable background task is the separately deployable, bounded retention Worker. No general job dispatcher, delivery worker, provider worker, or queue exists.
+The repository has two executable, separately deployable background tasks: the bounded retention Worker and the purpose-specific verification-delivery Worker. The delivery Worker uses an encrypted PostgreSQL outbox, ships behind a default-on kill switch, and still has only a synthetic no-op provider; its committed configuration is a route-less dry-build template with placeholder bindings, not a hosted deployment.
 
-Proposed [ADR 0017](../../docs/adr/0017-verification-delivery-outbox.md) defines a purpose-specific encrypted PostgreSQL outbox for future verification delivery, including leases, retries, cancellation, least-privilege access, and deletion races. It is not approved or implemented. General provider orchestration remains proposed in ADR 0005.
+[ADR 0017](../../docs/adr/0017-verification-delivery-outbox.md) is accepted for local implementation and defines the delivery outbox's leases, retries, cancellation, least-privilege access, and deletion-race behavior. Provider selection, hosted activation, and the remaining activation evidence are still blocked. No general job dispatcher, provider worker, or general-purpose queue exists; general provider orchestration remains proposed in ADR 0005.
