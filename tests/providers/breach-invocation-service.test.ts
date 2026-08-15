@@ -5,10 +5,8 @@ import {
 } from "@/providers/breach/breach-invocation-policy";
 import { executeSyntheticBreachInvocation } from "@/providers/breach/breach-invocation-service";
 import { selectBreachProvider } from "@/providers/provider-registry";
-import {
-  SyntheticProviderUsageLedger,
-  type ProviderUsageBudget,
-} from "@/providers/synthetic-usage-ledger";
+import type { ProviderUsageBudget } from "@/providers/provider-usage-ledger";
+import { SyntheticProviderUsageLedger } from "@/providers/synthetic-usage-ledger";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const now = new Date("2026-08-15T18:00:00.000Z");

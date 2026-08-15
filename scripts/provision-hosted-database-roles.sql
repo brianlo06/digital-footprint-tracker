@@ -100,6 +100,9 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = 'digital_footprint_delivery') THEN
     CREATE ROLE digital_footprint_delivery LOGIN;
   END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = 'digital_footprint_provider_usage_owner') THEN
+    CREATE ROLE digital_footprint_provider_usage_owner NOLOGIN;
+  END IF;
 END
 $provision$;
 
@@ -123,6 +126,8 @@ ALTER ROLE digital_footprint_delivery_owner
   WITH NOLOGIN NOINHERIT;
 ALTER ROLE digital_footprint_delivery
   WITH LOGIN PASSWORD :'delivery_password' NOINHERIT;
+ALTER ROLE digital_footprint_provider_usage_owner
+  WITH NOLOGIN NOINHERIT;
 
 -- Managed PostgreSQL commonly reserves SUPERUSER and BYPASSRLS attribute
 -- changes for the provider's true superuser. New roles receive safe defaults;
@@ -147,7 +152,8 @@ BEGIN
       ('digital_footprint_lookup_rotation_owner', false),
       ('digital_footprint_lookup_rotation', true),
       ('digital_footprint_delivery_owner', false),
-      ('digital_footprint_delivery', true)
+      ('digital_footprint_delivery', true),
+      ('digital_footprint_provider_usage_owner', false)
     ) AS expected(role_name, can_login)
   LOOP
     SELECT rolcanlogin, rolsuper, rolcreatedb, rolcreaterole, rolinherit, rolbypassrls
@@ -175,7 +181,8 @@ GRANT digital_footprint_rate_limit_owner,
   digital_footprint_retention_owner,
   digital_footprint_rotation_owner,
   digital_footprint_lookup_rotation_owner,
-  digital_footprint_delivery_owner
+  digital_footprint_delivery_owner,
+  digital_footprint_provider_usage_owner
 TO CURRENT_USER;
 
 DO $remove_memberships$
@@ -192,7 +199,8 @@ BEGIN
       'digital_footprint_retention_owner',
       'digital_footprint_rotation_owner',
       'digital_footprint_lookup_rotation_owner',
-      'digital_footprint_delivery_owner'
+      'digital_footprint_delivery_owner',
+      'digital_footprint_provider_usage_owner'
     )
       AND member.rolname IN (
         'digital_footprint_runtime',
@@ -230,7 +238,8 @@ FROM digital_footprint_runtime,
   digital_footprint_lookup_rotation_owner,
   digital_footprint_lookup_rotation,
   digital_footprint_delivery_owner,
-  digital_footprint_delivery;
+  digital_footprint_delivery,
+  digital_footprint_provider_usage_owner;
 REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public
 FROM digital_footprint_runtime,
   digital_footprint_maintenance,
@@ -241,7 +250,8 @@ FROM digital_footprint_runtime,
   digital_footprint_lookup_rotation_owner,
   digital_footprint_lookup_rotation,
   digital_footprint_delivery_owner,
-  digital_footprint_delivery;
+  digital_footprint_delivery,
+  digital_footprint_provider_usage_owner;
 REVOKE CREATE ON SCHEMA public
 FROM digital_footprint_runtime,
   digital_footprint_maintenance,
@@ -252,7 +262,8 @@ FROM digital_footprint_runtime,
   digital_footprint_lookup_rotation_owner,
   digital_footprint_lookup_rotation,
   digital_footprint_delivery_owner,
-  digital_footprint_delivery;
+  digital_footprint_delivery,
+  digital_footprint_provider_usage_owner;
 
 GRANT USAGE ON SCHEMA public
 TO digital_footprint_runtime,
@@ -264,7 +275,8 @@ TO digital_footprint_runtime,
   digital_footprint_lookup_rotation_owner,
   digital_footprint_lookup_rotation,
   digital_footprint_delivery_owner,
-  digital_footprint_delivery;
+  digital_footprint_delivery,
+  digital_footprint_provider_usage_owner;
 
 GRANT USAGE ON TYPE
   public.account_state,
@@ -275,7 +287,8 @@ GRANT USAGE ON TYPE
   public.consent_state,
   public.deletion_state,
   public.rate_limit_scope_kind,
-  public.rate_limit_action
+  public.rate_limit_action,
+  public.provider_usage_state
 TO digital_footprint_runtime;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE
   public.users,
@@ -341,12 +354,20 @@ GRANT SELECT ON TABLE
   public.users
 TO digital_footprint_delivery_owner;
 
+GRANT USAGE ON TYPE public.provider_usage_state
+TO digital_footprint_provider_usage_owner;
+GRANT SELECT, INSERT, UPDATE ON TABLE public.provider_usage_reservations
+TO digital_footprint_provider_usage_owner;
+GRANT SELECT ON TABLE public.users
+TO digital_footprint_provider_usage_owner;
+
 GRANT CREATE ON SCHEMA public
 TO digital_footprint_rate_limit_owner,
   digital_footprint_retention_owner,
   digital_footprint_rotation_owner,
   digital_footprint_lookup_rotation_owner,
-  digital_footprint_delivery_owner;
+  digital_footprint_delivery_owner,
+  digital_footprint_provider_usage_owner;
 ALTER FUNCTION public.consume_action_rate_limit(text, text, public.rate_limit_action)
 OWNER TO digital_footprint_rate_limit_owner;
 ALTER FUNCTION public.consume_action_rate_limit_dual(
@@ -375,12 +396,20 @@ ALTER FUNCTION public.report_verification_delivery_failure(
   timestamptz, uuid, text, text, integer
 )
 OWNER TO digital_footprint_delivery_owner;
+ALTER FUNCTION public.reserve_provider_usage(
+  uuid, text, text, text, integer, integer, integer, integer, integer, integer
+) OWNER TO digital_footprint_provider_usage_owner;
+ALTER FUNCTION public.complete_provider_usage(uuid, public.provider_usage_state, integer)
+OWNER TO digital_footprint_provider_usage_owner;
+ALTER FUNCTION public.release_provider_usage(uuid)
+OWNER TO digital_footprint_provider_usage_owner;
 REVOKE CREATE ON SCHEMA public
 FROM digital_footprint_rate_limit_owner,
   digital_footprint_retention_owner,
   digital_footprint_rotation_owner,
   digital_footprint_lookup_rotation_owner,
-  digital_footprint_delivery_owner;
+  digital_footprint_delivery_owner,
+  digital_footprint_provider_usage_owner;
 
 REVOKE ALL ON FUNCTION
   public.consume_action_rate_limit(text, text, public.rate_limit_action),
@@ -395,7 +424,12 @@ REVOKE ALL ON FUNCTION
   ),
   public.claim_verification_deliveries(timestamptz, integer, integer, text),
   public.complete_verification_delivery(timestamptz, uuid, text),
-  public.report_verification_delivery_failure(timestamptz, uuid, text, text, integer)
+  public.report_verification_delivery_failure(timestamptz, uuid, text, text, integer),
+  public.reserve_provider_usage(
+    uuid, text, text, text, integer, integer, integer, integer, integer, integer
+  ),
+  public.complete_provider_usage(uuid, public.provider_usage_state, integer),
+  public.release_provider_usage(uuid)
 FROM PUBLIC,
   digital_footprint_runtime,
   digital_footprint_maintenance,
@@ -426,6 +460,13 @@ GRANT EXECUTE ON FUNCTION
   public.complete_verification_delivery(timestamptz, uuid, text),
   public.report_verification_delivery_failure(timestamptz, uuid, text, text, integer)
 TO digital_footprint_delivery;
+GRANT EXECUTE ON FUNCTION
+  public.reserve_provider_usage(
+    uuid, text, text, text, integer, integer, integer, integer, integer, integer
+  ),
+  public.complete_provider_usage(uuid, public.provider_usage_state, integer),
+  public.release_provider_usage(uuid)
+TO digital_footprint_runtime;
 
 COMMIT;
 

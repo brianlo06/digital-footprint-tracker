@@ -178,4 +178,18 @@ The ledger implementation is intentionally in-memory and local-only. It proves t
 
 Verification: the focused provider suite passes 47 tests, `npm run check` passes with 192 service-independent tests, `npm run build` passes, and `npm run cf:verify:boundaries` confirms the no-provider hosted Worker boundary.
 
-Remaining synthetic-only Phase 2 work includes durable tenant-isolated invocation persistence, a purpose-specific consent creation flow, normalized provenance persistence/display, user-visible coverage guidance, and a complete kill-switch rollback exercise. A live HIBP adapter, credential binding, real email, nonzero budget, route-level provider activation, and external network use remain out of scope.
+### Slice 3 — durable authorization and provider-usage reservations (complete 2026-08-15)
+
+- migration `0017` adds an account-owned provider usage reservation table with forced RLS, cost/state invariants, opaque idempotency binding, and account-cascade deletion;
+- runtime receives no direct ledger-table privilege and reaches only three security-definer transition functions;
+- the functions are owned by `digital_footprint_provider_usage_owner`, a non-login, non-superuser, `NOBYPASSRLS` role with only ledger mutation and account-read grants;
+- reservation uses PostgreSQL's clock and a provider-scoped transaction advisory lock to atomically enforce cross-tenant provider caps without exposing another tenant's rows;
+- the PostgreSQL authorization adapter joins and share-locks the exact account, identity, email, and consent rows through reservation, while tenant RLS remains an independent boundary;
+- the durable synthetic wrapper commits a dispatched fixture failure as `FAILED` before rethrowing the provider's safe error outside the transaction; and
+- hosted provisioning and the read-only database verifier now attest eleven protected tables, six capability owners, fourteen security-definer functions, and the complete cross-execution matrix.
+
+Verification: the full migration chain applied to a clean PostgreSQL 17 database, hosted-style provisioning passed, `npm run db:verify:boundaries` passed, and all 53 restricted-role integration tests passed. The integration suite includes cross-tenant snapshot denial, no direct runtime ledger access, global-cap concurrency, default-zero denial, idempotent completion, and failed-dispatch persistence.
+
+The durable wrapper is intentionally restricted to the zero-network synthetic adapter because it holds share locks and a tenant transaction through fixture execution. A live network adapter requires a short-transaction job/outbox state machine and remains unauthorized.
+
+Remaining synthetic-only Phase 2 work includes a purpose-specific consent creation flow, scan/provider-run and normalized provenance persistence/display, user-visible coverage guidance, and a complete kill-switch rollback exercise. A live HIBP adapter, credential binding, real email, nonzero budget, route-level provider activation, and external network use remain out of scope.

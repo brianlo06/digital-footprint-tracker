@@ -25,13 +25,14 @@ Apply migrations as the owner first, then provision table/type grants in that da
 DATABASE_URL=postgres://owner... npm run db:migrate
 psql postgres://owner... -v ON_ERROR_STOP=1 -f scripts/provision-local-runtime-role.sql
 psql postgres://owner... -v ON_ERROR_STOP=1 -f scripts/provision-local-rate-limit-role.sql
+psql postgres://owner... -v ON_ERROR_STOP=1 -f scripts/provision-local-provider-usage-role.sql
 psql postgres://owner... -v ON_ERROR_STOP=1 -f scripts/provision-local-maintenance-role.sql
 psql postgres://owner... -v ON_ERROR_STOP=1 -f scripts/provision-local-rotation-role.sql
 psql postgres://owner... -v ON_ERROR_STOP=1 -f scripts/provision-local-lookup-rotation-role.sql
 psql postgres://owner... -v ON_ERROR_STOP=1 -f scripts/provision-local-delivery-role.sql
 ```
 
-The scripts are idempotent and intentionally contain local-only passwords. Run all six separately for the development and test databases. Never reuse those role passwords in a hosted environment.
+The scripts are idempotent and intentionally contain local-only passwords. Run all seven separately for the development and test databases. Never reuse those role passwords in a hosted environment.
 
 For a dedicated hosted database, generate five distinct random passwords of at least 32 characters in a secret manager or ephemeral shell variables and run the password-free hosted provisioner after migrations:
 
@@ -45,7 +46,7 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
   -f scripts/provision-hosted-database-roles.sql
 ```
 
-The password values are read from the process environment inside `psql`; do not pass them through `-v`, paste them into SQL, or retain them in shell history. The script validates that they are present, distinct, and at least 32 characters, creates roles with safe managed-PostgreSQL defaults, fails closed if any existing role has unsafe flags, grants the dedicated owner only the membership needed for ownership transfers, clears direct privilege drift, restores exact grants, and transfers the eleven capability functions to non-login owners in a transaction. Run it only as the dedicated database owner. Unset the five password variables immediately after creating the purpose-specific secret/Hyperdrive configurations.
+The password values are read from the process environment inside `psql`; do not pass them through `-v`, paste them into SQL, or retain them in shell history. The script validates that they are present, distinct, and at least 32 characters, creates roles with safe managed-PostgreSQL defaults, fails closed if any existing role has unsafe flags, grants the dedicated owner only the membership needed for ownership transfers, clears direct privilege drift, restores exact grants, and transfers the fourteen capability functions to non-login owners in a transaction. Run it only as the dedicated database owner. Unset the five password variables immediately after creating the purpose-specific secret/Hyperdrive configurations.
 
 After provisioning, run the read-only boundary attestation through the owner connection:
 
@@ -55,17 +56,19 @@ DATABASE_URL=postgres://owner... npm run db:verify:boundaries
 
 The verifier sets statement/lock timeouts and a catalog-only `search_path`, opens a read-only transaction, and rolls it back after checking the complete standard-role contract. It fails closed on missing objects, role administration or membership, unexpected table/function authority, missing forced RLS/policies, unsafe capability-function ownership, `PUBLIC` execution, or an unfixed security-definer `search_path`. Its only successful output is a fixed confirmation string; it does not select tenant rows or reveal credentials.
 
-The runtime role receives only `CONNECT`, schema/type `USAGE`, and `SELECT`, `INSERT`, `UPDATE`, and `DELETE` on the eight user-graph tables (including `identifier_lookup_tokens`). It receives no `TRUNCATE`, schema mutation, role administration, database creation, ownership, superuser, or RLS-bypass capability. The ninth protected table, `rate_limit_windows`, has no runtime table grant or tenant policy; the runtime may call only its fixed-policy limiter functions. The tenth protected table, `verification_delivery_outbox`, has an insert-only RLS policy binding the inserted row's `verification_id`, `user_id`, and the tenant's `auth_subject` together in one predicate; the runtime's own grant on it is deliberately asymmetric to the eight user-graph tables — `INSERT` only, never `SELECT`, `UPDATE`, or `DELETE`.
+The runtime role receives only `CONNECT`, schema/type `USAGE`, and `SELECT`, `INSERT`, `UPDATE`, and `DELETE` on the eight user-graph tables (including `identifier_lookup_tokens`). It receives no `TRUNCATE`, schema mutation, role administration, database creation, ownership, superuser, or RLS-bypass capability. The ninth protected table, `rate_limit_windows`, has no runtime table grant or tenant policy; the runtime may call only its fixed-policy limiter functions. The tenth protected table, `verification_delivery_outbox`, has an insert-only RLS policy binding the inserted row's `verification_id`, `user_id`, and the tenant's `auth_subject` together in one predicate; the runtime's own grant on it is deliberately asymmetric to the eight user-graph tables — `INSERT` only, never `SELECT`, `UPDATE`, or `DELETE`. The eleventh protected table, `provider_usage_reservations`, also has no runtime table grant. Runtime code reaches it only through reserve/complete/release functions after `withTenantDatabase` establishes transaction-local identity.
 
 Retention uses two additional roles. `digital_footprint_maintenance` can log in but has no direct table privileges and can execute only `run_retention_maintenance`. The security-definer function is owned by `digital_footprint_retention_owner`, which cannot log in or bypass RLS and receives fixed-role capability policies plus operations on only the four retention-relevant tables. The function fixes `search_path`, fully qualifies every object, validates nulls, batch size, future clock skew, and minimum audit retention in PostgreSQL, uses `SKIP LOCKED`, and is not executable by `PUBLIC` or the web runtime role.
 
-All five security-definer owners remain `NOBYPASSRLS`. Each can see rows only through an exact `current_user = '<capability-owner>'` policy on the tables its functions require and on read-only dependencies referenced by those tables' tenant-policy joins. Table grants independently constrain the allowed commands. The login roles are not members of these owners and cannot `SET ROLE`; they can reach the capability only through the explicitly granted function.
+All six security-definer owners remain `NOBYPASSRLS`. Each can see rows only through an exact `current_user = '<capability-owner>'` policy on the tables its functions require and on read-only dependencies referenced by those tables' tenant-policy joins. Table grants independently constrain the allowed commands. The login roles are not members of these owners and cannot `SET ROLE`; they can reach the capability only through the explicitly granted function.
 
 Key rewrap follows the same split. `digital_footprint_rotation` can log in but has no direct identifier-table privileges and can execute only the bounded envelope list and compare-and-swap replacement functions. Their non-login owner has narrowly scoped `SELECT`/`UPDATE` access plus read-only access to the `identities`/`users` policy dependencies. PostgreSQL independently validates key IDs, limits, envelope shape, and preservation of ciphertext fields. See `KEY_ROTATION_OPERATIONS.md`.
 
 Lookup-key rotation uses a dedicated pair kept separate from envelope rewrap. `digital_footprint_lookup_rotation` can log in but has no direct table privileges and can execute only the bounded list, compare-and-swap insert, and backfill functions. Their non-login owner has read-only `SELECT` on `identifiers`, `identities`, and `users`, and `SELECT, INSERT` on `identifier_lookup_tokens` — it never updates or deletes those tables. See `LOOKUP_KEY_ROTATION_OPERATIONS.md`.
 
 The verification delivery outbox uses its own dedicated pair. `digital_footprint_delivery` can log in but has no direct table privileges and can execute only the bounded claim, complete, and report-failure functions. Their non-login owner has `SELECT, UPDATE` on `verification_delivery_outbox`, read-only `SELECT` on `identifier_verifications` and `users` for eligibility, and read-only `SELECT` on `identifiers`/`identities` so the verification tenant-policy join can be evaluated. The function code never queries the latter two tables. See `VERIFICATION_DELIVERY_OPERATIONS.md`.
+
+Provider usage uses the existing runtime login plus `digital_footprint_provider_usage_owner`, a non-login role. Runtime has no direct ledger-table privilege and can execute only reserve, complete, and release. The owner has `SELECT, INSERT, UPDATE` on the ledger and read-only `SELECT` on `users` solely to validate the transaction-local tenant subject. Reservation functions use the PostgreSQL server clock, validate every zero-or-positive cap, acquire a provider-scoped transaction advisory lock, and compute user/provider daily and provider monthly request and cost totals across tenants without returning other tenants' rows. Authorization rows are share-locked through the synthetic reservation transaction; the wrapper catches a fixture dispatch error before transaction exit so its `FAILED` reservation commits, then rethrows the safe provider error. This wrapper must not be reused for live network I/O; a live adapter requires a short-transaction job state machine.
 
 ## Verification
 
@@ -95,6 +98,7 @@ The RLS suite verifies:
 - non-login, narrowly granted owners for security-definer functions;
 - no direct limiter-table access from the web role;
 - exact concurrent user/network limits through the function-only capability;
+- no direct provider-ledger access from runtime, exact tenant authorization snapshots, atomic cross-tenant provider caps, zero-default denial, idempotent completion, and durable failed-dispatch reconciliation;
 - denied direct identifier access from the rotation login and denied rotation-function execution from the web role;
 - non-login ownership plus bounded, validated envelope replacement;
 - dry-run, interrupted resume, ciphertext preservation, and rollback behavior;
@@ -118,5 +122,5 @@ Before any shared preview accepts personal data:
 3. Run migrations with the owner credential and the complete integration suite with the hosted runtime credential.
 4. Run `npm run db:verify:boundaries` with the hosted owner connection and retain its fixed success result with the deployment evidence.
 5. Inspect all tenant tables for both `relrowsecurity = true` and `relforcerowsecurity = true`.
-6. Keep owner, maintenance, rotation, lookup-rotation, and delivery credentials out of the web runtime and reproduce all four function-only authorities.
+6. Keep owner, maintenance, rotation, lookup-rotation, and delivery credentials out of the web runtime and reproduce every function-only authority, including the non-login provider-usage owner.
 7. Rotate both database credentials and repeat the verifier plus role/policy assertions before enabling traffic.

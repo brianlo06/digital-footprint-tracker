@@ -1,8 +1,8 @@
 # Testing Strategy
 
-**Status:** Active baseline. Vitest unit tests and an opt-in PostgreSQL integration lifecycle test are installed in Phase 1; provider, API authorization-matrix, security, accessibility automation, and E2E layers remain planned.
+**Status:** Active baseline. Vitest unit tests and opt-in restricted-role PostgreSQL integration tests are installed; API authorization-matrix, accessibility automation, and E2E layers remain planned.
 
-The current executable baseline covers encryption/authenticated context, no-plaintext key rewrap, lookup/challenge binding, normalization/masking, safe-log allowlisting, local-auth production rejection, closed provider source, concurrent idempotent onboarding, cross-account denial, atomic verification lockout, destructive-action reauthentication denial, deletion-provider failure/quarantine/retry, bounded retention eligibility, and complete foundation deletion. It uses synthetic `.test` addresses only.
+The current executable baseline covers encryption/authenticated context, no-plaintext key rewrap, lookup/challenge binding, normalization/masking, safe-log allowlisting, local-auth production rejection, closed provider source, concurrent idempotent onboarding, cross-account denial, atomic verification lockout, destructive-action reauthentication denial, deletion-provider failure/quarantine/retry, bounded retention eligibility, complete foundation deletion, synthetic provider contract failures, recent-verification/consent authorization, and atomic durable request/cost reservations across tenants. It uses synthetic `.test` addresses only.
 
 ## Test layers
 

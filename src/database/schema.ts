@@ -67,6 +67,12 @@ export const deliveryState = pgEnum("delivery_state", [
   "DEAD_LETTERED",
   "CANCELLED",
 ]);
+export const providerUsageState = pgEnum("provider_usage_state", [
+  "RESERVED",
+  "COMPLETED",
+  "FAILED",
+  "RELEASED",
+]);
 
 export const users = pgTable(
   "users",
@@ -108,6 +114,12 @@ export const users = pgTable(
       to: "public",
       using: sql`current_user = 'digital_footprint_retention_owner'`,
       withCheck: sql`current_user = 'digital_footprint_retention_owner'`,
+    }),
+    pgPolicy("users_provider_usage_capability", {
+      for: "all",
+      to: "public",
+      using: sql`current_user = 'digital_footprint_provider_usage_owner'`,
+      withCheck: sql`current_user = 'digital_footprint_provider_usage_owner'`,
     }),
   ],
 ).enableRLS();
@@ -469,6 +481,63 @@ export const rateLimitWindows = pgTable(
       to: "public",
       using: sql`current_user = 'digital_footprint_retention_owner'`,
       withCheck: sql`current_user = 'digital_footprint_retention_owner'`,
+    }),
+  ],
+).enableRLS();
+
+export const providerUsageReservations = pgTable(
+  "provider_usage_reservations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    providerId: text("provider_id").notNull(),
+    idempotencyKey: text("idempotency_key").notNull(),
+    requestFingerprint: text("request_fingerprint").notNull(),
+    estimatedCostUnits: integer("estimated_cost_units").notNull(),
+    actualCostUnits: integer("actual_cost_units"),
+    state: providerUsageState("state").notNull().default("RESERVED"),
+    reservedAt: timestamp("reserved_at", { withTimezone: true }).notNull().defaultNow(),
+    terminalAt: timestamp("terminal_at", { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex("provider_usage_user_provider_idempotency_unique").on(
+      table.userId,
+      table.providerId,
+      table.idempotencyKey,
+    ),
+    index("provider_usage_provider_time_idx").on(table.providerId, table.reservedAt),
+    index("provider_usage_user_time_idx").on(table.userId, table.reservedAt),
+    check(
+      "provider_usage_costs_nonnegative",
+      sql`${table.estimatedCostUnits} >= 0 AND (${table.actualCostUnits} IS NULL OR ${table.actualCostUnits} BETWEEN 0 AND ${table.estimatedCostUnits})`,
+    ),
+    check(
+      "provider_usage_terminal_invariant",
+      sql`(${table.state} = 'RESERVED' AND ${table.actualCostUnits} IS NULL AND ${table.terminalAt} IS NULL)
+        OR (${table.state} IN ('COMPLETED', 'FAILED') AND ${table.actualCostUnits} IS NOT NULL AND ${table.terminalAt} IS NOT NULL)
+        OR (${table.state} = 'RELEASED' AND ${table.actualCostUnits} IS NULL AND ${table.terminalAt} IS NOT NULL)`,
+    ),
+    pgPolicy("provider_usage_reservations_tenant_isolation", {
+      for: "all",
+      to: "public",
+      using: sql`exists (
+        select 1 from users
+        where users.id = user_id
+          and users.auth_subject = nullif(current_setting('app.auth_subject', true), '')
+      )`,
+      withCheck: sql`exists (
+        select 1 from users
+        where users.id = user_id
+          and users.auth_subject = nullif(current_setting('app.auth_subject', true), '')
+      )`,
+    }),
+    pgPolicy("provider_usage_reservations_capability", {
+      for: "all",
+      to: "public",
+      using: sql`current_user = 'digital_footprint_provider_usage_owner'`,
+      withCheck: sql`current_user = 'digital_footprint_provider_usage_owner'`,
     }),
   ],
 ).enableRLS();

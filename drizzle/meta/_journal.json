@@ -120,6 +120,13 @@
       "when": 1786774000000,
       "tag": "0016_capability_policy_dependencies",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1786830000000,
+      "tag": "0017_provider_usage_reservations",
+      "breakpoints": true
     }
   ]
 }

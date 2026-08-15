@@ -58,6 +58,7 @@ Place the two generated values into `ENCRYPTION_KEY` and `LOOKUP_KEY`. Also set 
 npm run db:migrate
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/provision-local-runtime-role.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/provision-local-rate-limit-role.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/provision-local-provider-usage-role.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/provision-local-maintenance-role.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/provision-local-rotation-role.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/provision-local-lookup-rotation-role.sql
@@ -115,6 +116,6 @@ The pinned GitHub Actions workflow runs `npm run check`, the production build, m
 
 ## Not implemented
 
-No live provider adapter, scan engine, finding dashboard, notification delivery, broker workflow, owned-domain check, search/social/breach call, hosted personal-data store, or production authentication configuration exists. The retention Cron source is operational infrastructure only and is not deployed. The deployed Worker is a public preview shell. The approved Phase 2 synthetic adapter, invocation policy, local-only usage ledger, and fictional fixtures contain no network client and cannot accept a live credential. There is no provider invocation route or distributed usage ledger. Contracted or live-provider work must not begin without compatible written terms, legal/ToS/privacy/security review, a nonzero budget decision, and separate owner authorization.
+No live provider adapter, scan engine, finding dashboard, notification delivery, broker workflow, owned-domain check, search/social/breach call, hosted personal-data store, or production authentication configuration exists. The retention Cron source is operational infrastructure only and is not deployed. The deployed Worker is a public preview shell. The approved Phase 2 synthetic adapter, invocation policy, durable usage ledger, and fictional fixtures contain no network client and cannot accept a live credential. There is no provider invocation route. Contracted or live-provider work must not begin without compatible written terms, legal/ToS/privacy/security review, a nonzero budget decision, and separate owner authorization.
 
 This project is not legal advice. Never commit secrets or real personal data.

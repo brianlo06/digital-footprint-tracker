@@ -44,7 +44,8 @@ BEGIN
       ('digital_footprint_rotation_owner', false, false),
       ('digital_footprint_lookup_rotation_owner', false, false),
       ('digital_footprint_delivery', true, false),
-      ('digital_footprint_delivery_owner', false, false)
+      ('digital_footprint_delivery_owner', false, false),
+      ('digital_footprint_provider_usage_owner', false, false)
     ) AS expected(role_name, can_login, bypasses_rls)
   LOOP
     SELECT
@@ -114,6 +115,7 @@ BEGIN
     'consent_records',
     'audit_events',
     'deletion_receipts',
+    'provider_usage_reservations',
     'rate_limit_windows',
     'verification_delivery_outbox'
   ]
@@ -146,7 +148,8 @@ BEGIN
       'digital_footprint_rotation_owner',
       'digital_footprint_lookup_rotation_owner',
       'digital_footprint_delivery',
-      'digital_footprint_delivery_owner'
+      'digital_footprint_delivery_owner',
+      'digital_footprint_provider_usage_owner'
     ]) THEN
       RAISE EXCEPTION 'protected table public.% has a restricted or capability role as owner', audited_table;
     END IF;
@@ -195,6 +198,7 @@ BEGIN
       ('users', 'users_rotation_capability', 'digital_footprint_rotation_owner'),
       ('users', 'users_lookup_rotation_capability', 'digital_footprint_lookup_rotation_owner'),
       ('users', 'users_retention_capability', 'digital_footprint_retention_owner'),
+      ('users', 'users_provider_usage_capability', 'digital_footprint_provider_usage_owner'),
       ('identities', 'identities_rotation_capability', 'digital_footprint_rotation_owner'),
       (
         'identities',
@@ -242,6 +246,11 @@ BEGIN
         'verification_delivery_outbox',
         'verification_delivery_outbox_delivery_capability',
         'digital_footprint_delivery_owner'
+      ),
+      (
+        'provider_usage_reservations',
+        'provider_usage_reservations_capability',
+        'digital_footprint_provider_usage_owner'
       )
     ) AS expected(table_name, policy_name, owner_name)
   LOOP
@@ -280,7 +289,8 @@ BEGIN
       'digital_footprint_rotation_owner',
       'digital_footprint_lookup_rotation_owner',
       'digital_footprint_delivery',
-      'digital_footprint_delivery_owner'
+      'digital_footprint_delivery_owner',
+      'digital_footprint_provider_usage_owner'
     ])
   LOOP
     FOREACH audited_table IN ARRAY ARRAY[
@@ -292,6 +302,7 @@ BEGIN
       'consent_records',
       'audit_events',
       'deletion_receipts',
+      'provider_usage_reservations',
       'rate_limit_windows',
       'verification_delivery_outbox'
     ]
@@ -305,6 +316,7 @@ BEGIN
             audited_role = 'digital_footprint_runtime'
             AND audited_table <> 'rate_limit_windows'
             AND audited_table <> 'verification_delivery_outbox'
+            AND audited_table <> 'provider_usage_reservations'
             AND audited_privilege = ANY(ARRAY['SELECT', 'INSERT', 'UPDATE', 'DELETE'])
           )
           OR (
@@ -371,6 +383,16 @@ BEGIN
             audited_role = 'digital_footprint_lookup_rotation_owner'
             AND audited_table = ANY(ARRAY['users', 'identities'])
             AND audited_privilege = 'SELECT'
+          )
+          OR (
+            audited_role = 'digital_footprint_provider_usage_owner'
+            AND audited_table = 'provider_usage_reservations'
+            AND audited_privilege = ANY(ARRAY['SELECT', 'INSERT', 'UPDATE'])
+          )
+          OR (
+            audited_role = 'digital_footprint_provider_usage_owner'
+            AND audited_table = 'users'
+            AND audited_privilege = 'SELECT'
           );
 
         actual_privilege := pg_catalog.has_table_privilege(
@@ -436,6 +458,18 @@ BEGIN
       (
         'public.report_verification_delivery_failure(timestamptz,uuid,text,text,integer)',
         'digital_footprint_delivery_owner'
+      ),
+      (
+        'public.reserve_provider_usage(uuid,text,text,text,integer,integer,integer,integer,integer,integer)',
+        'digital_footprint_provider_usage_owner'
+      ),
+      (
+        'public.complete_provider_usage(uuid,public.provider_usage_state,integer)',
+        'digital_footprint_provider_usage_owner'
+      ),
+      (
+        'public.release_provider_usage(uuid)',
+        'digital_footprint_provider_usage_owner'
       )
     ) AS expected(signature, owner_name)
   LOOP
@@ -496,7 +530,10 @@ BEGIN
             audited_role = 'digital_footprint_runtime'
             AND signature = ANY(ARRAY[
               'public.consume_action_rate_limit(text,text,public.rate_limit_action)',
-              'public.consume_action_rate_limit_dual(text,text,text,text,public.rate_limit_action)'
+              'public.consume_action_rate_limit_dual(text,text,text,text,public.rate_limit_action)',
+              'public.reserve_provider_usage(uuid,text,text,text,integer,integer,integer,integer,integer,integer)',
+              'public.complete_provider_usage(uuid,public.provider_usage_state,integer)',
+              'public.release_provider_usage(uuid)'
             ])
           )
           OR (
@@ -541,7 +578,12 @@ BEGIN
           ),
           ('public.claim_verification_deliveries(timestamptz,integer,integer,text)'),
           ('public.complete_verification_delivery(timestamptz,uuid,text)'),
-          ('public.report_verification_delivery_failure(timestamptz,uuid,text,text,integer)')
+          ('public.report_verification_delivery_failure(timestamptz,uuid,text,text,integer)'),
+          (
+            'public.reserve_provider_usage(uuid,text,text,text,integer,integer,integer,integer,integer,integer)'
+          ),
+          ('public.complete_provider_usage(uuid,public.provider_usage_state,integer)'),
+          ('public.release_provider_usage(uuid)')
       ) AS all_functions(signature)
     LOOP
       actual_privilege := pg_catalog.has_function_privilege(

@@ -1,7 +1,5 @@
-import {
-  SyntheticProviderUsageLedger,
-  type ProviderUsageBudget,
-} from "@/providers/synthetic-usage-ledger";
+import type { ProviderUsageBudget } from "@/providers/provider-usage-ledger";
+import { SyntheticProviderUsageLedger } from "@/providers/synthetic-usage-ledger";
 import { describe, expect, it } from "vitest";
 
 const now = new Date("2026-08-15T18:00:00.000Z");

@@ -47,7 +47,8 @@ GRANT USAGE ON TYPE
   consent_state,
   deletion_state,
   rate_limit_scope_kind,
-  rate_limit_action
+  rate_limit_action,
+  provider_usage_state
 TO digital_footprint_runtime;
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE

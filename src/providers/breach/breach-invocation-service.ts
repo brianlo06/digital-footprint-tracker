@@ -12,7 +12,7 @@ import type {
   ProviderUsageBudget,
   ProviderUsageDenialReason,
   ProviderUsageLedger,
-} from "@/providers/synthetic-usage-ledger";
+} from "@/providers/provider-usage-ledger";
 import type { CandidateFinding } from "@/core/domain.types";
 
 const invocationCommandSchema = z.strictObject({

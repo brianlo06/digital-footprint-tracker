@@ -155,12 +155,13 @@ describeWithDatabase("PostgreSQL row-level tenant isolation", () => {
         'consent_records',
         'audit_events',
         'deletion_receipts',
+        'provider_usage_reservations',
         'rate_limit_windows',
         'verification_delivery_outbox'
       )
       order by relname
     `;
-    expect(protectedTables).toHaveLength(10);
+    expect(protectedTables).toHaveLength(11);
     expect(protectedTables.every((table) => table.enabled && table.forced)).toBe(true);
   });
 
@@ -201,6 +202,22 @@ describeWithDatabase("PostgreSQL row-level tenant isolation", () => {
     await getDatabase()
       .delete(verificationDeliveryOutbox)
       .where(eq(verificationDeliveryOutbox.deliveryId, deliveryId));
+  });
+
+  it("denies direct runtime access to the provider usage ledger", async () => {
+    await expect(runtimeSql`select 1 from provider_usage_reservations`).rejects.toMatchObject({
+      code: "42501",
+    });
+    await expect(
+      runtimeSql`
+        insert into provider_usage_reservations (
+          user_id, provider_id, idempotency_key, request_fingerprint, estimated_cost_units
+        ) values (
+          ${ownerUserId}, 'synthetic-breach', 'forbidden:provider:usage',
+          'forbidden:provider:fingerprint', 0
+        )
+      `,
+    ).rejects.toMatchObject({ code: "42501" });
   });
 
   it("fails closed without context and does not leak transaction-local identity", async () => {
