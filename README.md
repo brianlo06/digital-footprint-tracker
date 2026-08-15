@@ -4,7 +4,7 @@
 
 Digital Footprint Tracker is a privacy-first evidence platform for individuals to understand their own public online presence: what is visible, where it came from, how confidently it relates to them, how sensitive it is, how it changes over time, and what they can safely do next.
 
-Phase 0 architecture is complete. The current Phase 1 slice implements the private application foundation: a responsive shell, an authentication boundary, an explicit account-onboarding action, envelope-encrypted email identifiers, local-only fake verification, consent/audit records, and deletion primitives. A public, no-data Cloudflare preview is available at [dft.jarvisworlds.com](https://dft.jarvisworlds.com). It does **not** scan, scrape, query providers, enumerate usernames, send email, or schedule jobs.
+Phase 0 architecture and the Phase 1 local-first application foundation are complete. The foundation includes a responsive shell, an authentication boundary, an explicit account-onboarding action, envelope-encrypted email identifiers, local-only fake verification, consent/audit records, and deletion primitives. A public, no-data Cloudflare preview is available at [dft.jarvisworlds.com](https://dft.jarvisworlds.com). It does **not** scan, scrape, query providers, enumerate usernames, send email, or schedule jobs. Hosted personal-data features remain disabled behind the pre-production activation gates in the [Phase 1 status](docs/PHASE_1_STATUS.md).
 
 ## Safety boundary
 

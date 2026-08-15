@@ -1,6 +1,12 @@
 # Phase 1 Foundation Status
 
-**Status:** In progress — the foundation is locally verified and its no-data public preview is deployed; personal-data features are not production-ready.
+**Status:** Complete as of 2026-08-15 — the secure local-first foundation and its no-data public preview meet the Phase 1 exit criteria. Personal-data features remain disabled and are not production-ready.
+
+## Closure decision
+
+Phase 1 is closed against the scope and exit criteria committed in `ROADMAP.md`: a local-first application foundation, no real scanning or providers, a synthetic add/mask/delete lifecycle, and verified logging and tenant-isolation boundaries. The production-oriented work previously listed as remaining Phase 1 work is retained below as pre-production activation gates.
+
+This closure does **not** approve a vendor, legal retention period, production key custodian, hosted personal-data path, email delivery, scheduled maintenance, or provider integration. Those capabilities must remain disabled until their applicable activation gates are explicitly approved and exercised together.
 
 ## Implemented scope
 
@@ -97,7 +103,9 @@
 - verification-delivery commands reject non-normalized destinations, non-six-digit codes, extra fields, malformed authenticated plaintext, and value-bearing decode errors before a provider can receive them; poison commands dead-letter, key/decryption failures preserve ciphertext for recovery, and Worker-core tests keep the kill switch default-on while routing success, permanent rejection, throttling, transient outcomes, and thrown provider calls to their exact compare-and-swap operations; and
 - Wrangler-generated binding types for both standalone Workers are checked in CI against their committed configurations, preventing code/config drift without attaching any hosted binding.
 
-## Remaining Phase 1 gates
+## Pre-production activation gates
+
+These gates do not block the completed local foundation milestone. They block any hosted path that handles personal data and, where applicable, the later phase that depends on that path.
 
 1. Configure and exercise Clerk in an isolated preview tenant with MFA/passkey, session, recovery, the implemented signed `user.deleted` endpoint, privacy/DPA, and deletion tests.
 2. Exercise the implemented Clerk strict-reverification deletion flow with password, passkey/MFA, cancellation, stale session, recovery, provider deletion failure, and successful deletion in that tenant.
@@ -106,6 +114,17 @@
 5. Reproduce the verified batch rewrap, rollback, and recovery procedure against an approved production KMS with monitored invocation. [ADR 0016](adr/0016-lookup-key-rotation.md)'s dual-key capability is implemented and hosted-database verified; production cutover still requires an approved KMS/HSM, dual-key/rollback duration approval, backup-compatibility review, and irreversible key-destruction authority per the ADR's approval questions.
 6. Repeat the multi-user and managed-auth browser checks after Clerk and the data/key bindings are activated; the no-data HTTPS preview baseline is recorded in `BROWSER_VALIDATION.md`.
 7. Approve legal retention periods, attach the provisioned maintenance Hyperdrive to the isolated retention Worker, deploy its daily Cron, and verify Cron Events/alerts and backup/tombstone behavior.
+
+## Closure verification
+
+The Phase 1 closure was revalidated on 2026-08-15 with:
+
+- `npm run check` — formatting, lint, strict TypeScript, and 141 service-independent tests passed;
+- the separately gated 46-test PostgreSQL suite remained represented by the recorded restricted-role local, CI, and Neon preview evidence above;
+- `npm run build` — the Next.js production build passed;
+- `npm run audit:production` — zero known production dependency vulnerabilities;
+- `npm run cf:standalone:typecheck` and `npm run cf:verify:boundaries` — Worker bindings and deployment boundaries passed; and
+- `npm run cf:retention:build` and `npm run cf:verification-delivery:build` — both route-less Worker templates dry-built with placeholder-only bindings.
 
 ## Dependency note
 

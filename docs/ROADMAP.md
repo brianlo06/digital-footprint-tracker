@@ -10,13 +10,13 @@ No later phase begins without explicit owner approval. Security/privacy/legal ga
 **Risks:** false confidence from documentation; provider/legal assumptions age.  
 **Exit Criteria:** Phase 0 definition of done is audited; no functional product exists; owner reviews proposed ADRs and open questions.
 
-## Phase 1 — Application foundation (in progress)
+## Phase 1 — Application foundation (complete)
 
 **Objective:** create a secure local-first shell without real scanning.  
-**Deliverables:** Next.js/TypeScript setup; responsive accessible shell; local PostgreSQL; Drizzle migrations; managed-auth boundary; one-identity/encrypted-email lifecycle; envelope-encryption abstraction with local fake KMS; consent/audit/deletion skeleton; mocks only; lint/unit/integration/build baseline. See `PHASE_1_STATUS.md` for implemented and remaining gates.  
-**Dependencies:** approve ADRs 0001–0008; choose auth/ORM; define first jurisdiction and key strategy.  
+**Deliverables:** Next.js/TypeScript setup; responsive accessible shell; local PostgreSQL; Drizzle migrations; managed-auth boundary; one-identity/encrypted-email lifecycle; envelope-encryption abstraction with local fake KMS; consent/audit/deletion skeleton; mocks only; lint/unit/integration/build baseline. See `PHASE_1_STATUS.md` for implemented scope and pre-production activation gates.
+**Dependencies:** accept the foundation ADRs; choose auth/ORM; define a local key strategy. Provider, job, and finding ADRs remain proposed until their phases begin; jurisdiction and production key-custody approval remain activation gates because Phase 1 handles synthetic local data only.
 **Risks:** auth lock-in, premature UI breadth, encryption/log leakage, deletion gaps.  
-**Exit Criteria:** threat-reviewed auth/authorization; no real providers; synthetic E2E add/mask/delete flow; PII log canary and tenant-isolation tests pass.
+**Exit Criteria:** threat-reviewed auth/authorization; no real providers; synthetic E2E add/mask/delete flow; PII log canary and tenant-isolation tests pass. Met on 2026-08-15; see `PHASE_1_STATUS.md`. Hosted personal-data activation remains separately gated there.
 
 ## Phase 2 — First low-risk provider
 
