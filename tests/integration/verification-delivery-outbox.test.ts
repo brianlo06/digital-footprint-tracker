@@ -103,6 +103,10 @@ describeWithDatabase("bounded verification delivery outbox worker", () => {
         template: "EMAIL_VERIFICATION_CODE_V1",
         encryptedPayload,
         state: "PENDING",
+        // Claiming is intentionally global. Put this disposable fixture ahead
+        // of unrelated eligible rows that a prior interrupted test run may
+        // have left in the shared local test database.
+        notBefore: new Date(0),
         maxAttempts: overrides.maxAttempts ?? 8,
       });
 
