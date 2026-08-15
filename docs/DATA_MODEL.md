@@ -126,7 +126,8 @@ The UI explanation is produced from structured evidence, for example: “Exact v
 `Provider`: stable ID, category, version, health, terms review date, allowed jurisdictions/capabilities, retention constraints, kill-switch state.  
 `ProviderCredential`: provider and secret-manager reference; never the secret value in application tables.  
 `AuditEvent`: actor ID/type, action, target opaque ID, result, request/correlation ID, time, coarse security context; never raw PII.  
-`ConsentRecord`: identity, purpose, data categories, provider/category scope, policy version, granted/withdrawn time. Withdrawal stops future processing and triggers deletion rules.  
+`ConsentRecord`: identity, purpose, data categories, provider/category scope, policy version, granted/withdrawn time. The executable breach flow retains withdrawn evidence, enforces one active record for its exact policy, and pairs that identity-scoped grant with an exact owned identifier at invocation. Withdrawal stops future processing immediately; deletion and retention follow their separate rules.
+
 `UsageLedger`: the executable `provider_usage_reservations` subset stores user and provider IDs, opaque idempotency key/request fingerprint, estimated and actual integer cost units, lifecycle state, and server-controlled reservation/terminal times. It stores no identifier value or provider response. PostgreSQL functions atomically enforce per-user/provider daily requests plus provider daily/monthly request and cost caps. Provider-run linkage, currencies, and versioned cost models remain conceptual.
 
 ## Finding deduplication
@@ -154,4 +155,4 @@ Prefer stable provider external ID for `normalized_resource_id`; otherwise norma
 
 ## Non-executable schema policy
 
-Phase 1 implements the foundation subset in Drizzle/PostgreSQL: `User`, one `Identity`, encrypted `Identifier`, `IdentifierVerification`, `ConsentRecord`, `AuditEvent`, and `DeletionReceipt`. Synthetic Phase 2 also implements `provider_usage_reservations`; it is not yet linked to an executable `Scan` or `ProviderRun`. The remaining conceptual entities in this document have no executable persistence. No seed or real personal data is included. Multi-tenant isolation and deletion mechanics require further threat testing before any shared preview handles personal data.
+Phase 1 implements the foundation subset in Drizzle/PostgreSQL: `User`, one `Identity`, encrypted `Identifier`, `IdentifierVerification`, `ConsentRecord`, `AuditEvent`, and `DeletionReceipt`. Synthetic Phase 2 adds the versioned breach-consent lifecycle and `provider_usage_reservations`; neither is yet linked to an executable `Scan` or `ProviderRun`. The remaining conceptual entities in this document have no executable persistence. No seed or real personal data is included. Multi-tenant isolation and deletion mechanics require further threat testing before any shared preview handles personal data.

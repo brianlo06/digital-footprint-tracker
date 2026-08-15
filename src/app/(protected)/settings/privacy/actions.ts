@@ -1,10 +1,43 @@
 "use server";
 
+import { findAccount } from "@/core/account-service";
+import { grantBreachConsent, withdrawBreachConsent } from "@/privacy/breach-consent-service";
 import { deleteAccount } from "@/privacy/deletion-service";
 import { getAuthGateway, requirePrincipal } from "@/security/auth";
 import { evaluateStrictReverification } from "@/security/destructive-action-authorization";
 import { consumeServerActionRateLimit } from "@/security/rate-limit";
 import { redirect } from "next/navigation";
+
+export async function grantBreachConsentAction(formData: FormData): Promise<void> {
+  const principal = await requirePrincipal();
+  if (formData.get("consent") !== "on") {
+    redirect("/settings/privacy?error=breach_consent_required");
+  }
+
+  try {
+    const account = await findAccount(principal);
+    if (!account) redirect("/onboarding");
+    const result = await grantBreachConsent(account);
+    redirect(`/settings/privacy?consent=${result.changed ? "granted" : "unchanged"}`);
+  } catch (error) {
+    if (error && typeof error === "object" && "digest" in error) throw error;
+    redirect("/settings/privacy?error=breach_consent_update_failed");
+  }
+}
+
+export async function withdrawBreachConsentAction(): Promise<void> {
+  const principal = await requirePrincipal();
+
+  try {
+    const account = await findAccount(principal);
+    if (!account) redirect("/onboarding");
+    const result = await withdrawBreachConsent(account);
+    redirect(`/settings/privacy?consent=${result ? "withdrawn" : "unchanged"}`);
+  } catch (error) {
+    if (error && typeof error === "object" && "digest" in error) throw error;
+    redirect("/settings/privacy?error=breach_consent_update_failed");
+  }
+}
 
 export async function deleteAccountAction(formData: FormData): Promise<void> {
   const principal = await requirePrincipal();

@@ -365,6 +365,18 @@ export const consentRecords = pgTable(
     withdrawnAt: timestamp("withdrawn_at", { withTimezone: true }),
   },
   (table) => [
+    check(
+      "consent_state_timestamp_invariant",
+      sql`(${table.state} = 'GRANTED' and ${table.withdrawnAt} is null)
+        or (${table.state} = 'WITHDRAWN' and ${table.withdrawnAt} is not null and ${table.withdrawnAt} >= ${table.grantedAt})`,
+    ),
+    uniqueIndex("one_active_breach_consent_per_policy")
+      .on(table.userId, table.identityId, table.purpose, table.policyVersion)
+      .where(
+        sql`${table.state} = 'GRANTED'
+          and ${table.purpose} = 'BREACH_METADATA_LOOKUP'
+          and ${table.policyVersion} = 'phase2-breach-v1'`,
+      ),
     index("consent_user_idx").on(table.userId),
     pgPolicy("consent_records_tenant_isolation", {
       for: "all",

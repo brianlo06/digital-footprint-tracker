@@ -1,5 +1,6 @@
 export const BREACH_CONSENT_PURPOSE = "BREACH_METADATA_LOOKUP";
 export const BREACH_CONSENT_POLICY_VERSION = "phase2-breach-v1";
+export const BREACH_CONSENT_DATA_CATEGORIES = ["EMAIL_IDENTIFIER", "BREACH_METADATA"] as const;
 export const BREACH_VERIFICATION_MAX_AGE_MS = 24 * 60 * 60 * 1_000;
 
 export interface BreachInvocationCommandIdentity {
@@ -100,8 +101,8 @@ export function evaluateBreachInvocationAuthorization(
   if (
     snapshot.consent.purpose !== BREACH_CONSENT_PURPOSE ||
     snapshot.consent.policyVersion !== BREACH_CONSENT_POLICY_VERSION ||
-    !categories.has("EMAIL_IDENTIFIER") ||
-    !categories.has("BREACH_METADATA")
+    categories.size !== BREACH_CONSENT_DATA_CATEGORIES.length ||
+    !BREACH_CONSENT_DATA_CATEGORIES.every((category) => categories.has(category))
   ) {
     return "CONSENT_SCOPE_INVALID";
   }

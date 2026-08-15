@@ -159,6 +159,18 @@ describe("breach invocation authorization", () => {
     expect(evaluateBreachInvocationAuthorization(command, missingCategory, now)).toBe(
       "CONSENT_SCOPE_INVALID",
     );
+
+    const additionalCategoryBase = authorizedSnapshot();
+    const additionalCategory: BreachInvocationAuthorizationSnapshot = {
+      ...additionalCategoryBase,
+      consent: {
+        ...additionalCategoryBase.consent,
+        dataCategories: ["EMAIL_IDENTIFIER", "BREACH_METADATA", "PROFILE_DATA"],
+      },
+    };
+    expect(evaluateBreachInvocationAuthorization(command, additionalCategory, now)).toBe(
+      "CONSENT_SCOPE_INVALID",
+    );
   });
 
   it("rejects an invalid evaluation clock", () => {

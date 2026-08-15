@@ -192,4 +192,16 @@ Verification: the full migration chain applied to a clean PostgreSQL 17 database
 
 The durable wrapper is intentionally restricted to the zero-network synthetic adapter because it holds share locks and a tenant transaction through fixture execution. A live network adapter requires a short-transaction job/outbox state machine and remains unauthorized.
 
-Remaining synthetic-only Phase 2 work includes a purpose-specific consent creation flow, scan/provider-run and normalized provenance persistence/display, user-visible coverage guidance, and a complete kill-switch rollback exercise. A live HIBP adapter, credential binding, real email, nonzero budget, route-level provider activation, and external network use remain out of scope.
+### Slice 4 — purpose-specific breach consent lifecycle (complete 2026-08-15)
+
+- the privacy page now presents the exact `phase2-breach-v1` purpose, data categories, exclusions, and no-auto-lookup consequence before permission can be granted;
+- the grant action authenticates again, derives the active account and identity from the principal, validates the explicit checkbox, and records only `EMAIL_IDENTIFIER` plus `BREACH_METADATA` scope;
+- withdrawal accepts no browser-supplied user, identity, or consent identifier, derives the current active grant from the authenticated account, and blocks future authorization immediately;
+- migration `0018` enforces valid granted/withdrawn timestamp states and one active breach grant per account identity and policy, while retaining withdrawn evidence and allowing a later fresh grant;
+- concurrent grant and withdrawal calls converge idempotently, and only actual state transitions emit privacy-safe audit events;
+- the provider authorization policy now rejects both missing and additional consent categories, preventing a broader record from satisfying this narrow capability; and
+- no grant, withdrawal, page render, or action calls a provider, creates a scan, changes the zero budget, introduces a credential, or exposes a hosted route.
+
+Verification: migration `0018` applied in the full chain to a clean PostgreSQL 17 database, the read-only authorization verifier passed, all 54 restricted-role integration tests passed, and the service-independent suite passed with 192 tests.
+
+Remaining synthetic-only Phase 2 work includes scan/provider-run and normalized provenance persistence/display, user-visible coverage guidance, and a complete kill-switch rollback exercise. A live HIBP adapter, credential binding, real email, nonzero budget, route-level provider activation, and external network use remain out of scope.

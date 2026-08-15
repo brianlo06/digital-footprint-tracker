@@ -31,7 +31,7 @@ Only `Identity → Identifiers` exists in executable form today.
 - Local fake verification that is hard-gated to `APP_ENV=local` and `AUTH_MODE=local`; it sends nothing.
 - A delivery-independent email verification gateway; only the non-delivering local implementation exists.
 - Database-atomic per-user and shared-network throttling for every protected mutation, storing only keyed scope tokens.
-- Scoped consent, privacy-safe audit events, and a deletion receipt model.
+- A versioned, purpose-specific breach-consent grant/withdrawal flow with privacy-safe audit events, plus the deletion receipt model.
 - Retry-safe deletion quarantine and bounded retention maintenance through a function-only database role, plus a separately deployable daily Cron Worker template.
 - Managed-auth deletion uses Clerk strict reverification and retries only after the strongest available recent credential challenge succeeds; a signed `user.deleted` webhook safely finishes interrupted or provider-initiated deletion.
 - Deny-by-default structured logging and synthetic unit/integration coverage.

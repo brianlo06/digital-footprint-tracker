@@ -1,9 +1,23 @@
 import { addEmailAction, verifyEmailAction } from "@/app/(protected)/identities/actions";
 import { initializeAccountAction } from "@/app/(protected)/onboarding/actions";
-import { deleteAccountAction } from "@/app/(protected)/settings/privacy/actions";
+import {
+  deleteAccountAction,
+  grantBreachConsentAction,
+  withdrawBreachConsentAction,
+} from "@/app/(protected)/settings/privacy/actions";
 import { resetServerEnvForTests } from "@/config/server-env";
 import { closeDatabase, getDatabase } from "@/database/client";
-import { identifiers, identifierVerifications, rateLimitWindows, users } from "@/database/schema";
+import {
+  consentRecords,
+  identifiers,
+  identifierVerifications,
+  rateLimitWindows,
+  users,
+} from "@/database/schema";
+import {
+  BREACH_CONSENT_POLICY_VERSION,
+  BREACH_CONSENT_PURPOSE,
+} from "@/providers/breach/breach-invocation-policy";
 import { createLookupToken } from "@/security/crypto";
 import { getApplicationKeyring } from "@/security/keyring";
 import { and, eq, inArray } from "drizzle-orm";
@@ -90,6 +104,10 @@ describeWithDatabase("Server Action authorization matrix", () => {
       .from(users)
       .where(eq(users.authSubject, uninitializedSubject));
     expect(matchingUsers).toHaveLength(0);
+
+    const consentForm = new FormData();
+    consentForm.set("consent", "on");
+    await expect(redirectedTo(grantBreachConsentAction(consentForm))).resolves.toBe("/onboarding");
   });
 
   it("re-authorizes resource ownership inside direct Server Action calls", async () => {
@@ -129,8 +147,38 @@ describeWithDatabase("Server Action authorization matrix", () => {
       verificationStatus: "PENDING",
     });
 
+    useSubject(ownerSubject);
+    const consentForm = new FormData();
+    consentForm.set("consent", "on");
+    await expect(redirectedTo(grantBreachConsentAction(consentForm))).resolves.toBe(
+      "/settings/privacy?consent=granted",
+    );
+
+    useSubject(otherSubject);
+    await expect(redirectedTo(withdrawBreachConsentAction())).resolves.toBe(
+      "/settings/privacy?consent=unchanged",
+    );
+    const [ownerConsent] = await getDatabase()
+      .select({ state: consentRecords.state, withdrawnAt: consentRecords.withdrawnAt })
+      .from(consentRecords)
+      .innerJoin(users, eq(users.id, consentRecords.userId))
+      .where(
+        and(
+          eq(users.authSubject, ownerSubject),
+          eq(consentRecords.purpose, BREACH_CONSENT_PURPOSE),
+          eq(consentRecords.policyVersion, BREACH_CONSENT_POLICY_VERSION),
+        ),
+      );
+    expect(ownerConsent).toEqual({ state: "GRANTED", withdrawnAt: null });
+
+    useSubject(ownerSubject);
+    await expect(redirectedTo(withdrawBreachConsentAction())).resolves.toBe(
+      "/settings/privacy?consent=withdrawn",
+    );
+
     const deletionForm = new FormData();
     deletionForm.set("confirmation", "DELETE");
+    useSubject(otherSubject);
     await expect(redirectedTo(deleteAccountAction(deletionForm))).resolves.toMatch(
       /^\/deleted\?receipt=/,
     );

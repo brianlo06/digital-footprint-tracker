@@ -92,7 +92,7 @@ Deletion must be tested for partial failure, repeated invocation, backups, searc
 
 ## Consent and purpose limitation
 
-Consent is granular by identifier, capability, provider category, and continuous monitoring. It is versioned, revocable, and not bundled with unrelated analytics. Withdrawal prevents future scans immediately; deletion/retention follows the chosen policy. Public accessibility is not treated as consent to aggregate or republish.
+Consent is versioned, revocable, and not bundled with unrelated analytics. The current synthetic breach permission is identity-scoped to one exact capability and two exact data categories; every future invocation must additionally pair it with the exact owned, recently verified email. It grants no continuous monitoring or unrelated provider use. Withdrawal prevents future dispatch immediately; deletion and retention remain separate controls. Public accessibility is not treated as consent to aggregate or republish.
 
 ## Privacy-safe analytics and support
 

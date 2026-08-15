@@ -7,6 +7,7 @@ import {
 } from "@/core/identifier-service";
 import { closeDatabase, getDatabase } from "@/database/client";
 import {
+  auditEvents,
   consentRecords,
   deletionReceipts,
   identifiers,
@@ -15,14 +16,23 @@ import {
   verificationDeliveryOutbox,
 } from "@/database/schema";
 import { withTenantDatabase } from "@/database/tenant";
+import {
+  getBreachConsentSummary,
+  grantBreachConsent,
+  withdrawBreachConsent,
+} from "@/privacy/breach-consent-service";
 import { deleteAccount, resumeAccountDeletionAfterAuthRevoked } from "@/privacy/deletion-service";
+import {
+  BREACH_CONSENT_POLICY_VERSION,
+  BREACH_CONSENT_PURPOSE,
+} from "@/providers/breach/breach-invocation-policy";
 import type { AuthGateway, AuthenticatedPrincipal } from "@/security/auth";
 import { createDeliveryKeyring, createLookupToken } from "@/security/crypto";
 import { getApplicationKeyring } from "@/security/keyring";
 import { encryptDeliveryCommand } from "@/verification/delivery-envelope";
 import { OutboxEmailVerificationGateway } from "@/verification/email-verification-gateway";
 import { resetServerEnvForTests } from "@/config/server-env";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 const testDatabaseUrl = process.env.TEST_DATABASE_URL;
@@ -136,6 +146,89 @@ describeWithDatabase("synthetic account lifecycle", () => {
     expect(remainingIdentifiers).toHaveLength(0);
     expect(remainingVerifications).toHaveLength(0);
     expect(remainingConsent).toHaveLength(0);
+  });
+
+  it("records an idempotent, revocable breach-consent lifecycle", async () => {
+    const consentPrincipal: AuthenticatedPrincipal = {
+      subject: `integration_consent_${testRunId}`,
+      mode: "local",
+    };
+    const account = await createAccountIfMissing(consentPrincipal);
+
+    const concurrentGrants = await Promise.all([
+      grantBreachConsent(account),
+      grantBreachConsent(account),
+      grantBreachConsent(account),
+    ]);
+    expect(new Set(concurrentGrants.map((grant) => grant.consentRecordId)).size).toBe(1);
+    expect(concurrentGrants.filter((grant) => grant.changed)).toHaveLength(1);
+
+    const grantedSummary = await getBreachConsentSummary(account);
+    expect(grantedSummary).toMatchObject({
+      consentRecordId: concurrentGrants[0].consentRecordId,
+      state: "GRANTED",
+      withdrawnAt: null,
+    });
+
+    const concurrentWithdrawals = await Promise.all([
+      withdrawBreachConsent(account),
+      withdrawBreachConsent(account),
+      withdrawBreachConsent(account),
+    ]);
+    expect(concurrentWithdrawals.filter(Boolean)).toHaveLength(1);
+    expect(await getBreachConsentSummary(account)).toMatchObject({
+      consentRecordId: concurrentGrants[0].consentRecordId,
+      state: "WITHDRAWN",
+    });
+
+    const replacementGrant = await grantBreachConsent(account);
+    expect(replacementGrant.changed).toBe(true);
+    expect(replacementGrant.consentRecordId).not.toBe(concurrentGrants[0].consentRecordId);
+
+    const lifecycleRecords = await getDatabase()
+      .select({
+        id: consentRecords.id,
+        state: consentRecords.state,
+        withdrawnAt: consentRecords.withdrawnAt,
+      })
+      .from(consentRecords)
+      .where(
+        and(
+          eq(consentRecords.userId, account.userId),
+          eq(consentRecords.purpose, BREACH_CONSENT_PURPOSE),
+          eq(consentRecords.policyVersion, BREACH_CONSENT_POLICY_VERSION),
+        ),
+      );
+    expect(lifecycleRecords).toHaveLength(2);
+    expect(lifecycleRecords.filter((record) => record.state === "GRANTED")).toHaveLength(1);
+    expect(
+      lifecycleRecords.every(
+        (record) =>
+          (record.state === "GRANTED" && record.withdrawnAt === null) ||
+          (record.state === "WITHDRAWN" && record.withdrawnAt instanceof Date),
+      ),
+    ).toBe(true);
+
+    const lifecycleAudits = await getDatabase()
+      .select({ action: auditEvents.action, targetId: auditEvents.targetId })
+      .from(auditEvents)
+      .where(
+        and(eq(auditEvents.userId, account.userId), eq(auditEvents.targetType, "CONSENT_RECORD")),
+      );
+    expect(
+      lifecycleAudits.filter((event) => event.action === "BREACH_CONSENT_GRANTED"),
+    ).toHaveLength(2);
+    expect(
+      lifecycleAudits.filter((event) => event.action === "BREACH_CONSENT_WITHDRAWN"),
+    ).toHaveLength(1);
+
+    await deleteAccount(consentPrincipal, authGateway, { recentlyReauthenticated: true });
+    expect(
+      await getDatabase()
+        .select({ id: consentRecords.id })
+        .from(consentRecords)
+        .where(eq(consentRecords.userId, account.userId)),
+    ).toHaveLength(0);
   });
 
   it("denies cross-account identifier access and verification", async () => {
