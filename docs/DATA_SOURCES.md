@@ -1,7 +1,7 @@
 # Future Data Sources
 
 **Status:** Research only. No provider is integrated or called.  
-**Research date:** 2026-08-11; availability, terms, prices, and limits must be rechecked before selection.
+**Research date:** 2026-08-15; availability, terms, prices, and limits must be rechecked at contract acceptance, implementation, live test, and launch.
 
 ## Evaluation framework
 
@@ -74,7 +74,7 @@ data_categories, source_provider, provider_external_id
 risk_level, remediation_status, last_checked
 ```
 
-Never store leaked passwords, password hashes for matching, plaintext credentials, stolen tokens, breach payloads, stealer logs, or paste contents. A breach result indicates inclusion reported by a provider, not current password compromise. HIBP is one candidate whose official v3 API documents key requirements for email lookup, rate limiting, and acceptable use; it is not selected here: [HIBP API v3](https://haveibeenpwned.com/API/V3).
+Never store leaked passwords, password hashes for matching, plaintext credentials, stolen tokens, breach payloads, stealer logs, or paste contents. A breach result indicates inclusion reported by a provider, not current password compromise. HIBP is the conditional preferred Phase 2 provider because its official v3 API supports metadata-only synthetic testing and a privacy-preserving k-anonymity option. Non-synthetic use remains blocked pending written confirmation that the contracted service permits this customer-facing use; see [Phase 2 readiness](PHASE_2_READINESS.md) and the [HIBP API v3](https://haveibeenpwned.com/API/V3).
 
 ## Domain and infrastructure monitoring
 

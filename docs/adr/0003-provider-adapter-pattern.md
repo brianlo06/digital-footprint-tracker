@@ -1,6 +1,6 @@
 # ADR 0003: Provider Adapter Pattern
 
-**Status:** Proposed
+**Status:** Accepted on 2026-08-15 for the Phase 2 provider boundary. Provider selection and activation remain separate approvals recorded in `../PHASE_2_READINESS.md`.
 
 ## Context
 
@@ -25,6 +25,8 @@ Abstraction design effort and risk of hiding provider-specific semantics.
 ## Consequences
 
 Stable provider IDs, parser versions, health states, error taxonomy, cost estimates, bounded responses, and kill switches are mandatory. Extension data stays owned by the adapter.
+
+No accepted adapter architecture authorizes a provider call. A provider remains disabled until its dated contract, privacy, security, budget, test, and rollback evidence is approved. Unknown or absent budgets fail closed, and adapters reject response fields outside their capability-specific allowlist.
 
 ## Revisit Conditions
 

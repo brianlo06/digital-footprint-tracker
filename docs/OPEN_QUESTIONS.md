@@ -4,7 +4,7 @@ These do not block Phase 0. Defaults are intended to preserve safety and simplic
 
 ## Product
 
-- Who is the first launch persona and jurisdiction? **Default:** one adult in the US monitoring only self.
+- Who is the first launch persona and jurisdiction? **Phase 2 decision:** one adult in the US monitoring only their own recently verified email. This is an engineering evaluation boundary; external launch still requires state-specific counsel review.
 - Is the primary value breach awareness, public-web discovery, or remediation? **Default:** evidence review/remediation; validate before provider purchase.
 - What coverage claim is acceptable? **Default:** no comprehensiveness claim; show enabled-source coverage.
 - Is an overall score required? **Default:** no; category posture only.
@@ -40,7 +40,7 @@ These do not block Phase 0. Defaults are intended to preserve safety and simplic
 
 ## Provider
 
-- What is the first low-risk provider? **Default:** legitimate breach metadata for a verified email is the leading candidate, subject to terms/cost review; mock first.
+- What is the first low-risk provider? **Phase 2 readiness decision:** HIBP is the conditional preferred provider for verified-email breach metadata; synthetic use only until written customer-facing commercial permission is confirmed. See `PHASE_2_READINESS.md`.
 - Is any general search provider worth query privacy and false positives? **Default:** defer beyond first provider.
 - May results be cached/displayed and for how long? **Default:** no raw caching until contract says so.
 - Is a broker partner necessary? **Default:** manual links/instructions; defer commercial partner.
@@ -50,7 +50,7 @@ These do not block Phase 0. Defaults are intended to preserve safety and simplic
 - Hobby/private tool or commercial service? **Default:** architecture supports either, but legal/ops controls assume possible productization.
 - Free limits and paid plans? **Default:** no pricing until provider unit economics are measured.
 - Support model and security contact? **Default:** define before external users.
-- Budget ceiling? **Default:** zero real-provider spend in Phase 0; explicit hard cap before Phase 2.
+- Budget ceiling? **Phase 2 readiness decision:** USD 0 for live-provider daily/monthly spend and zero non-synthetic calls until compatible terms and a quote receive separate owner approval. Synthetic HIBP test endpoints remain permitted.
 
 ## UX
 

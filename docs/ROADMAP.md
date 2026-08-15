@@ -21,7 +21,7 @@ No later phase begins without explicit owner approval. Security/privacy/legal ga
 ## Phase 2 — First low-risk provider
 
 **Objective:** prove one provider end-to-end without building a general scanner.  
-**Deliverables:** provider selection memo and legal/ToS/security review; feature flag/kill switch; synthetic contract fixtures; server-only adapter; verified-email capability gate; hard quota/cost ledger; provenance display. Leading candidate: legitimate breach metadata service, not yet chosen.  
+**Deliverables:** provider selection memo and legal/ToS/security review; feature flag/kill switch; synthetic contract fixtures; server-only adapter; verified-email capability gate; hard quota/cost ledger; provenance display. HIBP is the conditional preferred breach-metadata provider; `PHASE_2_READINESS.md` blocks non-synthetic use pending compatible written terms.
 **Dependencies:** Phase 1; provider contract, budget, DPA/terms, verification.  
 **Risks:** query privacy, price/access change, rate limit, breach result misinterpretation.  
 **Exit Criteria:** sandbox/synthetic tests first; explicitly approved production test; no prohibited credential data; rollback demonstrated; user sees source/limits/guidance.
