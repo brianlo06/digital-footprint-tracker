@@ -4,12 +4,6 @@ import postgres from "postgres";
 import * as schema from "../src/database/schema";
 import { executeRetentionMaintenance } from "../src/privacy/retention-core";
 
-interface RetentionWorkerEnv {
-  readonly MAINTENANCE_DATABASE: { readonly connectionString: string };
-  readonly RETENTION_BATCH_SIZE: string;
-  readonly ORPHAN_AUDIT_RETENTION_DAYS: string;
-}
-
 interface ScheduledEvent {
   readonly scheduledTime: number;
 }

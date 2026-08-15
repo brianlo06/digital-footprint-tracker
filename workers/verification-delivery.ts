@@ -4,10 +4,6 @@ import postgres from "postgres";
 import * as schema from "../src/database/schema";
 import { createDeliveryKeyring } from "../src/security/crypto";
 import {
-  decryptDeliveryCommand,
-  deliveryEncryptionContext,
-} from "../src/verification/delivery-envelope";
-import {
   claimVerificationDeliveries,
   completeVerificationDelivery,
   reportVerificationDeliveryFailure,
@@ -16,19 +12,10 @@ import {
   SyntheticNoopDeliveryProvider,
   type DeliveryProvider,
 } from "../src/verification/delivery-provider";
-
-interface SecretsStoreSecret {
-  get(): Promise<string>;
-}
-
-interface VerificationDeliveryWorkerEnv {
-  readonly DELIVERY_DATABASE: { readonly connectionString: string };
-  readonly DELIVERY_ENCRYPTION_KEY_ID: string;
-  readonly DELIVERY_ENCRYPTION_KEY: SecretsStoreSecret;
-  readonly DELIVERY_KILL_SWITCH?: string;
-  readonly DELIVERY_CLAIM_BATCH_SIZE?: string;
-  readonly DELIVERY_CLAIM_LEASE_SECONDS?: string;
-}
+import {
+  deliveryClaimsEnabled,
+  processClaimedVerificationDelivery,
+} from "../src/verification/delivery-worker-core";
 
 interface ScheduledEvent {
   readonly scheduledTime: number;
@@ -49,7 +36,7 @@ const verificationDeliveryWorker = {
     // Default-on: any value other than the explicit opt-out blocks claiming,
     // so an accidental deployment or a missing/misconfigured variable fails
     // closed instead of silently starting to send.
-    if (env.DELIVERY_KILL_SWITCH !== "false") return;
+    if (!deliveryClaimsEnabled(env.DELIVERY_KILL_SWITCH)) return;
 
     const now = new Date(controller.scheduledTime);
     const client = postgres(env.DELIVERY_DATABASE.connectionString, {
@@ -83,50 +70,17 @@ const verificationDeliveryWorker = {
       });
 
       for (const delivery of claimed) {
-        const context = deliveryEncryptionContext({
-          deliveryId: delivery.deliveryId,
-          verificationId: delivery.verificationId,
-          channel: delivery.channel,
-          template: delivery.template,
+        await processClaimedVerificationDelivery({
+          delivery,
+          keyring,
+          provider,
+          now,
+          persistence: {
+            complete: (deliveryId, leaseToken, completedAt) =>
+              completeVerificationDelivery(database, deliveryId, leaseToken, completedAt),
+            reportFailure: (options) => reportVerificationDeliveryFailure(database, options),
+          },
         });
-        const command = decryptDeliveryCommand(delivery.encryptedPayload, context, keyring);
-        const outcome = await provider.send(command);
-
-        switch (outcome.type) {
-          case "SUCCESS":
-            await completeVerificationDelivery(
-              database,
-              delivery.deliveryId,
-              delivery.leaseToken,
-              now,
-            );
-            break;
-          case "PERMANENT_REJECTION":
-            await reportVerificationDeliveryFailure(database, {
-              deliveryId: delivery.deliveryId,
-              leaseToken: delivery.leaseToken,
-              outcome: "PERMANENT",
-              now,
-            });
-            break;
-          case "RATE_LIMITED":
-            await reportVerificationDeliveryFailure(database, {
-              deliveryId: delivery.deliveryId,
-              leaseToken: delivery.leaseToken,
-              outcome: "TRANSIENT",
-              retryAfterSeconds: outcome.retryAfterSeconds,
-              now,
-            });
-            break;
-          case "TRANSIENT":
-            await reportVerificationDeliveryFailure(database, {
-              deliveryId: delivery.deliveryId,
-              leaseToken: delivery.leaseToken,
-              outcome: "TRANSIENT",
-              now,
-            });
-            break;
-        }
       }
     } finally {
       await client.end({ timeout: 5 });

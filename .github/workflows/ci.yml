@@ -48,6 +48,8 @@ jobs:
         run: npm run cf:build
       - name: Verify generated Cloudflare bindings
         run: npm run cf:typecheck
+      - name: Verify generated standalone Worker bindings
+        run: npm run cf:standalone:typecheck
       - name: Build least-privileged retention Worker
         run: npm run cf:retention:build
       - name: Build least-privileged verification-delivery Worker

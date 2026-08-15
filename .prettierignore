@@ -5,3 +5,4 @@ node_modules
 package-lock.json
 drizzle
 cloudflare-env.d.ts
+workers/*-env.d.ts

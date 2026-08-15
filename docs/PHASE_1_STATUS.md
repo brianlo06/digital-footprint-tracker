@@ -93,7 +93,9 @@
 - a claimed delivery whose lease has expired can be reclaimed under a new lease token, and a stale lease token is rejected with the row left unchanged;
 - an ineligible delivery (expired, revoked, locked, or already-verified challenge, or a `DELETION_PENDING` account) is cancelled and its encrypted payload destroyed without being returned;
 - completion and dead-lettering both destroy the encrypted payload, and a transient failure reschedules with advancing backoff before automatically dead-lettering at `max_attempts`, while a permanent failure dead-letters immediately regardless of attempt count; and
-- the delivery login has no direct table privileges and can execute only its own three functions, and every other purpose-specific login is denied execution of those same functions in both directions.
+- the delivery login has no direct table privileges and can execute only its own three functions, and every other purpose-specific login is denied execution of those same functions in both directions;
+- verification-delivery commands reject non-normalized destinations, non-six-digit codes, extra fields, malformed authenticated plaintext, and value-bearing decode errors before a provider can receive them; poison commands dead-letter, key/decryption failures preserve ciphertext for recovery, and Worker-core tests keep the kill switch default-on while routing success, permanent rejection, throttling, transient outcomes, and thrown provider calls to their exact compare-and-swap operations; and
+- Wrangler-generated binding types for both standalone Workers are checked in CI against their committed configurations, preventing code/config drift without attaching any hosted binding.
 
 ## Remaining Phase 1 gates
 
