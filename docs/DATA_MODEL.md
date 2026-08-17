@@ -1,6 +1,6 @@
 # Conceptual Data Model
 
-**Status:** Partially executable. The Phase 1 foundation and the synthetic Phase 2 provider-usage reservation subset have PostgreSQL migrations; the broader scan/finding model remains proposed.
+**Status:** Partially executable. The Phase 1 foundation, the synthetic Phase 2 provider-usage reservation subset, and a breach-capability `Scan`/`ProviderRun`/finding subset have PostgreSQL migrations; the broader generic `Finding`/`Observation`/`Evidence` model remains proposed.
 
 ## Modeling principles
 
@@ -76,6 +76,8 @@ Represents only a domain or website the user is authorized to monitor. Fields in
 `ScanJob`: type, state, payload reference, idempotency key, attempt/max attempts, availability, lease, sanitized error, timestamps.  
 `ProviderRun`: provider/config version, parser version, scan, capability, health outcome, request token hash (not raw query), started/finished, result counts, cost estimate/actual, response retention deadline, error class.
 
+The executable breach-capability subset (`scans`, `provider_runs`, `breach_findings`) implements `user_id`/`identity_id`, `trigger`, `state`, `requested_capability`, and `started_at`/`completed_at` on `Scan`; `provider_id`, `capability`, an optional link to the usage-ledger reservation, `state`, `health_outcome`, `result_count`, a bounded safe `error_safe_code`, and `started_at`/`finished_at` on `ProviderRun`. A partial unique index permits only one `RUNNING` scan per account and capability. `ScanJob`, coverage summaries, cancellation, cost estimate/actual on `ProviderRun`, and every capability besides the breach adapter remain conceptual.
+
 ### Finding
 
 ```text
@@ -102,6 +104,8 @@ Sensitivity: `PUBLIC`, `LOW`, `MODERATE`, `SENSITIVE`, `HIGHLY_SENSITIVE`.
 Status: `NEW`, `REVIEWED`, `CONFIRMED`, `FALSE_POSITIVE`, `IGNORED`, `REMEDIATION_IN_PROGRESS`, `RESOLVED`, `REAPPEARED`.
 
 Severity is risk/action priority, not sensitivity. It should consider confidence, sensitivity, source reach, persistence, breach categories, and remediation difficulty under a versioned model.
+
+The generic `Finding` table above remains conceptual. The executable breach capability instead persists a narrower, exact `breach_findings` table scoped to one `provider_run`: `provider_breach_id`, `breach_name`, `breach_date`, `provider_added_at`/`provider_modified_at`, `data_categories`, `is_verified`/`is_sensitive`/`is_retired`, `source_url`, `checked_at`, and `parser_version` — precisely the enforced provider data boundary allowlist in `docs/PHASE_2_READINESS.md`, no more. It has no `status`, `severity`, `presence_state`, deduplication fingerprint, or cross-provider identity; those require the generic model.
 
 ### Observation
 
@@ -155,4 +159,4 @@ Prefer stable provider external ID for `normalized_resource_id`; otherwise norma
 
 ## Non-executable schema policy
 
-Phase 1 implements the foundation subset in Drizzle/PostgreSQL: `User`, one `Identity`, encrypted `Identifier`, `IdentifierVerification`, `ConsentRecord`, `AuditEvent`, and `DeletionReceipt`. Synthetic Phase 2 adds the versioned breach-consent lifecycle and `provider_usage_reservations`; neither is yet linked to an executable `Scan` or `ProviderRun`. The remaining conceptual entities in this document have no executable persistence. No seed or real personal data is included. Multi-tenant isolation and deletion mechanics require further threat testing before any shared preview handles personal data.
+Phase 1 implements the foundation subset in Drizzle/PostgreSQL: `User`, one `Identity`, encrypted `Identifier`, `IdentifierVerification`, `ConsentRecord`, `AuditEvent`, and `DeletionReceipt`. Synthetic Phase 2 adds the versioned breach-consent lifecycle, `provider_usage_reservations`, and now a breach-capability `Scan`/`ProviderRun`/finding subset (`scans`, `provider_runs`, `breach_findings`) linking them together. The generic `Finding`, `Observation`, `Evidence`, `ScanJob`, `OwnedAsset`, `Provider`/`ProviderCredential`, `RemediationAction`, `SuppressionRule`, and `Notification` entities in this document remain conceptual with no executable persistence. No seed or real personal data is included. Multi-tenant isolation and deletion mechanics require further threat testing before any shared preview handles personal data.

@@ -117,7 +117,10 @@ BEGIN
     'deletion_receipts',
     'provider_usage_reservations',
     'rate_limit_windows',
-    'verification_delivery_outbox'
+    'verification_delivery_outbox',
+    'scans',
+    'provider_runs',
+    'breach_findings'
   ]
   LOOP
     SELECT
@@ -304,7 +307,10 @@ BEGIN
       'deletion_receipts',
       'provider_usage_reservations',
       'rate_limit_windows',
-      'verification_delivery_outbox'
+      'verification_delivery_outbox',
+      'scans',
+      'provider_runs',
+      'breach_findings'
     ]
     LOOP
       FOREACH audited_privilege IN ARRAY ARRAY[

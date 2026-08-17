@@ -10,7 +10,7 @@ import { sql } from "drizzle-orm";
 import { headers } from "next/headers";
 
 export type RateLimitedAction =
-  "ONBOARDING" | "IDENTIFIER_ADD" | "VERIFICATION_ATTEMPT" | "ACCOUNT_DELETE";
+  "ONBOARDING" | "IDENTIFIER_ADD" | "VERIFICATION_ATTEMPT" | "ACCOUNT_DELETE" | "BREACH_SCAN";
 
 export interface RateLimitDecision {
   readonly allowed: boolean;

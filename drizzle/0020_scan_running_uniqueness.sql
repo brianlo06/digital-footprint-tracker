@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "one_running_scan_per_user_capability" ON "scans" USING btree ("user_id","requested_capability") WHERE "scans"."state" = 'RUNNING';

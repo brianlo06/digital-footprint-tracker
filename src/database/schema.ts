@@ -1,7 +1,9 @@
 import type { EncryptedEnvelope } from "@/security/crypto";
 import { sql } from "drizzle-orm";
 import {
+  boolean,
   check,
+  date,
   foreignKey,
   index,
   integer,
@@ -58,6 +60,7 @@ export const rateLimitAction = pgEnum("rate_limit_action", [
   "IDENTIFIER_ADD",
   "VERIFICATION_ATTEMPT",
   "ACCOUNT_DELETE",
+  "BREACH_SCAN",
 ]);
 export const deliveryChannel = pgEnum("delivery_channel", ["EMAIL"]);
 export const deliveryState = pgEnum("delivery_state", [
@@ -73,6 +76,16 @@ export const providerUsageState = pgEnum("provider_usage_state", [
   "FAILED",
   "RELEASED",
 ]);
+export const scanState = pgEnum("scan_state", [
+  "QUEUED",
+  "RUNNING",
+  "PARTIAL",
+  "COMPLETED",
+  "FAILED",
+  "CANCELLED",
+]);
+export const scanTrigger = pgEnum("scan_trigger", ["USER"]);
+export const providerRunState = pgEnum("provider_run_state", ["RUNNING", "COMPLETED", "FAILED"]);
 
 export const users = pgTable(
   "users",
@@ -611,6 +624,165 @@ export const verificationDeliveryOutbox = pgTable(
       to: "public",
       using: sql`current_user = 'digital_footprint_delivery_owner'`,
       withCheck: sql`current_user = 'digital_footprint_delivery_owner'`,
+    }),
+  ],
+).enableRLS();
+
+export const scans = pgTable(
+  "scans",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    identityId: uuid("identity_id")
+      .notNull()
+      .references(() => identities.id, { onDelete: "cascade" }),
+    trigger: scanTrigger("trigger").notNull().default("USER"),
+    state: scanState("state").notNull(),
+    requestedCapability: text("requested_capability").notNull(),
+    startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("scans_user_time_idx").on(table.userId, table.startedAt),
+    uniqueIndex("one_running_scan_per_user_capability")
+      .on(table.userId, table.requestedCapability)
+      .where(sql`${table.state} = 'RUNNING'`),
+    check(
+      "scans_terminal_invariant",
+      sql`(${table.state} IN ('QUEUED', 'RUNNING') AND ${table.completedAt} IS NULL)
+        OR (${table.state} IN ('PARTIAL', 'COMPLETED', 'FAILED', 'CANCELLED')
+          AND ${table.completedAt} IS NOT NULL AND ${table.completedAt} >= ${table.startedAt})`,
+    ),
+    pgPolicy("scans_tenant_isolation", {
+      for: "all",
+      to: "public",
+      using: sql`exists (
+        select 1 from users
+        where users.id = user_id
+          and users.auth_subject = nullif(current_setting('app.auth_subject', true), '')
+      )`,
+      withCheck: sql`exists (
+        select 1 from users
+        where users.id = user_id
+          and users.auth_subject = nullif(current_setting('app.auth_subject', true), '')
+      )`,
+    }),
+  ],
+).enableRLS();
+
+export const providerRuns = pgTable(
+  "provider_runs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    scanId: uuid("scan_id")
+      .notNull()
+      .references(() => scans.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    providerId: text("provider_id").notNull(),
+    capability: text("capability").notNull(),
+    reservationId: uuid("reservation_id").references(() => providerUsageReservations.id, {
+      onDelete: "set null",
+    }),
+    state: providerRunState("state").notNull(),
+    healthOutcome: text("health_outcome"),
+    resultCount: integer("result_count"),
+    errorSafeCode: text("error_safe_code"),
+    startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
+    finishedAt: timestamp("finished_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("provider_runs_scan_idx").on(table.scanId),
+    index("provider_runs_user_time_idx").on(table.userId, table.startedAt),
+    check(
+      "provider_runs_provider_id_format",
+      sql`${table.providerId} ~ '^[a-z0-9][a-z0-9-]{0,63}$'`,
+    ),
+    check(
+      "provider_runs_error_safe_code_format",
+      sql`${table.errorSafeCode} IS NULL OR ${table.errorSafeCode} ~ '^[A-Z][A-Z0-9_]{0,63}$'`,
+    ),
+    check(
+      "provider_runs_terminal_invariant",
+      sql`(${table.state} = 'RUNNING' AND ${table.healthOutcome} IS NULL
+          AND ${table.resultCount} IS NULL AND ${table.errorSafeCode} IS NULL AND ${table.finishedAt} IS NULL)
+        OR (${table.state} = 'COMPLETED' AND ${table.finishedAt} IS NOT NULL
+          AND ${table.resultCount} IS NOT NULL AND ${table.errorSafeCode} IS NULL)
+        OR (${table.state} = 'FAILED' AND ${table.finishedAt} IS NOT NULL
+          AND ${table.errorSafeCode} IS NOT NULL AND ${table.resultCount} IS NULL)`,
+    ),
+    pgPolicy("provider_runs_tenant_isolation", {
+      for: "all",
+      to: "public",
+      using: sql`exists (
+        select 1 from users
+        where users.id = user_id
+          and users.auth_subject = nullif(current_setting('app.auth_subject', true), '')
+      )`,
+      withCheck: sql`exists (
+        select 1 from users
+        where users.id = user_id
+          and users.auth_subject = nullif(current_setting('app.auth_subject', true), '')
+      )`,
+    }),
+  ],
+).enableRLS();
+
+export const breachFindings = pgTable(
+  "breach_findings",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    providerRunId: uuid("provider_run_id")
+      .notNull()
+      .references(() => providerRuns.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    identityId: uuid("identity_id")
+      .notNull()
+      .references(() => identities.id, { onDelete: "cascade" }),
+    providerBreachId: text("provider_breach_id").notNull(),
+    breachName: text("breach_name").notNull(),
+    breachDate: date("breach_date").notNull(),
+    providerAddedAt: timestamp("provider_added_at", { withTimezone: true }).notNull(),
+    providerModifiedAt: timestamp("provider_modified_at", { withTimezone: true }).notNull(),
+    dataCategories: text("data_categories").array().notNull(),
+    isVerified: boolean("is_verified").notNull(),
+    isSensitive: boolean("is_sensitive").notNull(),
+    isRetired: boolean("is_retired").notNull(),
+    sourceUrl: text("source_url").notNull(),
+    checkedAt: timestamp("checked_at", { withTimezone: true }).notNull(),
+    parserVersion: text("parser_version").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("breach_findings_provider_run_idx").on(table.providerRunId),
+    index("breach_findings_user_time_idx").on(table.userId, table.checkedAt),
+    check(
+      "breach_findings_breach_name_length",
+      sql`char_length(${table.breachName}) BETWEEN 1 AND 200`,
+    ),
+    check(
+      "breach_findings_data_categories_nonempty",
+      sql`array_length(${table.dataCategories}, 1) >= 1`,
+    ),
+    check("breach_findings_source_url_scheme", sql`${table.sourceUrl} ~ '^https://'`),
+    pgPolicy("breach_findings_tenant_isolation", {
+      for: "all",
+      to: "public",
+      using: sql`exists (
+        select 1 from users
+        where users.id = user_id
+          and users.auth_subject = nullif(current_setting('app.auth_subject', true), '')
+      )`,
+      withCheck: sql`exists (
+        select 1 from users
+        where users.id = user_id
+          and users.auth_subject = nullif(current_setting('app.auth_subject', true), '')
+      )`,
     }),
   ],
 ).enableRLS();

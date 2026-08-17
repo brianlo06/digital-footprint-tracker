@@ -134,6 +134,20 @@
       "when": 1786839000000,
       "tag": "0018_breach_consent_lifecycle",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1786948053247,
+      "tag": "0019_scan_provider_run_persistence",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1786948924840,
+      "tag": "0020_scan_running_uniqueness",
+      "breakpoints": true
     }
   ]
 }

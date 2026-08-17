@@ -53,6 +53,14 @@ export interface EvidenceSummary {
   readonly providerExternalId?: string;
   readonly parserVersion: string;
   readonly confidenceMethodVersion: string;
+  /** ISO date the underlying event (e.g. a breach) is attributed to provider-side. */
+  readonly sourceDate?: string;
+  readonly providerFirstSeenAt?: string;
+  readonly providerLastSeenAt?: string;
+  readonly dataCategories?: readonly string[];
+  readonly isVerified?: boolean;
+  readonly isSensitive?: boolean;
+  readonly isRetired?: boolean;
 }
 
 export interface CandidateFinding {

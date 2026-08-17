@@ -288,7 +288,10 @@ GRANT USAGE ON TYPE
   public.deletion_state,
   public.rate_limit_scope_kind,
   public.rate_limit_action,
-  public.provider_usage_state
+  public.provider_usage_state,
+  public.scan_state,
+  public.scan_trigger,
+  public.provider_run_state
 TO digital_footprint_runtime;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE
   public.users,
@@ -298,7 +301,10 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE
   public.identifier_verifications,
   public.consent_records,
   public.audit_events,
-  public.deletion_receipts
+  public.deletion_receipts,
+  public.scans,
+  public.provider_runs,
+  public.breach_findings
 TO digital_footprint_runtime;
 
 -- Deliberately asymmetric to the full-CRUD grant above: the runtime

@@ -48,7 +48,10 @@ GRANT USAGE ON TYPE
   deletion_state,
   rate_limit_scope_kind,
   rate_limit_action,
-  provider_usage_state
+  provider_usage_state,
+  scan_state,
+  scan_trigger,
+  provider_run_state
 TO digital_footprint_runtime;
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE
@@ -59,7 +62,10 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE
   identifier_verifications,
   consent_records,
   audit_events,
-  deletion_receipts
+  deletion_receipts,
+  scans,
+  provider_runs,
+  breach_findings
 TO digital_footprint_runtime;
 
 -- Deliberately asymmetric to the full-CRUD grant above: the runtime

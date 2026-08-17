@@ -1,0 +1,2388 @@
+{
+  "id": "23e06cd2-6ea5-43bb-86e6-72eb49e5cce3",
+  "prevId": "026db325-f49c-4fb6-8c31-3af3a0098a85",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.audit_events": {
+      "name": "audit_events",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "actor_type": {
+          "name": "actor_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "action": {
+          "name": "action",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "target_type": {
+          "name": "target_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "target_id": {
+          "name": "target_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "outcome": {
+          "name": "outcome",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "correlation_id": {
+          "name": "correlation_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "occurred_at": {
+          "name": "occurred_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "audit_user_time_idx": {
+          "name": "audit_user_time_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "occurred_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "audit_events_user_id_users_id_fk": {
+          "name": "audit_events_user_id_users_id_fk",
+          "tableFrom": "audit_events",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {
+        "audit_events_tenant_isolation": {
+          "name": "audit_events_tenant_isolation",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": [
+            "public"
+          ],
+          "using": "user_id is not null and exists (\n        select 1 from users\n        where users.id = user_id\n          and users.auth_subject = nullif(current_setting('app.auth_subject', true), '')\n      )",
+          "withCheck": "user_id is not null and exists (\n        select 1 from users\n        where users.id = user_id\n          and users.auth_subject = nullif(current_setting('app.auth_subject', true), '')\n      )"
+        },
+        "audit_events_retention_capability": {
+          "name": "audit_events_retention_capability",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": [
+            "public"
+          ],
+          "using": "current_user = 'digital_footprint_retention_owner'",
+          "withCheck": "current_user = 'digital_footprint_retention_owner'"
+        }
+      },
+      "checkConstraints": {},
+      "isRLSEnabled": true
+    },
+    "public.breach_findings": {
+      "name": "breach_findings",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "provider_run_id": {
+          "name": "provider_run_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "identity_id": {
+          "name": "identity_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "provider_breach_id": {
+          "name": "provider_breach_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "breach_name": {
+          "name": "breach_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "breach_date": {
+          "name": "breach_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "provider_added_at": {
+          "name": "provider_added_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "provider_modified_at": {
+          "name": "provider_modified_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "data_categories": {
+          "name": "data_categories",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "is_verified": {
+          "name": "is_verified",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "is_sensitive": {
+          "name": "is_sensitive",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "is_retired": {
+          "name": "is_retired",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source_url": {
+          "name": "source_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "checked_at": {
+          "name": "checked_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "parser_version": {
+          "name": "parser_version",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "breach_findings_provider_run_idx": {
+          "name": "breach_findings_provider_run_idx",
+          "columns": [
+            {
+              "expression": "provider_run_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "breach_findings_user_time_idx": {
+          "name": "breach_findings_user_time_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "checked_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "breach_findings_provider_run_id_provider_runs_id_fk": {
+          "name": "breach_findings_provider_run_id_provider_runs_id_fk",
+          "tableFrom": "breach_findings",
+          "tableTo": "provider_runs",
+          "columnsFrom": [
+            "provider_run_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "breach_findings_user_id_users_id_fk": {
+          "name": "breach_findings_user_id_users_id_fk",
+          "tableFrom": "breach_findings",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "breach_findings_identity_id_identities_id_fk": {
+          "name": "breach_findings_identity_id_identities_id_fk",
+          "tableFrom": "breach_findings",
+          "tableTo": "identities",
+          "columnsFrom": [
+            "identity_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {
+        "breach_findings_tenant_isolation": {
+          "name": "breach_findings_tenant_isolation",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": [
+            "public"
+          ],
+          "using": "exists (\n        select 1 from users\n        where users.id = user_id\n          and users.auth_subject = nullif(current_setting('app.auth_subject', true), '')\n      )",
+          "withCheck": "exists (\n        select 1 from users\n        where users.id = user_id\n          and users.auth_subject = nullif(current_setting('app.auth_subject', true), '')\n      )"
+        }
+      },
+      "checkConstraints": {
+        "breach_findings_breach_name_length": {
+          "name": "breach_findings_breach_name_length",
+          "value": "char_length(\"breach_findings\".\"breach_name\") BETWEEN 1 AND 200"
+        },
+        "breach_findings_data_categories_nonempty": {
+          "name": "breach_findings_data_categories_nonempty",
+          "value": "array_length(\"breach_findings\".\"data_categories\", 1) >= 1"
+        },
+        "breach_findings_source_url_scheme": {
+          "name": "breach_findings_source_url_scheme",
+          "value": "\"breach_findings\".\"source_url\" ~ '^https://'"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.consent_records": {
+      "name": "consent_records",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "identity_id": {
+          "name": "identity_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "purpose": {
+          "name": "purpose",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "data_categories": {
+          "name": "data_categories",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "policy_version": {
+          "name": "policy_version",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "state": {
+          "name": "state",
+          "type": "consent_state",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "granted_at": {
+          "name": "granted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "withdrawn_at": {
+          "name": "withdrawn_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "one_active_breach_consent_per_policy": {
+          "name": "one_active_breach_consent_per_policy",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "identity_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "purpose",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "policy_version",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"consent_records\".\"state\" = 'GRANTED'\n          and \"consent_records\".\"purpose\" = 'BREACH_METADATA_LOOKUP'\n          and \"consent_records\".\"policy_version\" = 'phase2-breach-v1'",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "consent_user_idx": {
+          "name": "consent_user_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "consent_records_user_id_users_id_fk": {
+          "name": "consent_records_user_id_users_id_fk",
+          "tableFrom": "consent_records",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "consent_records_identity_id_identities_id_fk": {
+          "name": "consent_records_identity_id_identities_id_fk",
+          "tableFrom": "consent_records",
+          "tableTo": "identities",
+          "columnsFrom": [
+            "identity_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {
+        "consent_records_tenant_isolation": {
+          "name": "consent_records_tenant_isolation",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": [
+            "public"
+          ],
+          "using": "exists (\n        select 1 from users\n        inner join identities on identities.user_id = users.id\n        where users.id = consent_records.user_id\n          and identities.id = consent_records.identity_id\n          and users.auth_subject = nullif(current_setting('app.auth_subject', true), '')\n      )",
+          "withCheck": "exists (\n        select 1 from users\n        inner join identities on identities.user_id = users.id\n        where users.id = consent_records.user_id\n          and identities.id = consent_records.identity_id\n          and users.auth_subject = nullif(current_setting('app.auth_subject', true), '')\n      )"
+        }
+      },
+      "checkConstraints": {
+        "consent_state_timestamp_invariant": {
+          "name": "consent_state_timestamp_invariant",
+          "value": "(\"consent_records\".\"state\" = 'GRANTED' and \"consent_records\".\"withdrawn_at\" is null)\n        or (\"consent_records\".\"state\" = 'WITHDRAWN' and \"consent_records\".\"withdrawn_at\" is not null and \"consent_records\".\"withdrawn_at\" >= \"consent_records\".\"granted_at\")"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.deletion_receipts": {
+      "name": "deletion_receipts",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "subject_token": {
+          "name": "subject_token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "subject_token_key_id": {
+          "name": "subject_token_key_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "state": {
+          "name": "state",
+          "type": "deletion_state",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'REQUESTED'"
+        },
+        "requested_at": {
+          "name": "requested_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "completed_at": {
+          "name": "completed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "failure_code": {
+          "name": "failure_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "deletion_subject_token_unique": {
+          "name": "deletion_subject_token_unique",
+          "columns": [
+            {
+              "expression": "subject_token",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {
+        "deletion_receipts_tenant_isolation": {
+          "name": "deletion_receipts_tenant_isolation",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": [
+            "public"
+          ],
+          "using": "subject_token = nullif(current_setting('app.subject_token', true), '')\n        or subject_token = nullif(current_setting('app.subject_token_previous', true), '')",
+          "withCheck": "subject_token = nullif(current_setting('app.subject_token', true), '')\n        or subject_token = nullif(current_setting('app.subject_token_previous', true), '')"
+        },
+        "deletion_receipts_retention_capability": {
+          "name": "deletion_receipts_retention_capability",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": [
+            "public"
+          ],
+          "using": "current_user = 'digital_footprint_retention_owner'",
+          "withCheck": "current_user = 'digital_footprint_retention_owner'"
+        }
+      },
+      "checkConstraints": {},
+      "isRLSEnabled": true
+    },
+    "public.identifier_lookup_tokens": {
+      "name": "identifier_lookup_tokens",
+      "schema": "",
+      "columns": {
+        "identifier_id": {
+          "name": "identifier_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "identity_id": {
+          "name": "identity_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "identifier_type": {
+          "name": "identifier_type",
+          "type": "identifier_type",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "namespace": {
+          "name": "namespace",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "normalization_version": {
+          "name": "normalization_version",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "lookup_key_id": {
+          "name": "lookup_key_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "token": {
+          "name": "token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "identifier_lookup_tokens_identity_type_key_token_unique": {
+          "name": "identifier_lookup_tokens_identity_type_key_token_unique",
+          "columns": [
+            {
+              "expression": "identity_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "identifier_type",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "lookup_key_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "token",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "identifier_lookup_tokens_identifier_idx": {
+          "name": "identifier_lookup_tokens_identifier_idx",
+          "columns": [
+            {
+              "expression": "identifier_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "identifier_lookup_tokens_identifier_id_identity_id_identifier_type_identifiers_id_identity_id_type_fk": {
+          "name": "identifier_lookup_tokens_identifier_id_identity_id_identifier_type_identifiers_id_identity_id_type_fk",
+          "tableFrom": "identifier_lookup_tokens",
+          "tableTo": "identifiers",
+          "columnsFrom": [
+            "identifier_id",
+            "identity_id",
+            "identifier_type"
+          ],
+          "columnsTo": [
+            "id",
+            "identity_id",
+            "type"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "identifier_lookup_tokens_identifier_id_lookup_key_id_pk": {
+          "name": "identifier_lookup_tokens_identifier_id_lookup_key_id_pk",
+          "columns": [
+            "identifier_id",
+            "lookup_key_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {
+        "identifier_lookup_tokens_tenant_isolation": {
+          "name": "identifier_lookup_tokens_tenant_isolation",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": [
+            "public"
+          ],
+          "using": "exists (\n        select 1 from identities\n        inner join users on users.id = identities.user_id\n        where identities.id = identity_id\n          and users.auth_subject = nullif(current_setting('app.auth_subject', true), '')\n      )",
+          "withCheck": "exists (\n        select 1 from identities\n        inner join users on users.id = identities.user_id\n        where identities.id = identity_id\n          and users.auth_subject = nullif(current_setting('app.auth_subject', true), '')\n      )"
+        },
+        "identifier_lookup_tokens_lookup_rotation_capability": {
+          "name": "identifier_lookup_tokens_lookup_rotation_capability",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": [
+            "public"
+          ],
+          "using": "current_user = 'digital_footprint_lookup_rotation_owner'",
+          "withCheck": "current_user = 'digital_footprint_lookup_rotation_owner'"
+        }
+      },
+      "checkConstraints": {},
+      "isRLSEnabled": true
+    },
+    "public.identifier_verifications": {
+      "name": "identifier_verifications",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "identifier_id": {
+          "name": "identifier_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "method": {
+          "name": "method",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "challenge_hash": {
+          "name": "challenge_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "verification_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'PENDING'"
+        },
+        "issued_at": {
+          "name": "issued_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "completed_at": {
+          "name": "completed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "attempt_count": {
+          "name": "attempt_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "locked_at": {
+          "name": "locked_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "verification_identifier_idx": {
+          "name": "verification_identifier_idx",
+          "columns": [
+            {
+              "expression": "identifier_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "identifier_verifications_identifier_id_identifiers_id_fk": {
+          "name": "identifier_verifications_identifier_id_identifiers_id_fk",
+          "tableFrom": "identifier_verifications",
+          "tableTo": "identifiers",
+          "columnsFrom": [
+            "identifier_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {
+        "identifier_verifications_tenant_isolation": {
+          "name": "identifier_verifications_tenant_isolation",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": [
+            "public"
+          ],
+          "using": "exists (\n        select 1 from identifiers\n        inner join identities on identities.id = identifiers.identity_id\n        inner join users on users.id = identities.user_id\n        where identifiers.id = identifier_id\n          and users.auth_subject = nullif(current_setting('app.auth_subject', true), '')\n      )",
+          "withCheck": "exists (\n        select 1 from identifiers\n        inner join identities on identities.id = identifiers.identity_id\n        inner join users on users.id = identities.user_id\n        where identifiers.id = identifier_id\n          and users.auth_subject = nullif(current_setting('app.auth_subject', true), '')\n      )"
+        },
+        "identifier_verifications_retention_capability": {
+          "name": "identifier_verifications_retention_capability",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": [
+            "public"
+          ],
+          "using": "current_user = 'digital_footprint_retention_owner'",
+          "withCheck": "current_user = 'digital_footprint_retention_owner'"
+        },
+        "identifier_verifications_delivery_capability": {
+          "name": "identifier_verifications_delivery_capability",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": [
+            "public"
+          ],
+          "using": "current_user = 'digital_footprint_delivery_owner'",
+          "withCheck": "current_user = 'digital_footprint_delivery_owner'"
+        }
+      },
+      "checkConstraints": {},
+      "isRLSEnabled": true
+    },
+    "public.identifiers": {
+      "name": "identifiers",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "identity_id": {
+          "name": "identity_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "type": {
+          "name": "type",
+          "type": "identifier_type",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "encrypted_value": {
+          "name": "encrypted_value",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "lookup_token": {
+          "name": "lookup_token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "normalization_version": {
+          "name": "normalization_version",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "verification_status": {
+          "name": "verification_status",
+          "type": "verification_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'PENDING'"
+        },
+        "sensitivity": {
+          "name": "sensitivity",
+          "type": "sensitivity",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "masked_display": {
+          "name": "masked_display",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "last_verified_at": {
+          "name": "last_verified_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "identifier_identity_type_lookup_unique": {
+          "name": "identifier_identity_type_lookup_unique",
+          "columns": [
+            {
+              "expression": "identity_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "type",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "lookup_token",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "identifiers_identity_idx": {
+          "name": "identifiers_identity_idx",
+          "columns": [
+            {
+              "expression": "identity_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "identifiers_identity_id_identities_id_fk": {
+          "name": "identifiers_identity_id_identities_id_fk",
+          "tableFrom": "identifiers",
+          "tableTo": "identities",
+          "columnsFrom": [
+            "identity_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "identifiers_id_identity_type_unique": {
+          "name": "identifiers_id_identity_type_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "identity_id",
+            "type"
+          ]
+        }
+      },
+      "policies": {
+        "identifiers_tenant_isolation": {
+          "name": "identifiers_tenant_isolation",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": [
+            "public"
+          ],
+          "using": "exists (\n        select 1 from identities\n        inner join users on users.id = identities.user_id\n        where identities.id = identity_id\n          and users.auth_subject = nullif(current_setting('app.auth_subject', true), '')\n      )",
+          "withCheck": "exists (\n        select 1 from identities\n        inner join users on users.id = identities.user_id\n        where identities.id = identity_id\n          and users.auth_subject = nullif(current_setting('app.auth_subject', true), '')\n      )"
+        },
+        "identifiers_rotation_capability": {
+          "name": "identifiers_rotation_capability",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": [
+            "public"
+          ],
+          "using": "current_user = 'digital_footprint_rotation_owner'",
+          "withCheck": "current_user = 'digital_footprint_rotation_owner'"
+        },
+        "identifiers_lookup_rotation_capability": {
+          "name": "identifiers_lookup_rotation_capability",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": [
+            "public"
+          ],
+          "using": "current_user = 'digital_footprint_lookup_rotation_owner'",
+          "withCheck": "current_user = 'digital_footprint_lookup_rotation_owner'"
+        },
+        "identifiers_retention_capability": {
+          "name": "identifiers_retention_capability",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": [
+            "public"
+          ],
+          "using": "current_user = 'digital_footprint_retention_owner'",
+          "withCheck": "current_user = 'digital_footprint_retention_owner'"
+        },
+        "identifiers_delivery_capability": {
+          "name": "identifiers_delivery_capability",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": [
+            "public"
+          ],
+          "using": "current_user = 'digital_footprint_delivery_owner'",
+          "withCheck": "current_user = 'digital_footprint_delivery_owner'"
+        }
+      },
+      "checkConstraints": {},
+      "isRLSEnabled": true
+    },
+    "public.identities": {
+      "name": "identities",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "label": {
+          "name": "label",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'My identity'"
+        },
+        "state": {
+          "name": "state",
+          "type": "identity_state",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'ACTIVE'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "one_active_identity_per_user": {
+          "name": "one_active_identity_per_user",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "identities_user_id_users_id_fk": {
+          "name": "identities_user_id_users_id_fk",
+          "tableFrom": "identities",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {
+        "identities_tenant_isolation": {
+          "name": "identities_tenant_isolation",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": [
+            "public"
+          ],
+          "using": "exists (\n        select 1 from users\n        where users.id = user_id\n          and users.auth_subject = nullif(current_setting('app.auth_subject', true), '')\n      )",
+          "withCheck": "exists (\n        select 1 from users\n        where users.id = user_id\n          and users.auth_subject = nullif(current_setting('app.auth_subject', true), '')\n      )"
+        },
+        "identities_rotation_capability": {
+          "name": "identities_rotation_capability",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": [
+            "public"
+          ],
+          "using": "current_user = 'digital_footprint_rotation_owner'",
+          "withCheck": "current_user = 'digital_footprint_rotation_owner'"
+        },
+        "identities_lookup_rotation_capability": {
+          "name": "identities_lookup_rotation_capability",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": [
+            "public"
+          ],
+          "using": "current_user = 'digital_footprint_lookup_rotation_owner'",
+          "withCheck": "current_user = 'digital_footprint_lookup_rotation_owner'"
+        },
+        "identities_retention_capability": {
+          "name": "identities_retention_capability",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": [
+            "public"
+          ],
+          "using": "current_user = 'digital_footprint_retention_owner'",
+          "withCheck": "current_user = 'digital_footprint_retention_owner'"
+        },
+        "identities_delivery_capability": {
+          "name": "identities_delivery_capability",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": [
+            "public"
+          ],
+          "using": "current_user = 'digital_footprint_delivery_owner'",
+          "withCheck": "current_user = 'digital_footprint_delivery_owner'"
+        }
+      },
+      "checkConstraints": {},
+      "isRLSEnabled": true
+    },
+    "public.provider_runs": {
+      "name": "provider_runs",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "scan_id": {
+          "name": "scan_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "provider_id": {
+          "name": "provider_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "capability": {
+          "name": "capability",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reservation_id": {
+          "name": "reservation_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "state": {
+          "name": "state",
+          "type": "provider_run_state",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "health_outcome": {
+          "name": "health_outcome",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "result_count": {
+          "name": "result_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "error_safe_code": {
+          "name": "error_safe_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "started_at": {
+          "name": "started_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "finished_at": {
+          "name": "finished_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "provider_runs_scan_idx": {
+          "name": "provider_runs_scan_idx",
+          "columns": [
+            {
+              "expression": "scan_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "provider_runs_user_time_idx": {
+          "name": "provider_runs_user_time_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "started_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "provider_runs_scan_id_scans_id_fk": {
+          "name": "provider_runs_scan_id_scans_id_fk",
+          "tableFrom": "provider_runs",
+          "tableTo": "scans",
+          "columnsFrom": [
+            "scan_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "provider_runs_user_id_users_id_fk": {
+          "name": "provider_runs_user_id_users_id_fk",
+          "tableFrom": "provider_runs",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "provider_runs_reservation_id_provider_usage_reservations_id_fk": {
+          "name": "provider_runs_reservation_id_provider_usage_reservations_id_fk",
+          "tableFrom": "provider_runs",
+          "tableTo": "provider_usage_reservations",
+          "columnsFrom": [
+            "reservation_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {
+        "provider_runs_tenant_isolation": {
+          "name": "provider_runs_tenant_isolation",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": [
+            "public"
+          ],
+          "using": "exists (\n        select 1 from users\n        where users.id = user_id\n          and users.auth_subject = nullif(current_setting('app.auth_subject', true), '')\n      )",
+          "withCheck": "exists (\n        select 1 from users\n        where users.id = user_id\n          and users.auth_subject = nullif(current_setting('app.auth_subject', true), '')\n      )"
+        }
+      },
+      "checkConstraints": {
+        "provider_runs_provider_id_format": {
+          "name": "provider_runs_provider_id_format",
+          "value": "\"provider_runs\".\"provider_id\" ~ '^[a-z0-9][a-z0-9-]{0,63}$'"
+        },
+        "provider_runs_error_safe_code_format": {
+          "name": "provider_runs_error_safe_code_format",
+          "value": "\"provider_runs\".\"error_safe_code\" IS NULL OR \"provider_runs\".\"error_safe_code\" ~ '^[A-Z][A-Z0-9_]{0,63}$'"
+        },
+        "provider_runs_terminal_invariant": {
+          "name": "provider_runs_terminal_invariant",
+          "value": "(\"provider_runs\".\"state\" = 'RUNNING' AND \"provider_runs\".\"health_outcome\" IS NULL\n          AND \"provider_runs\".\"result_count\" IS NULL AND \"provider_runs\".\"error_safe_code\" IS NULL AND \"provider_runs\".\"finished_at\" IS NULL)\n        OR (\"provider_runs\".\"state\" = 'COMPLETED' AND \"provider_runs\".\"finished_at\" IS NOT NULL\n          AND \"provider_runs\".\"result_count\" IS NOT NULL AND \"provider_runs\".\"error_safe_code\" IS NULL)\n        OR (\"provider_runs\".\"state\" = 'FAILED' AND \"provider_runs\".\"finished_at\" IS NOT NULL\n          AND \"provider_runs\".\"error_safe_code\" IS NOT NULL AND \"provider_runs\".\"result_count\" IS NULL)"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.provider_usage_reservations": {
+      "name": "provider_usage_reservations",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "provider_id": {
+          "name": "provider_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "idempotency_key": {
+          "name": "idempotency_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "request_fingerprint": {
+          "name": "request_fingerprint",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "estimated_cost_units": {
+          "name": "estimated_cost_units",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "actual_cost_units": {
+          "name": "actual_cost_units",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "state": {
+          "name": "state",
+          "type": "provider_usage_state",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'RESERVED'"
+        },
+        "reserved_at": {
+          "name": "reserved_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "terminal_at": {
+          "name": "terminal_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "provider_usage_user_provider_idempotency_unique": {
+          "name": "provider_usage_user_provider_idempotency_unique",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "provider_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "idempotency_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "provider_usage_provider_time_idx": {
+          "name": "provider_usage_provider_time_idx",
+          "columns": [
+            {
+              "expression": "provider_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "reserved_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "provider_usage_user_time_idx": {
+          "name": "provider_usage_user_time_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "reserved_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "provider_usage_reservations_user_id_users_id_fk": {
+          "name": "provider_usage_reservations_user_id_users_id_fk",
+          "tableFrom": "provider_usage_reservations",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {
+        "provider_usage_reservations_tenant_isolation": {
+          "name": "provider_usage_reservations_tenant_isolation",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": [
+            "public"
+          ],
+          "using": "exists (\n        select 1 from users\n        where users.id = user_id\n          and users.auth_subject = nullif(current_setting('app.auth_subject', true), '')\n      )",
+          "withCheck": "exists (\n        select 1 from users\n        where users.id = user_id\n          and users.auth_subject = nullif(current_setting('app.auth_subject', true), '')\n      )"
+        },
+        "provider_usage_reservations_capability": {
+          "name": "provider_usage_reservations_capability",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": [
+            "public"
+          ],
+          "using": "current_user = 'digital_footprint_provider_usage_owner'",
+          "withCheck": "current_user = 'digital_footprint_provider_usage_owner'"
+        }
+      },
+      "checkConstraints": {
+        "provider_usage_costs_nonnegative": {
+          "name": "provider_usage_costs_nonnegative",
+          "value": "\"provider_usage_reservations\".\"estimated_cost_units\" >= 0 AND (\"provider_usage_reservations\".\"actual_cost_units\" IS NULL OR \"provider_usage_reservations\".\"actual_cost_units\" BETWEEN 0 AND \"provider_usage_reservations\".\"estimated_cost_units\")"
+        },
+        "provider_usage_terminal_invariant": {
+          "name": "provider_usage_terminal_invariant",
+          "value": "(\"provider_usage_reservations\".\"state\" = 'RESERVED' AND \"provider_usage_reservations\".\"actual_cost_units\" IS NULL AND \"provider_usage_reservations\".\"terminal_at\" IS NULL)\n        OR (\"provider_usage_reservations\".\"state\" IN ('COMPLETED', 'FAILED') AND \"provider_usage_reservations\".\"actual_cost_units\" IS NOT NULL AND \"provider_usage_reservations\".\"terminal_at\" IS NOT NULL)\n        OR (\"provider_usage_reservations\".\"state\" = 'RELEASED' AND \"provider_usage_reservations\".\"actual_cost_units\" IS NULL AND \"provider_usage_reservations\".\"terminal_at\" IS NOT NULL)"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.rate_limit_windows": {
+      "name": "rate_limit_windows",
+      "schema": "",
+      "columns": {
+        "scope_kind": {
+          "name": "scope_kind",
+          "type": "rate_limit_scope_kind",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "scope_token": {
+          "name": "scope_token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "action": {
+          "name": "action",
+          "type": "rate_limit_action",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "window_started_at": {
+          "name": "window_started_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "request_count": {
+          "name": "request_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "blocked_until": {
+          "name": "blocked_until",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "rate_limit_windows_expiry_idx": {
+          "name": "rate_limit_windows_expiry_idx",
+          "columns": [
+            {
+              "expression": "expires_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "rate_limit_windows_scope_kind_scope_token_action_pk": {
+          "name": "rate_limit_windows_scope_kind_scope_token_action_pk",
+          "columns": [
+            "scope_kind",
+            "scope_token",
+            "action"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {
+        "rate_limit_windows_rate_limit_capability": {
+          "name": "rate_limit_windows_rate_limit_capability",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": [
+            "public"
+          ],
+          "using": "current_user = 'digital_footprint_rate_limit_owner'",
+          "withCheck": "current_user = 'digital_footprint_rate_limit_owner'"
+        },
+        "rate_limit_windows_retention_capability": {
+          "name": "rate_limit_windows_retention_capability",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": [
+            "public"
+          ],
+          "using": "current_user = 'digital_footprint_retention_owner'",
+          "withCheck": "current_user = 'digital_footprint_retention_owner'"
+        }
+      },
+      "checkConstraints": {},
+      "isRLSEnabled": true
+    },
+    "public.scans": {
+      "name": "scans",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "identity_id": {
+          "name": "identity_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "trigger": {
+          "name": "trigger",
+          "type": "scan_trigger",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'USER'"
+        },
+        "state": {
+          "name": "state",
+          "type": "scan_state",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "requested_capability": {
+          "name": "requested_capability",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "started_at": {
+          "name": "started_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "completed_at": {
+          "name": "completed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "scans_user_time_idx": {
+          "name": "scans_user_time_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "started_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "one_running_scan_per_user_capability": {
+          "name": "one_running_scan_per_user_capability",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "requested_capability",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"scans\".\"state\" = 'RUNNING'",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "scans_user_id_users_id_fk": {
+          "name": "scans_user_id_users_id_fk",
+          "tableFrom": "scans",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "scans_identity_id_identities_id_fk": {
+          "name": "scans_identity_id_identities_id_fk",
+          "tableFrom": "scans",
+          "tableTo": "identities",
+          "columnsFrom": [
+            "identity_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {
+        "scans_tenant_isolation": {
+          "name": "scans_tenant_isolation",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": [
+            "public"
+          ],
+          "using": "exists (\n        select 1 from users\n        where users.id = user_id\n          and users.auth_subject = nullif(current_setting('app.auth_subject', true), '')\n      )",
+          "withCheck": "exists (\n        select 1 from users\n        where users.id = user_id\n          and users.auth_subject = nullif(current_setting('app.auth_subject', true), '')\n      )"
+        }
+      },
+      "checkConstraints": {
+        "scans_terminal_invariant": {
+          "name": "scans_terminal_invariant",
+          "value": "(\"scans\".\"state\" IN ('QUEUED', 'RUNNING') AND \"scans\".\"completed_at\" IS NULL)\n        OR (\"scans\".\"state\" IN ('PARTIAL', 'COMPLETED', 'FAILED', 'CANCELLED')\n          AND \"scans\".\"completed_at\" IS NOT NULL AND \"scans\".\"completed_at\" >= \"scans\".\"started_at\")"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.users": {
+      "name": "users",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "auth_subject": {
+          "name": "auth_subject",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "state": {
+          "name": "state",
+          "type": "account_state",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'ACTIVE'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "deletion_requested_at": {
+          "name": "deletion_requested_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "users_auth_subject_unique": {
+          "name": "users_auth_subject_unique",
+          "columns": [
+            {
+              "expression": "auth_subject",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {
+        "users_tenant_isolation": {
+          "name": "users_tenant_isolation",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": [
+            "public"
+          ],
+          "using": "auth_subject = nullif(current_setting('app.auth_subject', true), '')",
+          "withCheck": "auth_subject = nullif(current_setting('app.auth_subject', true), '')"
+        },
+        "users_delivery_capability": {
+          "name": "users_delivery_capability",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": [
+            "public"
+          ],
+          "using": "current_user = 'digital_footprint_delivery_owner'",
+          "withCheck": "current_user = 'digital_footprint_delivery_owner'"
+        },
+        "users_rotation_capability": {
+          "name": "users_rotation_capability",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": [
+            "public"
+          ],
+          "using": "current_user = 'digital_footprint_rotation_owner'",
+          "withCheck": "current_user = 'digital_footprint_rotation_owner'"
+        },
+        "users_lookup_rotation_capability": {
+          "name": "users_lookup_rotation_capability",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": [
+            "public"
+          ],
+          "using": "current_user = 'digital_footprint_lookup_rotation_owner'",
+          "withCheck": "current_user = 'digital_footprint_lookup_rotation_owner'"
+        },
+        "users_retention_capability": {
+          "name": "users_retention_capability",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": [
+            "public"
+          ],
+          "using": "current_user = 'digital_footprint_retention_owner'",
+          "withCheck": "current_user = 'digital_footprint_retention_owner'"
+        },
+        "users_provider_usage_capability": {
+          "name": "users_provider_usage_capability",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": [
+            "public"
+          ],
+          "using": "current_user = 'digital_footprint_provider_usage_owner'",
+          "withCheck": "current_user = 'digital_footprint_provider_usage_owner'"
+        }
+      },
+      "checkConstraints": {},
+      "isRLSEnabled": true
+    },
+    "public.verification_delivery_outbox": {
+      "name": "verification_delivery_outbox",
+      "schema": "",
+      "columns": {
+        "delivery_id": {
+          "name": "delivery_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "verification_id": {
+          "name": "verification_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "channel": {
+          "name": "channel",
+          "type": "delivery_channel",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'EMAIL'"
+        },
+        "template": {
+          "name": "template",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "encrypted_payload": {
+          "name": "encrypted_payload",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "state": {
+          "name": "state",
+          "type": "delivery_state",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'PENDING'"
+        },
+        "lease_token": {
+          "name": "lease_token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "lease_expires_at": {
+          "name": "lease_expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "not_before": {
+          "name": "not_before",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "attempt_count": {
+          "name": "attempt_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "max_attempts": {
+          "name": "max_attempts",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 8
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "verification_delivery_outbox_verification_idx": {
+          "name": "verification_delivery_outbox_verification_idx",
+          "columns": [
+            {
+              "expression": "verification_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "verification_delivery_outbox_claim_idx": {
+          "name": "verification_delivery_outbox_claim_idx",
+          "columns": [
+            {
+              "expression": "state",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "not_before",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "verification_delivery_outbox_lease_idx": {
+          "name": "verification_delivery_outbox_lease_idx",
+          "columns": [
+            {
+              "expression": "state",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "lease_expires_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "verification_delivery_outbox_verification_id_identifier_verifications_id_fk": {
+          "name": "verification_delivery_outbox_verification_id_identifier_verifications_id_fk",
+          "tableFrom": "verification_delivery_outbox",
+          "tableTo": "identifier_verifications",
+          "columnsFrom": [
+            "verification_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "verification_delivery_outbox_user_id_users_id_fk": {
+          "name": "verification_delivery_outbox_user_id_users_id_fk",
+          "tableFrom": "verification_delivery_outbox",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {
+        "verification_delivery_outbox_insert_only": {
+          "name": "verification_delivery_outbox_insert_only",
+          "as": "PERMISSIVE",
+          "for": "INSERT",
+          "to": [
+            "public"
+          ],
+          "withCheck": "exists (\n        select 1 from identifier_verifications\n        inner join identifiers on identifiers.id = identifier_verifications.identifier_id\n        inner join identities on identities.id = identifiers.identity_id\n        inner join users on users.id = identities.user_id\n        where identifier_verifications.id = verification_delivery_outbox.verification_id\n          and users.id = verification_delivery_outbox.user_id\n          and users.auth_subject = nullif(current_setting('app.auth_subject', true), '')\n      )"
+        },
+        "verification_delivery_outbox_delivery_capability": {
+          "name": "verification_delivery_outbox_delivery_capability",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": [
+            "public"
+          ],
+          "using": "current_user = 'digital_footprint_delivery_owner'",
+          "withCheck": "current_user = 'digital_footprint_delivery_owner'"
+        }
+      },
+      "checkConstraints": {
+        "verification_delivery_outbox_template_allowlist": {
+          "name": "verification_delivery_outbox_template_allowlist",
+          "value": "\"verification_delivery_outbox\".\"template\" IN ('EMAIL_VERIFICATION_CODE_V1')"
+        },
+        "verification_delivery_outbox_max_attempts_range": {
+          "name": "verification_delivery_outbox_max_attempts_range",
+          "value": "\"verification_delivery_outbox\".\"max_attempts\" BETWEEN 1 AND 20"
+        },
+        "verification_delivery_outbox_payload_state_invariant": {
+          "name": "verification_delivery_outbox_payload_state_invariant",
+          "value": "(\"verification_delivery_outbox\".\"state\" IN ('COMPLETED', 'DEAD_LETTERED', 'CANCELLED') AND \"verification_delivery_outbox\".\"encrypted_payload\" IS NULL)\n        OR (\"verification_delivery_outbox\".\"state\" IN ('PENDING', 'CLAIMED') AND \"verification_delivery_outbox\".\"encrypted_payload\" IS NOT NULL)"
+        }
+      },
+      "isRLSEnabled": true
+    }
+  },
+  "enums": {
+    "public.account_state": {
+      "name": "account_state",
+      "schema": "public",
+      "values": [
+        "ACTIVE",
+        "DELETION_PENDING"
+      ]
+    },
+    "public.consent_state": {
+      "name": "consent_state",
+      "schema": "public",
+      "values": [
+        "GRANTED",
+        "WITHDRAWN"
+      ]
+    },
+    "public.deletion_state": {
+      "name": "deletion_state",
+      "schema": "public",
+      "values": [
+        "REQUESTED",
+        "AUTH_REVOKED",
+        "COMPLETED",
+        "FAILED"
+      ]
+    },
+    "public.delivery_channel": {
+      "name": "delivery_channel",
+      "schema": "public",
+      "values": [
+        "EMAIL"
+      ]
+    },
+    "public.delivery_state": {
+      "name": "delivery_state",
+      "schema": "public",
+      "values": [
+        "PENDING",
+        "CLAIMED",
+        "COMPLETED",
+        "DEAD_LETTERED",
+        "CANCELLED"
+      ]
+    },
+    "public.identifier_type": {
+      "name": "identifier_type",
+      "schema": "public",
+      "values": [
+        "EMAIL",
+        "USERNAME",
+        "PHONE",
+        "FULL_NAME",
+        "ALIAS",
+        "DOMAIN",
+        "WEBSITE",
+        "SOCIAL_PROFILE",
+        "ORGANIZATION",
+        "LOCATION"
+      ]
+    },
+    "public.identity_state": {
+      "name": "identity_state",
+      "schema": "public",
+      "values": [
+        "ACTIVE",
+        "ARCHIVED"
+      ]
+    },
+    "public.provider_run_state": {
+      "name": "provider_run_state",
+      "schema": "public",
+      "values": [
+        "RUNNING",
+        "COMPLETED",
+        "FAILED"
+      ]
+    },
+    "public.provider_usage_state": {
+      "name": "provider_usage_state",
+      "schema": "public",
+      "values": [
+        "RESERVED",
+        "COMPLETED",
+        "FAILED",
+        "RELEASED"
+      ]
+    },
+    "public.rate_limit_action": {
+      "name": "rate_limit_action",
+      "schema": "public",
+      "values": [
+        "ONBOARDING",
+        "IDENTIFIER_ADD",
+        "VERIFICATION_ATTEMPT",
+        "ACCOUNT_DELETE",
+        "BREACH_SCAN"
+      ]
+    },
+    "public.rate_limit_scope_kind": {
+      "name": "rate_limit_scope_kind",
+      "schema": "public",
+      "values": [
+        "USER",
+        "NETWORK"
+      ]
+    },
+    "public.scan_state": {
+      "name": "scan_state",
+      "schema": "public",
+      "values": [
+        "QUEUED",
+        "RUNNING",
+        "PARTIAL",
+        "COMPLETED",
+        "FAILED",
+        "CANCELLED"
+      ]
+    },
+    "public.scan_trigger": {
+      "name": "scan_trigger",
+      "schema": "public",
+      "values": [
+        "USER"
+      ]
+    },
+    "public.sensitivity": {
+      "name": "sensitivity",
+      "schema": "public",
+      "values": [
+        "PUBLIC",
+        "LOW",
+        "MODERATE",
+        "SENSITIVE",
+        "HIGHLY_SENSITIVE"
+      ]
+    },
+    "public.verification_status": {
+      "name": "verification_status",
+      "schema": "public",
+      "values": [
+        "UNVERIFIED",
+        "PENDING",
+        "VERIFIED",
+        "EXPIRED",
+        "REVOKED"
+      ]
+    }
+  },
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}
