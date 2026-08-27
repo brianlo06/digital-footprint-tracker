@@ -130,6 +130,8 @@ The design is approved for later owner execution, but the test itself remains bl
 
 Trigger rollback on contract ambiguity, unexpected fields, credential or paste data, attribution failure, verification bypass, cost-reservation failure, unexplained 401/403/429 behavior, schema drift, telemetry leakage, provider incident, or inability to honor deletion.
 
+The full rollback order below was exercised locally against the synthetic adapter on 2026-08-27; see Slice 10 and `tests/integration/breach-scan-rollback.test.ts`.
+
 Rollback order:
 
 1. Set the global provider kill switch to disabled and confirm the adapter makes zero network calls.
@@ -258,4 +260,19 @@ Verification: the service-independent suite passed with 230 tests (5 new), `npm 
 
 Verification: the full migration chain (`0000`-`0022`) applied to a clean PostgreSQL 17 database, hosted-style provisioning and `npm run db:verify:boundaries` passed, all 64 restricted-role integration tests passed including aged-terminal deletion with pending/recent retention, the service-independent suite passed with 238 tests, and `npm run check`/`npm run cf:verify:boundaries`/`npm run cf:retention:build`/`npm run cf:standalone:typecheck` passed.
 
-Remaining synthetic-only Phase 2 work is a complete kill-switch rollback exercise. A live HIBP adapter, credential binding, real email, nonzero _monetary_ budget, route-level live-provider activation, and external network use remain out of scope.
+### Slice 10 — kill-switch rollback exercise (complete 2026-08-27)
+
+A restricted-role integration test now walks the recorded rollback order end to end against real PostgreSQL RLS, using the synthetic adapter and zero network activity:
+
+1. with queued work outstanding, activating the kill switch denies a new request as `PROVIDER_DISABLED` before any row is written;
+2. dispatching the already-queued job under the disabled selection drains it to a terminal `DEAD_LETTERED`/`PROVIDER_DISABLED` state with the scan marked `FAILED`, no provider run, no finding, and no provider construction;
+3. credential revocation has nothing to revoke — server environment validation separately rejects any non-empty breach API key — and no usage reservation was consumed that would need reconciling;
+4. pre-dispatch queued work is cancelled rather than retried or fanned out, still consuming zero reservation capacity;
+5. removing the adapter from the registry keeps every later request denied even with the kill switch released; and
+6. account deletion disposes of every provider-derived scan, job, provider-run, finding, and reservation row.
+
+Registry unit tests separately prove that re-enabling requires the exact local environment, synthetic selection, feature flag, and released kill switch together, and the Cron Worker template's own two exact-match gates ship closed.
+
+Verification: the drill passed as part of 65 restricted-role integration tests against a clean PostgreSQL 17 database with hosted-style provisioning, and the service-independent suite, `npm run check`, and the deployment-boundary verifiers passed unchanged.
+
+All recorded synthetic-only Phase 2 slices are complete. Contracted or live-provider work remains blocked on written HIBP permission, counsel review, a nonzero budget decision, and separate owner authorization. A live HIBP adapter, credential binding, real email, nonzero _monetary_ budget, route-level live-provider activation, and external network use remain out of scope.
