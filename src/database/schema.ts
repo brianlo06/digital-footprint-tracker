@@ -86,6 +86,13 @@ export const scanState = pgEnum("scan_state", [
 ]);
 export const scanTrigger = pgEnum("scan_trigger", ["USER"]);
 export const providerRunState = pgEnum("provider_run_state", ["RUNNING", "COMPLETED", "FAILED"]);
+export const scanJobState = pgEnum("scan_job_state", [
+  "PENDING",
+  "CLAIMED",
+  "COMPLETED",
+  "DEAD_LETTERED",
+  "CANCELLED",
+]);
 
 export const users = pgTable(
   "users",
@@ -133,6 +140,11 @@ export const users = pgTable(
       to: "public",
       using: sql`current_user = 'digital_footprint_provider_usage_owner'`,
       withCheck: sql`current_user = 'digital_footprint_provider_usage_owner'`,
+    }),
+    pgPolicy("users_scan_job_capability", {
+      for: "select",
+      to: "public",
+      using: sql`current_user = 'digital_footprint_provider_usage_owner'`,
     }),
   ],
 ).enableRLS();
@@ -646,9 +658,9 @@ export const scans = pgTable(
   },
   (table) => [
     index("scans_user_time_idx").on(table.userId, table.startedAt),
-    uniqueIndex("one_running_scan_per_user_capability")
+    uniqueIndex("one_active_scan_per_user_capability")
       .on(table.userId, table.requestedCapability)
-      .where(sql`${table.state} = 'RUNNING'`),
+      .where(sql`${table.state} IN ('QUEUED', 'RUNNING')`),
     check(
       "scans_terminal_invariant",
       sql`(${table.state} IN ('QUEUED', 'RUNNING') AND ${table.completedAt} IS NULL)
@@ -668,6 +680,79 @@ export const scans = pgTable(
         where users.id = user_id
           and users.auth_subject = nullif(current_setting('app.auth_subject', true), '')
       )`,
+    }),
+    pgPolicy("scans_scan_job_capability", {
+      for: "all",
+      to: "public",
+      using: sql`current_user = 'digital_footprint_provider_usage_owner'`,
+      withCheck: sql`current_user = 'digital_footprint_provider_usage_owner'`,
+    }),
+  ],
+).enableRLS();
+
+export const scanJobs = pgTable(
+  "scan_jobs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    scanId: uuid("scan_id")
+      .notNull()
+      .references(() => scans.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    identityId: uuid("identity_id")
+      .notNull()
+      .references(() => identities.id, { onDelete: "cascade" }),
+    identifierId: uuid("identifier_id")
+      .notNull()
+      .references(() => identifiers.id, { onDelete: "cascade" }),
+    consentRecordId: uuid("consent_record_id")
+      .notNull()
+      .references(() => consentRecords.id, { onDelete: "cascade" }),
+    state: scanJobState("state").notNull().default("PENDING"),
+    attemptCount: integer("attempt_count").notNull().default(0),
+    maxAttempts: integer("max_attempts").notNull().default(3),
+    notBefore: timestamp("not_before", { withTimezone: true }).notNull().defaultNow(),
+    leaseToken: text("lease_token"),
+    leaseExpiresAt: timestamp("lease_expires_at", { withTimezone: true }),
+    lastErrorSafeCode: text("last_error_safe_code"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("scan_jobs_scan_unique").on(table.scanId),
+    index("scan_jobs_claim_idx").on(table.state, table.notBefore),
+    index("scan_jobs_lease_idx").on(table.state, table.leaseExpiresAt),
+    check("scan_jobs_attempt_range", sql`${table.attemptCount} BETWEEN 0 AND ${table.maxAttempts}`),
+    check("scan_jobs_max_attempts_range", sql`${table.maxAttempts} BETWEEN 1 AND 10`),
+    check(
+      "scan_jobs_error_safe_code_format",
+      sql`${table.lastErrorSafeCode} IS NULL OR ${table.lastErrorSafeCode} ~ '^[A-Z][A-Z0-9_]{0,63}$'`,
+    ),
+    check(
+      "scan_jobs_lease_invariant",
+      sql`(${table.state} = 'CLAIMED' AND ${table.leaseToken} IS NOT NULL AND ${table.leaseExpiresAt} IS NOT NULL)
+        OR (${table.state} <> 'CLAIMED' AND ${table.leaseToken} IS NULL AND ${table.leaseExpiresAt} IS NULL)`,
+    ),
+    pgPolicy("scan_jobs_tenant_isolation", {
+      for: "all",
+      to: "public",
+      using: sql`exists (
+        select 1 from users
+        where users.id = user_id
+          and users.auth_subject = nullif(current_setting('app.auth_subject', true), '')
+      )`,
+      withCheck: sql`exists (
+        select 1 from users
+        where users.id = user_id
+          and users.auth_subject = nullif(current_setting('app.auth_subject', true), '')
+      )`,
+    }),
+    pgPolicy("scan_jobs_scan_job_capability", {
+      for: "all",
+      to: "public",
+      using: sql`current_user = 'digital_footprint_provider_usage_owner'`,
+      withCheck: sql`current_user = 'digital_footprint_provider_usage_owner'`,
     }),
   ],
 ).enableRLS();

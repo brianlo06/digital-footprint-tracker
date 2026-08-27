@@ -1,12 +1,13 @@
 import { resetServerEnvForTests } from "@/config/server-env";
 import { createAccountIfMissing, type AccountContext } from "@/core/account-service";
 import { addEmailIdentifier, verifyEmailIdentifier } from "@/core/identifier-service";
-import { closeDatabase, getDatabase } from "@/database/client";
+import { closeDatabase, getDatabase, withRuntimeDatabase } from "@/database/client";
 import {
   breachFindings,
   consentRecords,
   identifiers,
   providerRuns,
+  scanJobs,
   scans,
   users,
 } from "@/database/schema";
@@ -16,6 +17,14 @@ import {
   BREACH_CONSENT_PURPOSE,
 } from "@/providers/breach/breach-invocation-policy";
 import { executePostgresSyntheticBreachScan } from "@/providers/breach/postgres-breach-scan";
+import { listRecentBreachScans } from "@/providers/breach/breach-scan-history";
+import {
+  cancelQueuedPostgresBreachScan,
+  enqueuePostgresSyntheticBreachScan,
+} from "@/providers/breach/breach-scan-queue";
+import { claimBreachScanJobs } from "@/providers/breach/breach-scan-job-core";
+import { dispatchQueuedPostgresSyntheticBreachScan } from "@/providers/breach/postgres-breach-scan-job";
+import { processClaimedPostgresSyntheticBreachScan } from "@/providers/breach/postgres-breach-scan-worker-core";
 import { selectBreachProvider } from "@/providers/provider-registry";
 import type { ProviderUsageBudget } from "@/providers/provider-usage-ledger";
 import type { AuthenticatedPrincipal } from "@/security/auth";
@@ -344,5 +353,220 @@ describeWithDatabase("durable synthetic breach scan persistence", () => {
       state: "FAILED",
       errorSafeCode: "PROVIDER_RATE_LIMITED",
     });
+  });
+
+  it("queues opaque work, prevents duplicate active scans, and completes it after dispatch", async () => {
+    const queuedPrincipal: AuthenticatedPrincipal = {
+      subject: `breach_scan_queued_${testRunId}`,
+      mode: "local",
+    };
+    const queuedAccount = await prepareAccount(queuedPrincipal, "queued");
+
+    const queued = await enqueuePostgresSyntheticBreachScan({
+      account: queuedAccount,
+      providerSelection: selection,
+    });
+    expect(queued).toMatchObject({ status: "QUEUED", scanId: expect.any(String) });
+    if (queued.status !== "QUEUED") throw new Error("expected QUEUED result");
+
+    const duplicate = await enqueuePostgresSyntheticBreachScan({
+      account: queuedAccount,
+      providerSelection: selection,
+    });
+    expect(duplicate).toEqual({ status: "ALREADY_RUNNING", scanId: queued.scanId });
+
+    const [storedJob] = await getDatabase()
+      .select()
+      .from(scanJobs)
+      .where(eq(scanJobs.scanId, queued.scanId));
+    expect(storedJob).toMatchObject({
+      state: "PENDING",
+      userId: queuedAccount.userId,
+      identifierId: expect.any(String),
+      consentRecordId: expect.any(String),
+      leaseToken: null,
+    });
+
+    const outcome = await dispatchQueuedPostgresSyntheticBreachScan({
+      account: queuedAccount,
+      scanId: queued.scanId,
+      now: new Date(),
+      providerSelection: selection,
+    });
+    expect(outcome).toBe("COMPLETED");
+
+    const [completedJob] = await getDatabase()
+      .select()
+      .from(scanJobs)
+      .where(eq(scanJobs.scanId, queued.scanId));
+    expect(completedJob).toMatchObject({ state: "COMPLETED", attemptCount: 1, leaseToken: null });
+    const [completedScan] = await getDatabase()
+      .select()
+      .from(scans)
+      .where(eq(scans.id, queued.scanId));
+    expect(completedScan).toMatchObject({ state: "COMPLETED" });
+  });
+
+  it("cancels only an unclaimed queued scan", async () => {
+    const cancelPrincipal: AuthenticatedPrincipal = {
+      subject: `breach_scan_cancel_${testRunId}`,
+      mode: "local",
+    };
+    const cancelAccount = await prepareAccount(cancelPrincipal, "cancel");
+    const queued = await enqueuePostgresSyntheticBreachScan({
+      account: cancelAccount,
+      providerSelection: selection,
+    });
+    if (queued.status !== "QUEUED") throw new Error("expected QUEUED result");
+
+    await expect(cancelQueuedPostgresBreachScan(cancelAccount, queued.scanId)).resolves.toBe(
+      "CANCELLED",
+    );
+    await expect(cancelQueuedPostgresBreachScan(cancelAccount, queued.scanId)).resolves.toBe(
+      "NOT_CANCELLABLE",
+    );
+
+    const [cancelledJob] = await getDatabase()
+      .select()
+      .from(scanJobs)
+      .where(eq(scanJobs.scanId, queued.scanId));
+    const [cancelledScan] = await getDatabase()
+      .select()
+      .from(scans)
+      .where(eq(scans.id, queued.scanId));
+    expect(cancelledJob).toMatchObject({ state: "CANCELLED" });
+    expect(cancelledScan).toMatchObject({ state: "CANCELLED" });
+  });
+
+  it("persists a bounded retry after a retryable provider failure", async () => {
+    const retryPrincipal: AuthenticatedPrincipal = {
+      subject: `breach_scan_retry_${testRunId}`,
+      mode: "local",
+    };
+    const retryAccount = await prepareAccount(retryPrincipal, "retry");
+    const retrySelection = selectBreachProvider({
+      appEnvironment: "local",
+      provider: "synthetic",
+      featureEnabled: true,
+      killSwitchActive: false,
+      syntheticScenario: "RATE_LIMIT",
+    });
+    const queued = await enqueuePostgresSyntheticBreachScan({
+      account: retryAccount,
+      providerSelection: retrySelection,
+    });
+    if (queued.status !== "QUEUED") throw new Error("expected QUEUED result");
+    const now = new Date();
+
+    await expect(
+      dispatchQueuedPostgresSyntheticBreachScan({
+        account: retryAccount,
+        scanId: queued.scanId,
+        now,
+        providerSelection: retrySelection,
+      }),
+    ).resolves.toBe("RETRY_SCHEDULED");
+
+    const [retriedJob] = await getDatabase()
+      .select()
+      .from(scanJobs)
+      .where(eq(scanJobs.scanId, queued.scanId));
+    const [retriedScan] = await getDatabase()
+      .select()
+      .from(scans)
+      .where(eq(scans.id, queued.scanId));
+    expect(retriedJob).toMatchObject({
+      state: "PENDING",
+      attemptCount: 1,
+      lastErrorSafeCode: "PROVIDER_RATE_LIMITED",
+      leaseToken: null,
+    });
+    expect(retriedJob.notBefore.getTime()).toBeGreaterThan(now.getTime());
+    expect(retriedScan).toMatchObject({ state: "QUEUED", completedAt: null });
+
+    await getDatabase()
+      .update(scanJobs)
+      .set({ notBefore: new Date(now.getTime() - 1_000) })
+      .where(eq(scanJobs.scanId, queued.scanId));
+    await expect(
+      dispatchQueuedPostgresSyntheticBreachScan({
+        account: retryAccount,
+        scanId: queued.scanId,
+        now: new Date(),
+        providerSelection: selection,
+      }),
+    ).resolves.toBe("COMPLETED");
+
+    const history = await listRecentBreachScans(retryAccount, { limit: 5 });
+    const retriedHistory = history.filter((entry) => entry.scanId === queued.scanId);
+    expect(retriedHistory).toHaveLength(1);
+    expect(retriedHistory[0]).toMatchObject({
+      scanState: "COMPLETED",
+      providerRunState: "COMPLETED",
+      errorSafeCode: null,
+      findings: [expect.objectContaining({ breachName: "Synthetic Commerce" })],
+    });
+  });
+
+  it("claims and completes a due multi-tenant batch through isolated RLS transactions", async () => {
+    const batchAccounts = await Promise.all(
+      ["batch-a", "batch-b"].map((sequence) =>
+        prepareAccount(
+          { subject: `breach_scan_${sequence}_${testRunId}`, mode: "local" },
+          sequence,
+        ),
+      ),
+    );
+    const queued = await Promise.all(
+      batchAccounts.map((account) =>
+        enqueuePostgresSyntheticBreachScan({ account, providerSelection: selection }),
+      ),
+    );
+    const scanIds = queued.map((result) => {
+      if (result.status !== "QUEUED") throw new Error("expected QUEUED result");
+      return result.scanId;
+    });
+
+    // Make these two rows deterministically older than other test work so the
+    // unrestricted scheduled claim cannot interfere with another test file.
+    await getDatabase()
+      .update(scanJobs)
+      .set({ notBefore: new Date("2000-01-01T00:00:00.000Z") })
+      .where(inArray(scanJobs.scanId, scanIds));
+
+    const now = new Date();
+    const claimed = await withRuntimeDatabase((database) =>
+      claimBreachScanJobs(database, { now, batchSize: 2, leaseSeconds: 120 }),
+    );
+    expect(claimed.map((job) => job.scanId).sort()).toEqual([...scanIds].sort());
+
+    const outcomes = await withRuntimeDatabase((database) =>
+      Promise.all(
+        claimed.map((job) =>
+          processClaimedPostgresSyntheticBreachScan({
+            database,
+            job,
+            now,
+            providerSelection: selection,
+          }),
+        ),
+      ),
+    );
+    expect(outcomes).toEqual(["COMPLETED", "COMPLETED"]);
+
+    const completedJobs = await getDatabase()
+      .select({
+        scanId: scanJobs.scanId,
+        state: scanJobs.state,
+        attemptCount: scanJobs.attemptCount,
+      })
+      .from(scanJobs)
+      .where(inArray(scanJobs.scanId, scanIds));
+    expect(completedJobs).toHaveLength(2);
+    expect(completedJobs).toEqual(
+      expect.arrayContaining(
+        scanIds.map((scanId) => ({ scanId, state: "COMPLETED", attemptCount: 1 })),
+      ),
+    );
   });
 });

@@ -17,7 +17,7 @@ import {
 import { selectBreachProvider } from "@/providers/provider-registry";
 import type { ProviderUsageBudget } from "@/providers/provider-usage-ledger";
 import { SyntheticProviderUsageLedger } from "@/providers/synthetic-usage-ledger";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const now = new Date("2026-08-17T18:00:00.000Z");
 const account: AccountContext = {
@@ -37,6 +37,15 @@ const syntheticBudget: ProviderUsageBudget = {
   maxProviderDailyCostUnits: 0,
   maxProviderMonthlyCostUnits: 0,
 };
+
+beforeEach(() => {
+  vi.useFakeTimers();
+  vi.setSystemTime(now);
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 function authorizationSnapshot(): BreachInvocationAuthorizationSnapshot {
   return {

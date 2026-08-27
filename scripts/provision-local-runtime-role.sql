@@ -51,7 +51,8 @@ GRANT USAGE ON TYPE
   provider_usage_state,
   scan_state,
   scan_trigger,
-  provider_run_state
+  provider_run_state,
+  scan_job_state
 TO digital_footprint_runtime;
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE
@@ -64,6 +65,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE
   audit_events,
   deletion_receipts,
   scans,
+  scan_jobs,
   provider_runs,
   breach_findings
 TO digital_footprint_runtime;

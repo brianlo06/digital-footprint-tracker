@@ -1,10 +1,10 @@
 # Digital Footprint Tracker
 
-> **PHASE 1 FOUNDATION — DIGITAL-FOOTPRINT SCANNING IS NOT IMPLEMENTED**
+> **SYNTHETIC-ONLY PHASE 2 — NO LIVE PROVIDER OR PERSONAL-DATA SCAN**
 
 Digital Footprint Tracker is a privacy-first evidence platform for individuals to understand their own public online presence: what is visible, where it came from, how confidently it relates to them, how sensitive it is, how it changes over time, and what they can safely do next.
 
-Phase 0 architecture and the Phase 1 local-first application foundation are complete. Phase 2 is approved for synthetic-only provider work: fictional contract fixtures and disabled-by-default adapters may run locally, with zero live-provider spend or calls. The foundation includes a responsive shell, an authentication boundary, an explicit account-onboarding action, envelope-encrypted email identifiers, local-only fake verification, consent/audit records, and deletion primitives. A public, no-data Cloudflare preview is available at [dft.jarvisworlds.com](https://dft.jarvisworlds.com). It does **not** scan, scrape, query live providers, enumerate usernames, send email, or schedule jobs. Hosted personal-data features remain disabled behind the pre-production activation gates in the [Phase 1 status](docs/PHASE_1_STATUS.md).
+Phase 0 architecture and the Phase 1 local-first application foundation are complete. Phase 2 is approved for synthetic-only provider work: fictional contract fixtures and disabled-by-default adapters may run locally, with zero live-provider spend or calls. The local application now includes a user-triggered synthetic breach-metadata workflow with purpose-specific consent, PostgreSQL-backed queued jobs, expiring leases, bounded retries, pre-dispatch cancellation, normalized provenance, and tenant-isolated scan history. A public, no-data Cloudflare preview is available at [dft.jarvisworlds.com](https://dft.jarvisworlds.com). It does **not** scan, scrape, query live providers, enumerate usernames, send email, or execute the local scan workflow. Hosted personal-data features remain disabled behind the pre-production activation gates in the [Phase 1 status](docs/PHASE_1_STATUS.md).
 
 ## Safety boundary
 
@@ -17,7 +17,7 @@ Identity → Identifiers → Scans → Providers → Evidence
          → Findings → Observations → Risk → Remediation
 ```
 
-Only `Identity → Identifiers` exists in executable form today.
+The local synthetic path implements `Identity → Identifiers → Scans → Provider metadata`; generic observations, risk scoring, and remediation remain future work.
 
 ## Current foundation
 
@@ -32,6 +32,8 @@ Only `Identity → Identifiers` exists in executable form today.
 - A delivery-independent email verification gateway; only the non-delivering local implementation exists.
 - Database-atomic per-user and shared-network throttling for every protected mutation, storing only keyed scope tokens.
 - A versioned, purpose-specific breach-consent grant/withdrawal flow with privacy-safe audit events, plus the deletion receipt model.
+- A PostgreSQL-backed synthetic scan job state machine with opaque UUID payloads, one active scan per capability, expiring claims, bounded retry backoff, pre-claim cancellation, post-response dispatch, and a separately deployable recovery Cron Worker template.
+- Tenant-isolated scan/provider-run/finding history that displays normalized synthetic provenance without retaining raw provider payloads.
 - Retry-safe deletion quarantine and bounded retention maintenance through a function-only database role, plus a separately deployable daily Cron Worker template.
 - Managed-auth deletion uses Clerk strict reverification and retries only after the strongest available recent credential challenge succeeds; a signed `user.deleted` webhook safely finishes interrupted or provider-initiated deletion.
 - Deny-by-default structured logging and synthetic unit/integration coverage.
@@ -75,6 +77,7 @@ npm run check
 npm run build
 npm run cf:build
 npm run cf:retention:build
+npm run cf:breach-scan:build
 ```
 
 Database integration tests are opt-in so unit tests remain local-service independent:
@@ -96,6 +99,7 @@ The pinned GitHub Actions workflow runs `npm run check`, the production build, m
 - [Phase 1 implementation status](docs/PHASE_1_STATUS.md)
 - [Clerk authentication and deletion operations](docs/CLERK_OPERATIONS.md)
 - [Cloudflare preview operations](docs/CLOUDFLARE_PREVIEW.md)
+- [Breach scan Worker operations](docs/BREACH_SCAN_WORKER_OPERATIONS.md)
 - [Local browser validation](docs/BROWSER_VALIDATION.md)
 - [Route and Server Action authorization matrix](docs/AUTHORIZATION_MATRIX.md)
 - [Product definition](docs/PRODUCT.md)
@@ -116,6 +120,6 @@ The pinned GitHub Actions workflow runs `npm run check`, the production build, m
 
 ## Not implemented
 
-No live provider adapter, scan engine, finding dashboard, notification delivery, broker workflow, owned-domain check, search/social/breach call, hosted personal-data store, or production authentication configuration exists. The retention Cron source is operational infrastructure only and is not deployed. The deployed Worker is a public preview shell. The approved Phase 2 synthetic adapter, invocation policy, durable usage ledger, and fictional fixtures contain no network client and cannot accept a live credential. There is no provider invocation route. Contracted or live-provider work must not begin without compatible written terms, legal/ToS/privacy/security review, a nonzero budget decision, and separate owner authorization.
+No live provider adapter, real breach lookup, broker workflow, owned-domain check, search/social call, hosted personal-data store, or production authentication configuration exists. The current scan dispatcher includes a local post-response accelerator and a route-less recovery Cron Worker template over the same durable PostgreSQL lease; the template ships with its kill switch on, its synthetic feature flag off, and an all-zero Hyperdrive placeholder, and it is not deployed. The retention and verification-delivery Worker sources are likewise route-less operational templates and are not deployed. The approved synthetic adapter contains no network client and cannot accept a live credential. Contracted or live-provider work must not begin without compatible written terms, legal/ToS/privacy/security review, a nonzero budget decision, and separate owner authorization.
 
 This project is not legal advice. Never commit secrets or real personal data.

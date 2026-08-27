@@ -10,6 +10,7 @@ const workerConfigurations = [
   "wrangler.jsonc",
   "wrangler.retention.example.jsonc",
   "wrangler.verification-delivery.example.jsonc",
+  "wrangler.breach-scan.example.jsonc",
 ] as const;
 
 function sourceFiles(directory: string): string[] {
@@ -33,6 +34,7 @@ describe("closed telemetry boundary", () => {
     const paths = productionSourceRoots.flatMap(sourceFiles);
 
     expect(paths).toContain(join(workersRoot, "verification-delivery.ts"));
+    expect(paths).toContain(join(workersRoot, "breach-scan.ts"));
 
     for (const path of paths) {
       if (path === loggerPath) continue;

@@ -4,6 +4,7 @@ import { pathToFileURL } from "node:url";
 const previewPath = "wrangler.jsonc";
 const retentionPath = "wrangler.retention.example.jsonc";
 const verificationDeliveryPath = "wrangler.verification-delivery.example.jsonc";
+const breachScanPath = "wrangler.breach-scan.example.jsonc";
 
 const forbiddenBindingKeys = [
   "ai",
@@ -320,10 +321,85 @@ function verifyVerificationDeliveryTemplateBoundary(configuration, path) {
   expect(configuration.vars.DELIVERY_CLAIM_LEASE_SECONDS === "120", "DELIVERY:CLAIM_LEASE_SECONDS");
 }
 
+function verifyBreachScanTemplateBoundary(configuration, path) {
+  verifyCommonWorkerBoundary(configuration, path);
+  for (const key of forbiddenBindingKeys) {
+    if (key === "hyperdrive") continue;
+    expect(!(key in configuration), `BREACH_SCAN:FORBIDDEN_BINDING_${key}`);
+  }
+  expectExactKeys(
+    configuration,
+    [
+      "$schema",
+      "name",
+      "main",
+      "compatibility_date",
+      "compatibility_flags",
+      "workers_dev",
+      "preview_urls",
+      "placement",
+      "triggers",
+      "alias",
+      "hyperdrive",
+      "observability",
+      "vars",
+    ],
+    "BREACH_SCAN:ROOT",
+  );
+  expect(
+    configuration.name === "digital-footprint-tracker-breach-scan-preview",
+    "BREACH_SCAN:NAME",
+  );
+  expect(configuration.main === "workers/breach-scan.ts", "BREACH_SCAN:MAIN");
+  expect(
+    JSON.stringify(configuration.placement) === JSON.stringify({ mode: "smart" }),
+    "BREACH_SCAN:PLACEMENT",
+  );
+  expect(
+    JSON.stringify(configuration.triggers) === JSON.stringify({ crons: ["* * * * *"] }),
+    "BREACH_SCAN:CRON",
+  );
+  expect(!("routes" in configuration), "BREACH_SCAN:ROUTES");
+  expect(!("assets" in configuration), "BREACH_SCAN:ASSETS");
+  expect(
+    JSON.stringify(configuration.alias) ===
+      JSON.stringify({ "server-only": "./workers/server-only-noop.ts" }),
+    "BREACH_SCAN:SERVER_ONLY_ALIAS",
+  );
+  expect(
+    JSON.stringify(configuration.hyperdrive) ===
+      JSON.stringify([
+        {
+          binding: "SCAN_DATABASE",
+          id: "00000000000000000000000000000000",
+        },
+      ]),
+    "BREACH_SCAN:DATABASE_BINDING_TEMPLATE",
+  );
+  expectExactKeys(
+    configuration.vars,
+    [
+      "SCAN_KILL_SWITCH",
+      "SCAN_SYNTHETIC_ENABLED",
+      "SCAN_CLAIM_BATCH_SIZE",
+      "SCAN_CLAIM_LEASE_SECONDS",
+    ],
+    "BREACH_SCAN:VARS",
+  );
+  expect(configuration.vars.SCAN_KILL_SWITCH === "true", "BREACH_SCAN:KILL_SWITCH_DEFAULT_ON");
+  expect(
+    configuration.vars.SCAN_SYNTHETIC_ENABLED === "false",
+    "BREACH_SCAN:SYNTHETIC_DEFAULT_OFF",
+  );
+  expect(configuration.vars.SCAN_CLAIM_BATCH_SIZE === "10", "BREACH_SCAN:CLAIM_BATCH_SIZE");
+  expect(configuration.vars.SCAN_CLAIM_LEASE_SECONDS === "120", "BREACH_SCAN:CLAIM_LEASE_SECONDS");
+}
+
 export function verifyDeploymentBoundaries({
   previewConfigurationPath = previewPath,
   retentionConfigurationPath = retentionPath,
   verificationDeliveryConfigurationPath = verificationDeliveryPath,
+  breachScanConfigurationPath = breachScanPath,
 } = {}) {
   verifyPreviewBoundary(parseConfiguration(previewConfigurationPath), previewConfigurationPath);
   verifyRetentionTemplateBoundary(
@@ -333,6 +409,10 @@ export function verifyDeploymentBoundaries({
   verifyVerificationDeliveryTemplateBoundary(
     parseConfiguration(verificationDeliveryConfigurationPath),
     verificationDeliveryConfigurationPath,
+  );
+  verifyBreachScanTemplateBoundary(
+    parseConfiguration(breachScanConfigurationPath),
+    breachScanConfigurationPath,
   );
 }
 

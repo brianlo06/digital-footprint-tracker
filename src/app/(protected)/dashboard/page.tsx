@@ -5,7 +5,7 @@ import { listRecentBreachScans } from "@/providers/breach/breach-scan-history";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { runBreachScanAction } from "./actions";
+import { cancelQueuedBreachScanAction, runBreachScanAction } from "./actions";
 import { requireProtectedPagePrincipal } from "../principal";
 
 export const metadata = { title: "Privacy overview" };
@@ -14,6 +14,7 @@ type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 const SCAN_STATUS_MESSAGES: Record<string, string> = {
   completed: "Synthetic breach check finished.",
+  queued: "Synthetic breach check queued. Refresh shortly to see the worker result.",
   denied: "The synthetic breach check was denied by a safety gate. No provider call was made.",
   no_eligible_target:
     "No verified email with granted breach-metadata permission is currently eligible.",
@@ -22,6 +23,9 @@ const SCAN_STATUS_MESSAGES: Record<string, string> = {
   unexpected_replay: "This scan could not be dispatched. Try again.",
   rate_limited: "Too many scan attempts. Try again shortly.",
   failed: "The scan could not be completed.",
+  cancelled: "The queued scan was cancelled before provider dispatch.",
+  not_cancellable: "That scan has already started or reached a final state.",
+  cancel_failed: "The queued scan could not be cancelled.",
 };
 
 export default async function DashboardPage({ searchParams }: { searchParams: SearchParams }) {
@@ -143,11 +147,26 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
                     </div>
                   ) : null}
                 </div>
-                <span className="badge">{scan.scanState.toLowerCase()}</span>
+                <div className="stack">
+                  <span className="badge">{scan.scanState.toLowerCase()}</span>
+                  {scan.scanState === "QUEUED" ? (
+                    <form action={cancelQueuedBreachScanAction}>
+                      <input name="scanId" type="hidden" value={scan.scanId} />
+                      <button className="button secondary" type="submit">
+                        Cancel queued scan
+                      </button>
+                    </form>
+                  ) : null}
+                </div>
               </article>
             ))}
           </div>
         )}
+        <div className="inline-actions">
+          <Link className="button secondary" href="/dashboard">
+            Refresh scan status
+          </Link>
+        </div>
       </section>
 
       <div className="status-panel">

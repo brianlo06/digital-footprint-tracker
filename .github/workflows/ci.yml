@@ -54,6 +54,8 @@ jobs:
         run: npm run cf:retention:build
       - name: Build least-privileged verification-delivery Worker
         run: npm run cf:verification-delivery:build
+      - name: Build default-disabled breach-scan recovery Worker
+        run: npm run cf:breach-scan:build
 
   database-integration:
     name: PostgreSQL integration

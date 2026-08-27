@@ -216,4 +216,26 @@ Verification: migration `0018` applied in the full chain to a clean PostgreSQL 1
 
 Verification: the full migration chain (`0000`-`0020`) applied to a clean PostgreSQL 17 database, hosted-style provisioning and `npm run db:verify:boundaries` passed, all 60 restricted-role integration tests passed (6 new), the service-independent suite passed with 198 tests (6 new), `npm run check`/`npm run build`/`npm run cf:verify:boundaries` passed, and a manual local walkthrough (onboarding → verify email → grant consent → run scan) rendered the synthetic finding with full provenance and, separately, a safe `USER_DAILY_REQUEST_LIMIT` denial with no provider call.
 
-Remaining synthetic-only Phase 2 work includes user-visible coverage guidance, a bounded retention/deletion job for completed scans and findings matching `docs/PRIVACY.md`'s proposed 90-day scan/job detail window (account-cascade deletion is the only mechanism today), and a complete kill-switch rollback exercise. A live HIBP adapter, credential binding, real email, nonzero _monetary_ budget, route-level live-provider activation, and external network use remain out of scope.
+### Slice 6 — queued synthetic scan workflow (complete 2026-08-25)
+
+- migration `0021` adds an account-cascading `scan_jobs` state machine with forced RLS, opaque identifier/consent UUID references, attempt bounds, not-before scheduling, expiring lease tokens, safe error codes, and queue-state invariants;
+- the active-scan uniqueness rule now covers both `QUEUED` and `RUNNING`, so duplicate submissions converge on the existing scan instead of creating or dispatching parallel work;
+- the authenticated Server Action atomically enqueues work and returns immediately, while a Next.js post-response callback accelerates a specific job through a restricted security-definer claim transition;
+- the processor restores the exact tenant RLS context, row-locks the lease, reuses the existing authorization/usage/provider boundary unchanged, and persists success, bounded exponential retry, or terminal dead-letter state without raw identifiers, payloads, or errors;
+- only `PENDING` work can be cancelled, so the UI never claims it interrupted provider work that may already have dispatched; and
+- integration coverage proves enqueue/duplicate convergence, lease processing, retry persistence, cancellation, existing tenant isolation, provenance persistence, and account-cascade deletion.
+
+The post-response callback is an accelerator, not the recovery boundary. A separately deployable, route-less Cron Worker now polls once per minute, claims a bounded due batch through the same restricted transition, and processes each tenant in an isolated RLS transaction. Its two exact-match gates ship closed (`SCAN_KILL_SWITCH=true`, `SCAN_SYNTHETIC_ENABLED=false`), its committed Hyperdrive ID is an all-zero placeholder, and no hosted deployment or activation is authorized.
+
+### Slice 7 — automatic due-job recovery Worker (complete 2026-08-26)
+
+- `workers/breach-scan.ts` is a route-less Cloudflare Cron consumer that uses a runtime-role Hyperdrive binding, Smart Placement, one bounded connection, and generated binding types;
+- settings are validated before client construction, and both an exact default-on kill switch and a separate exact default-off synthetic flag must be deliberately changed before any claim or database access can occur;
+- one scheduled invocation claims at most 10 due jobs with 120-second leases, then processes them sequentially in separate transaction-local tenant contexts;
+- a database/system failure for one job is reduced to a fixed safe telemetry code, leaves its lease available for expiry recovery, and does not block the remainder of the claimed batch;
+- the committed deployment-boundary verifier pins the missing-route posture, placeholder Hyperdrive, reviewed `server-only` Worker alias, observability controls, fixed schedule and limits, and both disabled activation defaults; and
+- unit coverage proves fail-closed gating, settings bounds, outcome accounting, claim-failure propagation, and per-job failure isolation; PostgreSQL integration coverage exercises unrestricted due-batch claiming and two-tenant RLS processing.
+
+The source and placeholder configuration dry-build successfully, but this is implementation evidence only, not a hosted activation or live-provider approval. See `docs/BREACH_SCAN_WORKER_OPERATIONS.md`.
+
+Remaining synthetic-only Phase 2 work includes user-visible coverage guidance, bounded retention of completed scan/job detail matching `docs/PRIVACY.md`, and a complete kill-switch rollback exercise. A live HIBP adapter, credential binding, real email, nonzero _monetary_ budget, route-level live-provider activation, and external network use remain out of scope.

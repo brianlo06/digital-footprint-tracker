@@ -10,23 +10,32 @@ function configurationFixtures(): {
   preview: string;
   retention: string;
   verificationDelivery: string;
+  breachScan: string;
 } {
   const directory = mkdtempSync(join(tmpdir(), "dft-cloudflare-boundary-"));
   temporaryDirectories.push(directory);
   const preview = join(directory, "wrangler.jsonc");
   const retention = join(directory, "wrangler.retention.example.jsonc");
   const verificationDelivery = join(directory, "wrangler.verification-delivery.example.jsonc");
+  const breachScan = join(directory, "wrangler.breach-scan.example.jsonc");
   copyFileSync("wrangler.jsonc", preview);
   copyFileSync("wrangler.retention.example.jsonc", retention);
   copyFileSync("wrangler.verification-delivery.example.jsonc", verificationDelivery);
-  return { preview, retention, verificationDelivery };
+  copyFileSync("wrangler.breach-scan.example.jsonc", breachScan);
+  return { preview, retention, verificationDelivery, breachScan };
 }
 
-function verify(preview: string, retention: string, verificationDelivery: string): void {
+function verify(
+  preview: string,
+  retention: string,
+  verificationDelivery: string,
+  breachScan = "wrangler.breach-scan.example.jsonc",
+): void {
   verifyDeploymentBoundaries({
     previewConfigurationPath: preview,
     retentionConfigurationPath: retention,
     verificationDeliveryConfigurationPath: verificationDelivery,
+    breachScanConfigurationPath: breachScan,
   });
 }
 
@@ -37,9 +46,9 @@ describe("Cloudflare deployment boundary verifier", () => {
     }
   });
 
-  it("accepts the committed no-data web and placeholder retention boundaries", () => {
-    const { preview, retention, verificationDelivery } = configurationFixtures();
-    expect(() => verify(preview, retention, verificationDelivery)).not.toThrow();
+  it("accepts the committed route and background-worker boundaries", () => {
+    const { preview, retention, verificationDelivery, breachScan } = configurationFixtures();
+    expect(() => verify(preview, retention, verificationDelivery, breachScan)).not.toThrow();
   });
 
   it("rejects enabling authentication in the no-data preview", () => {
@@ -166,6 +175,66 @@ describe("Cloudflare deployment boundary verifier", () => {
 
     expect(() => verify(preview, retention, verificationDelivery)).toThrow(
       "SECRET_LIKE_VAR_PROVIDER_API_KEY",
+    );
+  });
+
+  it("rejects replacing the breach-scan database placeholder", () => {
+    const { preview, retention, verificationDelivery, breachScan } = configurationFixtures();
+    writeFileSync(
+      breachScan,
+      readFileSync(breachScan, "utf8").replace(
+        "00000000000000000000000000000000",
+        "11111111111111111111111111111111",
+      ),
+    );
+
+    expect(() => verify(preview, retention, verificationDelivery, breachScan)).toThrow(
+      "BREACH_SCAN:DATABASE_BINDING_TEMPLATE",
+    );
+  });
+
+  it("rejects disabling the breach-scan kill switch in the committed template", () => {
+    const { preview, retention, verificationDelivery, breachScan } = configurationFixtures();
+    writeFileSync(
+      breachScan,
+      readFileSync(breachScan, "utf8").replace(
+        '"SCAN_KILL_SWITCH": "true"',
+        '"SCAN_KILL_SWITCH": "false"',
+      ),
+    );
+
+    expect(() => verify(preview, retention, verificationDelivery, breachScan)).toThrow(
+      "BREACH_SCAN:KILL_SWITCH_DEFAULT_ON",
+    );
+  });
+
+  it("rejects enabling the hosted synthetic scan flag in the committed template", () => {
+    const { preview, retention, verificationDelivery, breachScan } = configurationFixtures();
+    writeFileSync(
+      breachScan,
+      readFileSync(breachScan, "utf8").replace(
+        '"SCAN_SYNTHETIC_ENABLED": "false"',
+        '"SCAN_SYNTHETIC_ENABLED": "true"',
+      ),
+    );
+
+    expect(() => verify(preview, retention, verificationDelivery, breachScan)).toThrow(
+      "BREACH_SCAN:SYNTHETIC_DEFAULT_OFF",
+    );
+  });
+
+  it("rejects changing the reviewed server-only alias", () => {
+    const { preview, retention, verificationDelivery, breachScan } = configurationFixtures();
+    writeFileSync(
+      breachScan,
+      readFileSync(breachScan, "utf8").replace(
+        '"./workers/server-only-noop.ts"',
+        '"./workers/unknown.ts"',
+      ),
+    );
+
+    expect(() => verify(preview, retention, verificationDelivery, breachScan)).toThrow(
+      "BREACH_SCAN:SERVER_ONLY_ALIAS",
     );
   });
 });

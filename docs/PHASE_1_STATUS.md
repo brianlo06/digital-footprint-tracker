@@ -74,7 +74,7 @@ This closure does **not** approve a vendor, legal retention period, production k
 - Clerk's development-tenant browser handshake and sign-in surface load under the nonce CSP without a policy violation, and a signed-out protected route redirects without logging an authentication exception;
 - the HTTPS Cloudflare preview serves its public pages, sends HSTS and the production nonce CSP, and redirects protected routes to `/preview`;
 - the hosted preview Worker has only a static-assets binding and four non-secret configuration variables; authentication, database, provider, key, email, and scheduling bindings are absent;
-- every web build/deploy and retention dry-build now fails unless the committed Wrangler configurations preserve the exact no-data web boundary and route-less placeholder-only retention boundary; a third dry-build does the same for the route-less verification-delivery template, including that its Secrets Store key reference never becomes a plain `vars` entry and its kill switch ships default-on;
+- every web build/deploy and standalone dry-build fails unless the committed Wrangler configurations preserve the exact no-data web boundary and each route-less placeholder-only background boundary; verification delivery keeps its Secrets Store key out of plain `vars`, while delivery and breach-scan kill switches ship default-on and the breach synthetic flag ships default-off;
 - Chrome DevTools verified the live semantic page structure, first-party application assets, protected-route boundary, and browser console after deployment;
 - a follow-up live network audit detected and then eliminated Cloudflare Web Analytics injection through a private/no-store/`no-transform` response policy; the deployed cache-bypassing recheck contained no analytics script or RUM request;
 - the centralized logger rejects synthetic email, token, cookie, URL, database, ciphertext, request-body, and log-injection canaries from known and unknown fields, including delivery-specific destination, code, content, provider-credential, and provider-response canaries;
@@ -101,7 +101,7 @@ This closure does **not** approve a vendor, legal retention period, production k
 - completion and dead-lettering both destroy the encrypted payload, and a transient failure reschedules with advancing backoff before automatically dead-lettering at `max_attempts`, while a permanent failure dead-letters immediately regardless of attempt count; and
 - the delivery login has no direct table privileges and can execute only its own three functions, and every other purpose-specific login is denied execution of those same functions in both directions;
 - verification-delivery commands reject non-normalized destinations, non-six-digit codes, extra fields, malformed authenticated plaintext, and value-bearing decode errors before a provider can receive them; poison commands dead-letter, key/decryption failures preserve ciphertext for recovery, and Worker-core tests keep the kill switch default-on while routing success, permanent rejection, throttling, transient outcomes, and thrown provider calls to their exact compare-and-swap operations; and
-- Wrangler-generated binding types for both standalone Workers are checked in CI against their committed configurations, preventing code/config drift without attaching any hosted binding.
+- Wrangler-generated binding types for all three standalone Workers are checked against their committed configurations, preventing code/config drift without attaching any hosted binding.
 
 ## Pre-production activation gates
 
@@ -124,7 +124,7 @@ The Phase 1 closure was revalidated on 2026-08-15 with:
 - `npm run build` — the Next.js production build passed;
 - `npm run audit:production` — zero known production dependency vulnerabilities;
 - `npm run cf:standalone:typecheck` and `npm run cf:verify:boundaries` — Worker bindings and deployment boundaries passed; and
-- `npm run cf:retention:build` and `npm run cf:verification-delivery:build` — both route-less Worker templates dry-built with placeholder-only bindings.
+- `npm run cf:retention:build`, `npm run cf:verification-delivery:build`, and `npm run cf:breach-scan:build` — all three route-less Worker templates dry-built with placeholder-only bindings.
 
 ## Dependency note
 

@@ -45,20 +45,31 @@ export async function listRecentBreachScans(
         scanState: scans.state,
         startedAt: scans.startedAt,
         completedAt: scans.completedAt,
-        providerRunId: providerRuns.id,
-        providerId: providerRuns.providerId,
-        providerRunState: providerRuns.state,
-        errorSafeCode: providerRuns.errorSafeCode,
       })
       .from(scans)
-      .leftJoin(providerRuns, eq(providerRuns.scanId, scans.id))
       .where(eq(scans.userId, account.userId))
       .orderBy(desc(scans.startedAt))
       .limit(options.limit);
 
-    const providerRunIds = scanRows
-      .map((row) => row.providerRunId)
-      .filter((id): id is string => id !== null);
+    const scanIds = scanRows.map((row) => row.scanId);
+    const providerRunRows = scanIds.length
+      ? await transaction
+          .select({
+            providerRunId: providerRuns.id,
+            scanId: providerRuns.scanId,
+            providerId: providerRuns.providerId,
+            providerRunState: providerRuns.state,
+            errorSafeCode: providerRuns.errorSafeCode,
+          })
+          .from(providerRuns)
+          .where(inArray(providerRuns.scanId, scanIds))
+          .orderBy(desc(providerRuns.startedAt), desc(providerRuns.id))
+      : [];
+    const latestProviderRunByScan = new Map<string, (typeof providerRunRows)[number]>();
+    for (const row of providerRunRows) {
+      if (!latestProviderRunByScan.has(row.scanId)) latestProviderRunByScan.set(row.scanId, row);
+    }
+    const providerRunIds = [...latestProviderRunByScan.values()].map((row) => row.providerRunId);
     const findingRows = providerRunIds.length
       ? await transaction
           .select({
@@ -96,15 +107,18 @@ export async function listRecentBreachScans(
       findingsByProviderRun.set(row.providerRunId, list);
     }
 
-    return scanRows.map((row) => ({
-      scanId: row.scanId,
-      scanState: row.scanState,
-      startedAt: row.startedAt,
-      completedAt: row.completedAt,
-      providerId: row.providerId,
-      providerRunState: row.providerRunState,
-      errorSafeCode: row.errorSafeCode,
-      findings: row.providerRunId ? (findingsByProviderRun.get(row.providerRunId) ?? []) : [],
-    }));
+    return scanRows.map((row) => {
+      const providerRun = latestProviderRunByScan.get(row.scanId);
+      return {
+        scanId: row.scanId,
+        scanState: row.scanState,
+        startedAt: row.startedAt,
+        completedAt: row.completedAt,
+        providerId: providerRun?.providerId ?? null,
+        providerRunState: providerRun?.providerRunState ?? null,
+        errorSafeCode: providerRun?.errorSafeCode ?? null,
+        findings: providerRun ? (findingsByProviderRun.get(providerRun.providerRunId) ?? []) : [],
+      };
+    });
   });
 }

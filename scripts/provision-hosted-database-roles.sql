@@ -291,7 +291,8 @@ GRANT USAGE ON TYPE
   public.provider_usage_state,
   public.scan_state,
   public.scan_trigger,
-  public.provider_run_state
+  public.provider_run_state,
+  public.scan_job_state
 TO digital_footprint_runtime;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE
   public.users,
@@ -303,6 +304,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE
   public.audit_events,
   public.deletion_receipts,
   public.scans,
+  public.scan_jobs,
   public.provider_runs,
   public.breach_findings
 TO digital_footprint_runtime;
@@ -360,11 +362,13 @@ GRANT SELECT ON TABLE
   public.users
 TO digital_footprint_delivery_owner;
 
-GRANT USAGE ON TYPE public.provider_usage_state
+GRANT USAGE ON TYPE public.provider_usage_state, public.scan_job_state, public.scan_state
 TO digital_footprint_provider_usage_owner;
 GRANT SELECT, INSERT, UPDATE ON TABLE public.provider_usage_reservations
 TO digital_footprint_provider_usage_owner;
 GRANT SELECT ON TABLE public.users
+TO digital_footprint_provider_usage_owner;
+GRANT SELECT, UPDATE ON TABLE public.scan_jobs, public.scans
 TO digital_footprint_provider_usage_owner;
 
 GRANT CREATE ON SCHEMA public
@@ -409,6 +413,8 @@ ALTER FUNCTION public.complete_provider_usage(uuid, public.provider_usage_state,
 OWNER TO digital_footprint_provider_usage_owner;
 ALTER FUNCTION public.release_provider_usage(uuid)
 OWNER TO digital_footprint_provider_usage_owner;
+ALTER FUNCTION public.claim_breach_scan_jobs(timestamptz, integer, integer, text, uuid)
+OWNER TO digital_footprint_provider_usage_owner;
 REVOKE CREATE ON SCHEMA public
 FROM digital_footprint_rate_limit_owner,
   digital_footprint_retention_owner,
@@ -435,7 +441,8 @@ REVOKE ALL ON FUNCTION
     uuid, text, text, text, integer, integer, integer, integer, integer, integer
   ),
   public.complete_provider_usage(uuid, public.provider_usage_state, integer),
-  public.release_provider_usage(uuid)
+  public.release_provider_usage(uuid),
+  public.claim_breach_scan_jobs(timestamptz, integer, integer, text, uuid)
 FROM PUBLIC,
   digital_footprint_runtime,
   digital_footprint_maintenance,
@@ -471,7 +478,8 @@ GRANT EXECUTE ON FUNCTION
     uuid, text, text, text, integer, integer, integer, integer, integer, integer
   ),
   public.complete_provider_usage(uuid, public.provider_usage_state, integer),
-  public.release_provider_usage(uuid)
+  public.release_provider_usage(uuid),
+  public.claim_breach_scan_jobs(timestamptz, integer, integer, text, uuid)
 TO digital_footprint_runtime;
 
 COMMIT;

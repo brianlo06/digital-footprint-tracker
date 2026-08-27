@@ -17,11 +17,13 @@ ALTER ROLE digital_footprint_provider_usage_owner
   WITH NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS;
 
 GRANT USAGE ON SCHEMA public TO digital_footprint_provider_usage_owner;
-GRANT USAGE ON TYPE public.provider_usage_state
+GRANT USAGE ON TYPE public.provider_usage_state, public.scan_job_state, public.scan_state
 TO digital_footprint_provider_usage_owner, digital_footprint_runtime;
 GRANT SELECT, INSERT, UPDATE ON TABLE public.provider_usage_reservations
 TO digital_footprint_provider_usage_owner;
 GRANT SELECT ON TABLE public.users TO digital_footprint_provider_usage_owner;
+GRANT SELECT, UPDATE ON TABLE public.scan_jobs, public.scans
+TO digital_footprint_provider_usage_owner;
 REVOKE ALL PRIVILEGES ON TABLE public.provider_usage_reservations
 FROM digital_footprint_runtime;
 
@@ -33,6 +35,8 @@ ALTER FUNCTION public.complete_provider_usage(uuid, public.provider_usage_state,
 OWNER TO digital_footprint_provider_usage_owner;
 ALTER FUNCTION public.release_provider_usage(uuid)
 OWNER TO digital_footprint_provider_usage_owner;
+ALTER FUNCTION public.claim_breach_scan_jobs(timestamptz, integer, integer, text, uuid)
+OWNER TO digital_footprint_provider_usage_owner;
 REVOKE CREATE ON SCHEMA public FROM digital_footprint_provider_usage_owner;
 
 REVOKE ALL ON FUNCTION public.reserve_provider_usage(
@@ -42,6 +46,9 @@ REVOKE ALL ON FUNCTION public.complete_provider_usage(
   uuid, public.provider_usage_state, integer
 ) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.release_provider_usage(uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.claim_breach_scan_jobs(
+  timestamptz, integer, integer, text, uuid
+) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.reserve_provider_usage(
   uuid, text, text, text, integer, integer, integer, integer, integer, integer
 ) TO digital_footprint_runtime;
@@ -50,3 +57,6 @@ GRANT EXECUTE ON FUNCTION public.complete_provider_usage(
 ) TO digital_footprint_runtime;
 GRANT EXECUTE ON FUNCTION public.release_provider_usage(uuid)
 TO digital_footprint_runtime;
+GRANT EXECUTE ON FUNCTION public.claim_breach_scan_jobs(
+  timestamptz, integer, integer, text, uuid
+) TO digital_footprint_runtime;

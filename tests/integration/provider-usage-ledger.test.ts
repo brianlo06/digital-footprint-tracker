@@ -262,7 +262,15 @@ describeWithDatabase("durable provider usage and authorization boundary", () => 
       invoke(
         otherPrincipal,
         failedCommand,
-        { ...budget, maxProviderDailyRequests: 10 },
+        {
+          ...budget,
+          // Other integration files intentionally share the synthetic
+          // provider ID and may run concurrently. This case is about durable
+          // failed-dispatch reconciliation, not the provider cap exercised
+          // above, so keep the shared caps out of its precondition.
+          maxProviderDailyRequests: 1_000,
+          maxProviderMonthlyRequests: 1_000,
+        },
         failureSelection,
       ),
     ).rejects.toMatchObject({

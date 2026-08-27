@@ -119,6 +119,7 @@ BEGIN
     'rate_limit_windows',
     'verification_delivery_outbox',
     'scans',
+    'scan_jobs',
     'provider_runs',
     'breach_findings'
   ]
@@ -254,6 +255,16 @@ BEGIN
         'provider_usage_reservations',
         'provider_usage_reservations_capability',
         'digital_footprint_provider_usage_owner'
+      ),
+      (
+        'scans',
+        'scans_scan_job_capability',
+        'digital_footprint_provider_usage_owner'
+      ),
+      (
+        'scan_jobs',
+        'scan_jobs_scan_job_capability',
+        'digital_footprint_provider_usage_owner'
       )
     ) AS expected(table_name, policy_name, owner_name)
   LOOP
@@ -309,6 +320,7 @@ BEGIN
       'rate_limit_windows',
       'verification_delivery_outbox',
       'scans',
+      'scan_jobs',
       'provider_runs',
       'breach_findings'
     ]
@@ -399,6 +411,11 @@ BEGIN
             audited_role = 'digital_footprint_provider_usage_owner'
             AND audited_table = 'users'
             AND audited_privilege = 'SELECT'
+          )
+          OR (
+            audited_role = 'digital_footprint_provider_usage_owner'
+            AND audited_table = ANY(ARRAY['scans', 'scan_jobs'])
+            AND audited_privilege = ANY(ARRAY['SELECT', 'UPDATE'])
           );
 
         actual_privilege := pg_catalog.has_table_privilege(
@@ -476,6 +493,10 @@ BEGIN
       (
         'public.release_provider_usage(uuid)',
         'digital_footprint_provider_usage_owner'
+      ),
+      (
+        'public.claim_breach_scan_jobs(timestamptz,integer,integer,text,uuid)',
+        'digital_footprint_provider_usage_owner'
       )
     ) AS expected(signature, owner_name)
   LOOP
@@ -539,7 +560,8 @@ BEGIN
               'public.consume_action_rate_limit_dual(text,text,text,text,public.rate_limit_action)',
               'public.reserve_provider_usage(uuid,text,text,text,integer,integer,integer,integer,integer,integer)',
               'public.complete_provider_usage(uuid,public.provider_usage_state,integer)',
-              'public.release_provider_usage(uuid)'
+              'public.release_provider_usage(uuid)',
+              'public.claim_breach_scan_jobs(timestamptz,integer,integer,text,uuid)'
             ])
           )
           OR (
@@ -589,7 +611,8 @@ BEGIN
             'public.reserve_provider_usage(uuid,text,text,text,integer,integer,integer,integer,integer,integer)'
           ),
           ('public.complete_provider_usage(uuid,public.provider_usage_state,integer)'),
-          ('public.release_provider_usage(uuid)')
+          ('public.release_provider_usage(uuid)'),
+          ('public.claim_breach_scan_jobs(timestamptz,integer,integer,text,uuid)')
       ) AS all_functions(signature)
     LOOP
       actual_privilege := pg_catalog.has_function_privilege(
