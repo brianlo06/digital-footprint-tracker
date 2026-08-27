@@ -265,6 +265,11 @@ BEGIN
         'scan_jobs',
         'scan_jobs_scan_job_capability',
         'digital_footprint_provider_usage_owner'
+      ),
+      (
+        'scan_jobs',
+        'scan_jobs_retention_capability',
+        'digital_footprint_retention_owner'
       )
     ) AS expected(table_name, policy_name, owner_name)
   LOOP
@@ -374,7 +379,9 @@ BEGIN
           )
           OR (
             audited_role = 'digital_footprint_retention_owner'
-            AND audited_table = ANY(ARRAY['deletion_receipts', 'audit_events', 'rate_limit_windows'])
+            AND audited_table = ANY(ARRAY[
+              'deletion_receipts', 'audit_events', 'rate_limit_windows', 'scan_jobs'
+            ])
             AND audited_privilege = ANY(ARRAY['SELECT', 'UPDATE', 'DELETE'])
           )
           OR (
@@ -447,7 +454,7 @@ BEGIN
         'digital_footprint_rate_limit_owner'
       ),
       (
-        'public.run_retention_maintenance(timestamptz,integer,timestamptz)',
+        'public.run_retention_maintenance(timestamptz,integer,timestamptz,timestamptz)',
         'digital_footprint_retention_owner'
       ),
       (
@@ -566,7 +573,7 @@ BEGIN
           )
           OR (
             audited_role = 'digital_footprint_maintenance'
-            AND signature = 'public.run_retention_maintenance(timestamptz,integer,timestamptz)'
+            AND signature = 'public.run_retention_maintenance(timestamptz,integer,timestamptz,timestamptz)'
           )
           OR (
             audited_role = 'digital_footprint_rotation'
@@ -596,7 +603,7 @@ BEGIN
         VALUES
           ('public.consume_action_rate_limit(text,text,public.rate_limit_action)'),
           ('public.consume_action_rate_limit_dual(text,text,text,text,public.rate_limit_action)'),
-          ('public.run_retention_maintenance(timestamptz,integer,timestamptz)'),
+          ('public.run_retention_maintenance(timestamptz,integer,timestamptz,timestamptz)'),
           ('public.list_identifier_envelopes_for_rewrap(text,integer)'),
           ('public.replace_identifier_envelope_for_rewrap(uuid,jsonb,jsonb,text,text)'),
           ('public.backfill_identifier_lookup_tokens(text,integer)'),

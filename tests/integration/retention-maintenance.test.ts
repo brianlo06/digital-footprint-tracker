@@ -5,9 +5,12 @@ import { resetServerEnvForTests } from "@/config/server-env";
 import { closeDatabase, getDatabase } from "@/database/client";
 import {
   auditEvents,
+  consentRecords,
   deletionReceipts,
   identifierVerifications,
   rateLimitWindows,
+  scanJobs,
+  scans,
 } from "@/database/schema";
 import { deleteAccount } from "@/privacy/deletion-service";
 import { runRetentionMaintenance } from "@/privacy/retention-service";
@@ -95,7 +98,7 @@ describeWithDatabase("bounded retention maintenance", () => {
         ) as "canReadVerifications",
         has_function_privilege(
           current_user,
-          'public.run_retention_maintenance(timestamptz,integer,timestamptz)',
+          'public.run_retention_maintenance(timestamptz,integer,timestamptz,timestamptz)',
           'EXECUTE'
         ) as "canExecuteRetention"
       from pg_roles
@@ -114,7 +117,7 @@ describeWithDatabase("bounded retention maintenance", () => {
       from pg_proc as procedure
       inner join pg_roles as owner on owner.oid = procedure.proowner
       where procedure.oid =
-        'public.run_retention_maintenance(timestamptz,integer,timestamptz)'::regprocedure
+        'public.run_retention_maintenance(timestamptz,integer,timestamptz,timestamptz)'::regprocedure
     `;
     expect(functionOwner).toEqual({ canLogin: false, bypassRls: false });
 
@@ -126,7 +129,8 @@ describeWithDatabase("bounded retention maintenance", () => {
         select * from public.run_retention_maintenance(
           now(),
           1001,
-          now() - interval '365 days'
+          now() - interval '365 days',
+          now() - interval '90 days'
         )
       `,
     ).rejects.toMatchObject({ code: "22023" });
@@ -135,7 +139,8 @@ describeWithDatabase("bounded retention maintenance", () => {
         select * from public.run_retention_maintenance(
           now() + interval '1 day',
           1,
-          now() - interval '365 days'
+          now() - interval '365 days',
+          now() - interval '90 days'
         )
       `,
     ).rejects.toMatchObject({ code: "22023" });
@@ -144,7 +149,18 @@ describeWithDatabase("bounded retention maintenance", () => {
         select * from public.run_retention_maintenance(
           now(),
           null,
-          now() - interval '365 days'
+          now() - interval '365 days',
+          now() - interval '90 days'
+        )
+      `,
+    ).rejects.toMatchObject({ code: "22023" });
+    await expect(
+      maintenanceSql`
+        select * from public.run_retention_maintenance(
+          now(),
+          1,
+          now() - interval '365 days',
+          now()
         )
       `,
     ).rejects.toMatchObject({ code: "22023" });
@@ -212,15 +228,90 @@ describeWithDatabase("bounded retention maintenance", () => {
         expiresAt: new Date(now.getTime() - 1_000),
       });
 
+    const [consent] = await getDatabase()
+      .insert(consentRecords)
+      .values({
+        userId: account.userId,
+        identityId: account.identityId,
+        purpose: "BREACH_METADATA_LOOKUP",
+        policyVersion: "phase2-breach-v1",
+        dataCategories: ["EMAIL_IDENTIFIER", "BREACH_METADATA"],
+        state: "GRANTED",
+      })
+      .returning({ id: consentRecords.id });
+    async function seedScanJob(
+      scanState: "COMPLETED" | "QUEUED",
+      jobState: "COMPLETED" | "DEAD_LETTERED" | "PENDING",
+      updatedAt: Date,
+    ): Promise<string> {
+      const [scan] = await getDatabase()
+        .insert(scans)
+        .values({
+          userId: account.userId,
+          identityId: account.identityId,
+          trigger: "USER",
+          state: scanState,
+          requestedCapability: "BREACH_METADATA_BY_VERIFIED_EMAIL",
+          startedAt: updatedAt,
+          completedAt: scanState === "COMPLETED" ? updatedAt : null,
+        })
+        .returning({ id: scans.id });
+      const [job] = await getDatabase()
+        .insert(scanJobs)
+        .values({
+          scanId: scan.id,
+          userId: account.userId,
+          identityId: account.identityId,
+          identifierId: created.identifierId,
+          consentRecordId: consent.id,
+          state: jobState,
+          attemptCount: jobState === "PENDING" ? 0 : 1,
+          updatedAt,
+        })
+        .returning({ id: scanJobs.id });
+      return job.id;
+    }
+    const agedTerminalJobId = await seedScanJob(
+      "COMPLETED",
+      "COMPLETED",
+      new Date("2026-01-01T00:00:00.000Z"),
+    );
+    const agedDeadLetterJobId = await seedScanJob(
+      "COMPLETED",
+      "DEAD_LETTERED",
+      new Date("2026-01-01T00:00:00.000Z"),
+    );
+    const recentTerminalJobId = await seedScanJob(
+      "COMPLETED",
+      "COMPLETED",
+      new Date(now.getTime() - 1_000),
+    );
+    const agedPendingJobId = await seedScanJob(
+      "QUEUED",
+      "PENDING",
+      new Date("2026-01-01T00:00:00.000Z"),
+    );
+
     const result = await runRetentionMaintenance({
       now,
       batchSize: 100,
       orphanAuditRetentionDays: 365,
+      scanJobRetentionDays: 90,
     });
 
     expect(result.expiredVerifications).toBeGreaterThanOrEqual(1);
     expect(result.deletedReceipts).toBeGreaterThanOrEqual(1);
     expect(result.deletedOrphanAuditEvents).toBeGreaterThanOrEqual(1);
+    expect(result.deletedScanJobs).toBeGreaterThanOrEqual(2);
+    const remainingJobs = await getDatabase()
+      .select({ id: scanJobs.id })
+      .from(scanJobs)
+      .where(eq(scanJobs.userId, account.userId));
+    const remainingJobIds = remainingJobs.map((job) => job.id);
+    expect(remainingJobIds).not.toContain(agedTerminalJobId);
+    expect(remainingJobIds).not.toContain(agedDeadLetterJobId);
+    expect(remainingJobIds).toContain(recentTerminalJobId);
+    expect(remainingJobIds).toContain(agedPendingJobId);
     const [failedReceipt] = await getDatabase()
       .select({ state: deletionReceipts.state })
       .from(deletionReceipts)

@@ -34,7 +34,7 @@ The local synthetic path implements `Identity → Identifiers → Scans → Prov
 - A versioned, purpose-specific breach-consent grant/withdrawal flow with privacy-safe audit events, plus the deletion receipt model.
 - A PostgreSQL-backed synthetic scan job state machine with opaque UUID payloads, one active scan per capability, expiring claims, bounded retry backoff, pre-claim cancellation, post-response dispatch, and a separately deployable recovery Cron Worker template.
 - Tenant-isolated scan/provider-run/finding history that displays normalized synthetic provenance without retaining raw provider payloads, plus user-visible coverage guidance stating the enabled source, attribution, last completed check, and fixed non-comprehensiveness limits.
-- Retry-safe deletion quarantine and bounded retention maintenance through a function-only database role, plus a separately deployable daily Cron Worker template.
+- Retry-safe deletion quarantine and bounded retention maintenance through a function-only database role, plus a separately deployable daily Cron Worker template; terminal scan-job detail ages out on a bounded 90-day default while scan history summaries are retained.
 - Managed-auth deletion uses Clerk strict reverification and retries only after the strongest available recent credential challenge succeeds; a signed `user.deleted` webhook safely finishes interrupted or provider-initiated deletion.
 - Deny-by-default structured logging and synthetic unit/integration coverage.
 - GitHub Actions quality/build and restricted-role PostgreSQL integration jobs using synthetic data only.

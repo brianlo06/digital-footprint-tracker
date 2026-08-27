@@ -70,6 +70,10 @@ GRANT SELECT, UPDATE, DELETE ON TABLE public.deletion_receipts, public.audit_eve
 TO digital_footprint_retention_owner;
 GRANT SELECT, UPDATE, DELETE ON TABLE public.rate_limit_windows
 TO digital_footprint_retention_owner;
+-- UPDATE is required for SELECT ... FOR UPDATE SKIP LOCKED on terminal
+-- scan-job rows even though the function only deletes them.
+GRANT SELECT, UPDATE, DELETE ON TABLE public.scan_jobs
+TO digital_footprint_retention_owner;
 
 REVOKE ALL PRIVILEGES ON TABLE
   public.users,
@@ -82,12 +86,12 @@ REVOKE ALL PRIVILEGES ON TABLE
 FROM digital_footprint_maintenance;
 
 GRANT CREATE ON SCHEMA public TO digital_footprint_retention_owner;
-ALTER FUNCTION public.run_retention_maintenance(timestamptz, integer, timestamptz)
+ALTER FUNCTION public.run_retention_maintenance(timestamptz, integer, timestamptz, timestamptz)
 OWNER TO digital_footprint_retention_owner;
 REVOKE CREATE ON SCHEMA public FROM digital_footprint_retention_owner;
 REVOKE CREATE ON SCHEMA public FROM digital_footprint_maintenance;
 
-REVOKE ALL ON FUNCTION public.run_retention_maintenance(timestamptz, integer, timestamptz)
+REVOKE ALL ON FUNCTION public.run_retention_maintenance(timestamptz, integer, timestamptz, timestamptz)
 FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.run_retention_maintenance(timestamptz, integer, timestamptz)
+GRANT EXECUTE ON FUNCTION public.run_retention_maintenance(timestamptz, integer, timestamptz, timestamptz)
 TO digital_footprint_maintenance;

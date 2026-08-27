@@ -28,5 +28,6 @@
   "vars": {
     "RETENTION_BATCH_SIZE": "100",
     "ORPHAN_AUDIT_RETENTION_DAYS": "365",
+    "SCAN_JOB_RETENTION_DAYS": "90",
   },
 }

@@ -127,7 +127,7 @@ describeWithDatabase("PostgreSQL row-level tenant isolation", () => {
         rolbypassrls as "bypassRls",
         has_function_privilege(
           current_user,
-          'public.run_retention_maintenance(timestamptz,integer,timestamptz)',
+          'public.run_retention_maintenance(timestamptz,integer,timestamptz,timestamptz)',
           'EXECUTE'
         ) as "canExecuteRetention"
       from pg_roles

@@ -13,11 +13,13 @@ describe("retention Worker settings", () => {
         scheduledTime,
         batchSize: "100",
         orphanAuditRetentionDays: "365",
+        scanJobRetentionDays: "90",
       }),
     ).toEqual({
       now: new Date(scheduledTime),
       batchSize: 100,
       orphanAuditRetentionDays: 365,
+      scanJobRetentionDays: 90,
     });
   });
 
@@ -29,6 +31,7 @@ describe("retention Worker settings", () => {
           scheduledTime,
           batchSize,
           orphanAuditRetentionDays: "365",
+          scanJobRetentionDays: "90",
         }),
       ).toThrowError("RETENTION_BATCH_SIZE_INVALID");
     },
@@ -42,8 +45,23 @@ describe("retention Worker settings", () => {
           scheduledTime,
           batchSize: "100",
           orphanAuditRetentionDays,
+          scanJobRetentionDays: "90",
         }),
       ).toThrowError("AUDIT_RETENTION_DAYS_INVALID");
+    },
+  );
+
+  it.each(["", "-1", "1.5", " 1", "1e2", "0", "9007199254740992", "100100000"])(
+    "rejects scan-job retention days %j before database access",
+    (scanJobRetentionDays) => {
+      expect(() =>
+        retentionOptionsFromWorkerSettings({
+          scheduledTime,
+          batchSize: "100",
+          orphanAuditRetentionDays: "365",
+          scanJobRetentionDays,
+        }),
+      ).toThrowError("SCAN_JOB_RETENTION_DAYS_INVALID");
     },
   );
 
@@ -55,6 +73,7 @@ describe("retention Worker settings", () => {
           scheduledTime: invalidScheduledTime,
           batchSize: "100",
           orphanAuditRetentionDays: "365",
+          scanJobRetentionDays: "90",
         }),
       ).toThrowError("RETENTION_NOW_INVALID");
     },
@@ -68,6 +87,7 @@ describe("retention Worker settings", () => {
         scheduledTime,
         batchSize: "100",
         orphanAuditRetentionDays: "365",
+        scanJobRetentionDays: "90",
       },
       execute,
     );
@@ -76,6 +96,7 @@ describe("retention Worker settings", () => {
       now: new Date(scheduledTime),
       batchSize: 100,
       orphanAuditRetentionDays: 365,
+      scanJobRetentionDays: 90,
     });
     expect(result).toBe("completed");
   });
@@ -89,6 +110,7 @@ describe("retention Worker settings", () => {
           scheduledTime,
           batchSize: "1001",
           orphanAuditRetentionDays: "365",
+          scanJobRetentionDays: "90",
         },
         execute,
       ),

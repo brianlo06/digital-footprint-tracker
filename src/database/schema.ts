@@ -754,6 +754,12 @@ export const scanJobs = pgTable(
       using: sql`current_user = 'digital_footprint_provider_usage_owner'`,
       withCheck: sql`current_user = 'digital_footprint_provider_usage_owner'`,
     }),
+    pgPolicy("scan_jobs_retention_capability", {
+      for: "all",
+      to: "public",
+      using: sql`current_user = 'digital_footprint_retention_owner'`,
+      withCheck: sql`current_user = 'digital_footprint_retention_owner'`,
+    }),
   ],
 ).enableRLS();
 

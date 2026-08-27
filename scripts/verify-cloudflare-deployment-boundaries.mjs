@@ -236,11 +236,12 @@ function verifyRetentionTemplateBoundary(configuration, path) {
   );
   expectExactKeys(
     configuration.vars,
-    ["RETENTION_BATCH_SIZE", "ORPHAN_AUDIT_RETENTION_DAYS"],
+    ["RETENTION_BATCH_SIZE", "ORPHAN_AUDIT_RETENTION_DAYS", "SCAN_JOB_RETENTION_DAYS"],
     "RETENTION:VARS",
   );
   expect(configuration.vars.RETENTION_BATCH_SIZE === "100", "RETENTION:BATCH_SIZE");
   expect(configuration.vars.ORPHAN_AUDIT_RETENTION_DAYS === "365", "RETENTION:AUDIT_DAYS");
+  expect(configuration.vars.SCAN_JOB_RETENTION_DAYS === "90", "RETENTION:SCAN_JOB_DAYS");
 }
 
 function verifyVerificationDeliveryTemplateBoundary(configuration, path) {

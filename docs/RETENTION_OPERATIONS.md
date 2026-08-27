@@ -10,14 +10,15 @@ The maintenance login role cannot access protected tables directly. It can execu
 
 ## Eligible records
 
-| Record                          | Eligibility                                                      | Action                                                        |
-| ------------------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------- |
-| Pending identifier verification | `expires_at <= now`                                              | mark `EXPIRED` and replace the challenge hash with `consumed` |
-| Deletion receipt                | `COMPLETED` and `expires_at <= now`                              | delete permanently                                            |
-| Orphan audit event              | `user_id IS NULL` and older than the configured retention period | delete permanently                                            |
-| Rate-limit window               | Internal `expires_at <= now`                                     | delete permanently; no raw subject or IP exists               |
+| Record                          | Eligibility                                                                          | Action                                                                                                                                                                 |
+| ------------------------------- | ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Pending identifier verification | `expires_at <= now`                                                                  | mark `EXPIRED` and replace the challenge hash with `consumed`                                                                                                          |
+| Deletion receipt                | `COMPLETED` and `expires_at <= now`                                                  | delete permanently                                                                                                                                                     |
+| Orphan audit event              | `user_id IS NULL` and older than the configured retention period                     | delete permanently                                                                                                                                                     |
+| Rate-limit window               | Internal `expires_at <= now`                                                         | delete permanently; no raw subject or IP exists                                                                                                                        |
+| Terminal scan job               | `COMPLETED`/`DEAD_LETTERED`/`CANCELLED` and older than the scan-job retention period | delete permanently; opaque payload references, lease history, and safe error codes age out while the scan/provider-run/finding summary is retained on its own schedule |
 
-Failed, requested, or auth-revoked deletion receipts are deliberately retained because they may represent unfinished deletion work. Active-user audit events are not touched. Verification history remains until account deletion, but the challenge secret is destroyed at expiry.
+Failed, requested, or auth-revoked deletion receipts are deliberately retained because they may represent unfinished deletion work. Active-user audit events are not touched. Verification history remains until account deletion, but the challenge secret is destroyed at expiry. Pending and claimed scan jobs are never touched: only terminal job detail ages out, matching the completed scan/job row of the privacy retention table, and the user-visible scan history summary is unaffected.
 
 ## Bounds and concurrency
 
@@ -25,7 +26,7 @@ Failed, requested, or auth-revoked deletion receipts are deliberately retained b
 - A transaction prevents partial changes within a batch.
 - State predicates make overlapping calls idempotent: only still-pending challenges are expired, and already-deleted rows cannot be returned twice.
 - Candidate rows are locked with `FOR UPDATE SKIP LOCKED`, so overlapping invocations avoid waiting on the same batch.
-- PostgreSQL rejects null/unbounded batches, clocks more than five minutes in the future, and orphan-audit cutoffs newer than the one-day minimum.
+- PostgreSQL rejects null/unbounded batches, clocks more than five minutes in the future, and orphan-audit or scan-job cutoffs newer than the one-day minimum.
 - The supplied clock makes retention tests deterministic.
 - The function returns counts only; no identifier values or subject tokens are emitted.
 
@@ -46,4 +47,4 @@ A database failure rolls back the batch and should be retried later with bounded
 
 ## Production gate
 
-Before deploying the schedule, reproduce and inspect the function-only roles in the hosted database; approve legal retention values, backup/tombstone behavior, alert thresholds, and deployment ownership. Keep the maintenance Hyperdrive binding out of the web Worker. The current proposed defaults are 15 minutes for pending challenge secrets and 365 days for completed pseudonymous receipts and orphan audit events; these are engineering defaults, not legal approval.
+Before deploying the schedule, reproduce and inspect the function-only roles in the hosted database; approve legal retention values, backup/tombstone behavior, alert thresholds, and deployment ownership. Keep the maintenance Hyperdrive binding out of the web Worker. The current proposed defaults are 15 minutes for pending challenge secrets, 365 days for completed pseudonymous receipts and orphan audit events, and 90 days for terminal scan-job detail; these are engineering defaults, not legal approval.

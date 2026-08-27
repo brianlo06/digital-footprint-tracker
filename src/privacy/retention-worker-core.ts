@@ -7,6 +7,7 @@ export interface RetentionWorkerSettings {
   readonly scheduledTime: number;
   readonly batchSize: string;
   readonly orphanAuditRetentionDays: string;
+  readonly scanJobRetentionDays: string;
 }
 
 function integerSetting(value: string, code: string): number {
@@ -26,6 +27,10 @@ export function retentionOptionsFromWorkerSettings(
     orphanAuditRetentionDays: integerSetting(
       settings.orphanAuditRetentionDays,
       "AUDIT_RETENTION_DAYS_INVALID",
+    ),
+    scanJobRetentionDays: integerSetting(
+      settings.scanJobRetentionDays,
+      "SCAN_JOB_RETENTION_DAYS_INVALID",
     ),
   };
   assertRetentionMaintenanceOptions(options);

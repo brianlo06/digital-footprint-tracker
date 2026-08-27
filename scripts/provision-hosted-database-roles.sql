@@ -332,6 +332,10 @@ GRANT SELECT, UPDATE, DELETE ON TABLE
   public.audit_events,
   public.rate_limit_windows
 TO digital_footprint_retention_owner;
+-- UPDATE is required for SELECT ... FOR UPDATE SKIP LOCKED on terminal
+-- scan-job rows even though the function only deletes them.
+GRANT SELECT, UPDATE, DELETE ON TABLE public.scan_jobs
+TO digital_footprint_retention_owner;
 
 GRANT SELECT, UPDATE ON TABLE public.identifiers
 TO digital_footprint_rotation_owner;
@@ -384,7 +388,7 @@ ALTER FUNCTION public.consume_action_rate_limit_dual(
   text, text, text, text, public.rate_limit_action
 )
 OWNER TO digital_footprint_rate_limit_owner;
-ALTER FUNCTION public.run_retention_maintenance(timestamptz, integer, timestamptz)
+ALTER FUNCTION public.run_retention_maintenance(timestamptz, integer, timestamptz, timestamptz)
 OWNER TO digital_footprint_retention_owner;
 ALTER FUNCTION public.list_identifier_envelopes_for_rewrap(text, integer)
 OWNER TO digital_footprint_rotation_owner;
@@ -426,7 +430,7 @@ FROM digital_footprint_rate_limit_owner,
 REVOKE ALL ON FUNCTION
   public.consume_action_rate_limit(text, text, public.rate_limit_action),
   public.consume_action_rate_limit_dual(text, text, text, text, public.rate_limit_action),
-  public.run_retention_maintenance(timestamptz, integer, timestamptz),
+  public.run_retention_maintenance(timestamptz, integer, timestamptz, timestamptz),
   public.list_identifier_envelopes_for_rewrap(text, integer),
   public.replace_identifier_envelope_for_rewrap(uuid, jsonb, jsonb, text, text),
   public.backfill_identifier_lookup_tokens(text, integer),
@@ -455,7 +459,7 @@ GRANT EXECUTE ON FUNCTION public.consume_action_rate_limit_dual(
   text, text, text, text, public.rate_limit_action
 )
 TO digital_footprint_runtime;
-GRANT EXECUTE ON FUNCTION public.run_retention_maintenance(timestamptz, integer, timestamptz)
+GRANT EXECUTE ON FUNCTION public.run_retention_maintenance(timestamptz, integer, timestamptz, timestamptz)
 TO digital_footprint_maintenance;
 GRANT EXECUTE ON FUNCTION
   public.list_identifier_envelopes_for_rewrap(text, integer),

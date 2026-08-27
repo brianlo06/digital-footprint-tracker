@@ -248,4 +248,14 @@ The source and placeholder configuration dry-build successfully, but this is imp
 
 Verification: the service-independent suite passed with 230 tests (5 new), `npm run check`/`npm run build`/`npm run cf:verify:boundaries` passed, and a local render walkthrough confirmed both the disabled-state and enabled-synthetic coverage panels plus attributed history rows.
 
-Remaining synthetic-only Phase 2 work includes bounded retention of completed scan/job detail matching `docs/PRIVACY.md` and a complete kill-switch rollback exercise. A live HIBP adapter, credential binding, real email, nonzero _monetary_ budget, route-level live-provider activation, and external network use remain out of scope.
+### Slice 9 — bounded retention of terminal scan-job detail (complete 2026-08-27)
+
+- migration `0022` replaces the retention security-definer function with a four-argument signature that additionally deletes a bounded batch of `COMPLETED`/`DEAD_LETTERED`/`CANCELLED` scan jobs whose last update is older than the caller's cutoff, using the same `FOR UPDATE SKIP LOCKED` idempotent pattern as every other category;
+- pending and claimed jobs are never eligible, and the tenant-facing scan/provider-run/finding summary is deliberately untouched, matching the privacy table's "retain summary longer" rule, while opaque payload references, lease history, and safe error codes age out at the 90-day engineering default;
+- the retention owner gains a dedicated `scan_jobs` capability policy and exact `SELECT`/`UPDATE`/`DELETE` grants in both local and hosted provisioning; PostgreSQL enforces a one-day minimum cutoff, and the read-only boundary verifier attests the new policy, grants, and signature across the full cross-execution matrix;
+- the retention Worker template gains a bounded `SCAN_JOB_RETENTION_DAYS=90` variable that is validated before any database client exists, pinned by the committed deployment-boundary verifier, and rejected on any non-integer or out-of-range value; and
+- no schedule, hosted deployment, provider call, or route is introduced; invocation policy remains the existing manual/maintenance boundary.
+
+Verification: the full migration chain (`0000`-`0022`) applied to a clean PostgreSQL 17 database, hosted-style provisioning and `npm run db:verify:boundaries` passed, all 64 restricted-role integration tests passed including aged-terminal deletion with pending/recent retention, the service-independent suite passed with 238 tests, and `npm run check`/`npm run cf:verify:boundaries`/`npm run cf:retention:build`/`npm run cf:standalone:typecheck` passed.
+
+Remaining synthetic-only Phase 2 work is a complete kill-switch rollback exercise. A live HIBP adapter, credential binding, real email, nonzero _monetary_ budget, route-level live-provider activation, and external network use remain out of scope.

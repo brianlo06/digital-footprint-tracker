@@ -20,6 +20,7 @@ const retentionWorker = {
         scheduledTime: controller.scheduledTime,
         batchSize: env.RETENTION_BATCH_SIZE,
         orphanAuditRetentionDays: env.ORPHAN_AUDIT_RETENTION_DAYS,
+        scanJobRetentionDays: env.SCAN_JOB_RETENTION_DAYS,
       },
       async (options) => {
         const client = postgres(env.MAINTENANCE_DATABASE.connectionString, {
