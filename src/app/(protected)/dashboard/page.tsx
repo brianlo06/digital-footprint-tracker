@@ -1,7 +1,13 @@
+import { getServerEnv } from "@/config/server-env";
 import { findAccount } from "@/core/account-service";
 import { listIdentifiers } from "@/core/identifier-service";
 import { getBreachConsentSummary } from "@/privacy/breach-consent-service";
+import {
+  describeBreachProvider,
+  summarizeBreachCoverage,
+} from "@/providers/breach/breach-coverage-guidance";
 import { listRecentBreachScans } from "@/providers/breach/breach-scan-history";
+import { selectBreachProviderFromEnv } from "@/providers/provider-registry";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -44,6 +50,10 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
   const breachConsentGranted = breachConsent?.state === "GRANTED";
   const canRunScan = hasVerifiedEmail && breachConsentGranted;
   const scanParam = typeof parameters.scan === "string" ? parameters.scan : undefined;
+  const coverage = summarizeBreachCoverage({
+    selection: selectBreachProviderFromEnv(getServerEnv()),
+    recentScans,
+  });
 
   return (
     <div className="stack">
@@ -110,7 +120,10 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
               <article className="identifier-row" key={scan.scanId}>
                 <div>
                   <p>
-                    {scan.providerId ?? "no provider"} · {scan.startedAt.toLocaleString()}
+                    {scan.providerId
+                      ? describeBreachProvider(scan.providerId).displayName
+                      : "no provider"}{" "}
+                    · {scan.startedAt.toLocaleString()}
                   </p>
                   {scan.errorSafeCode ? (
                     <p className="muted">Safe failure code: {scan.errorSafeCode}</p>
@@ -167,6 +180,41 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
             Refresh scan status
           </Link>
         </div>
+      </section>
+
+      <section aria-labelledby="coverage-heading" className="card">
+        <h2 id="coverage-heading">Coverage and limits</h2>
+        {coverage.providerEnabled && coverage.provider ? (
+          <p>
+            Enabled source:{" "}
+            {coverage.provider.attributionUrl ? (
+              <a href={coverage.provider.attributionUrl} rel="noreferrer" target="_blank">
+                {coverage.provider.displayName}
+              </a>
+            ) : (
+              <strong>{coverage.provider.displayName}</strong>
+            )}
+            . {coverage.provider.description}
+          </p>
+        ) : (
+          <p>No breach-metadata source is enabled in this environment, so nothing is checked.</p>
+        )}
+        <p className="muted">
+          {coverage.lastCompletedCheckAt
+            ? `Last completed check in recent history: ${coverage.lastCompletedCheckAt.toLocaleString()}.`
+            : "No check has completed in recent history."}
+          {coverage.latestScanState === "FAILED"
+            ? " The most recent check failed, so its coverage is missing entirely."
+            : null}
+          {coverage.latestScanState === "PARTIAL"
+            ? " The most recent check completed only partially, so its coverage is incomplete."
+            : null}
+        </p>
+        <ul>
+          {coverage.limits.map((limit) => (
+            <li key={limit}>{limit}</li>
+          ))}
+        </ul>
       </section>
 
       <div className="status-panel">

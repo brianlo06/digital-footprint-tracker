@@ -238,4 +238,14 @@ The post-response callback is an accelerator, not the recovery boundary. A separ
 
 The source and placeholder configuration dry-build successfully, but this is implementation evidence only, not a hosted activation or live-provider approval. See `docs/BREACH_SCAN_WORKER_OPERATIONS.md`.
 
-Remaining synthetic-only Phase 2 work includes user-visible coverage guidance, bounded retention of completed scan/job detail matching `docs/PRIVACY.md`, and a complete kill-switch rollback exercise. A live HIBP adapter, credential binding, real email, nonzero _monetary_ budget, route-level live-provider activation, and external network use remain out of scope.
+### Slice 8 — user-visible coverage guidance (complete 2026-08-27)
+
+- a reviewed provider-presentation map is the only source of user-facing provider names, descriptions, and attribution links; an unknown provider ID fails closed to an "Unreviewed provider" label with no link, and a future HIBP entry must carry the visible attribution URL its terms require;
+- the dashboard gained a "Coverage and limits" section that names the enabled source (or states plainly that none is enabled and nothing is checked), shows the most recent completed check in recent history, and calls out a failed or partial latest scan as missing or incomplete coverage;
+- the section states the fixed coverage limits: one verified email per check, "no finding" means not observed through the enabled provider rather than not exposed, a provider-reported breach is not proof of current account compromise, unverified breaches are excluded and no catalog is comprehensive, and the product cannot correct provider source data;
+- scan history rows now attribute each provider run through the same presentation map instead of a raw provider ID; and
+- the guidance is a pure, unit-tested module with no new route, provider call, schema change, or persistence.
+
+Verification: the service-independent suite passed with 230 tests (5 new), `npm run check`/`npm run build`/`npm run cf:verify:boundaries` passed, and a local render walkthrough confirmed both the disabled-state and enabled-synthetic coverage panels plus attributed history rows.
+
+Remaining synthetic-only Phase 2 work includes bounded retention of completed scan/job detail matching `docs/PRIVACY.md` and a complete kill-switch rollback exercise. A live HIBP adapter, credential binding, real email, nonzero _monetary_ budget, route-level live-provider activation, and external network use remain out of scope.
