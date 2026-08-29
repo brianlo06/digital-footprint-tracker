@@ -18,21 +18,25 @@ No later phase begins without explicit owner approval. Security/privacy/legal ga
 **Risks:** auth lock-in, premature UI breadth, encryption/log leakage, deletion gaps.  
 **Exit Criteria:** threat-reviewed auth/authorization; no real providers; synthetic E2E add/mask/delete flow; PII log canary and tenant-isolation tests pass. Met on 2026-08-15; see `PHASE_1_STATUS.md`. Hosted personal-data activation remains separately gated there.
 
-## Phase 2 — First low-risk provider (in progress, synthetic-only)
+## Phase 2 — First low-risk provider (synthetic scope complete)
 
 **Objective:** prove one provider end-to-end without building a general scanner.  
 **Deliverables:** provider selection memo and legal/ToS/security review; feature flag/kill switch; synthetic contract fixtures; server-only adapter; verified-email capability gate; hard quota/cost ledger; provenance display. HIBP is the conditional preferred breach-metadata provider; `PHASE_2_READINESS.md` blocks non-synthetic use pending compatible written terms.
 **Dependencies:** Phase 1; provider contract, budget, DPA/terms, verification.  
 **Risks:** query privacy, price/access change, rate limit, breach result misinterpretation.  
-**Exit Criteria:** sandbox/synthetic tests first; explicitly approved production test; no prohibited credential data; rollback demonstrated; user sees source/limits/guidance.
+**Exit Criteria:** sandbox/synthetic tests first; explicitly approved production test; no prohibited credential data; rollback demonstrated; user sees source/limits/guidance. All ten recorded synthetic slices are complete as of 2026-08-27: synthetic tests, prohibited-data exclusion, the end-to-end kill-switch rollback drill, and coverage/source/limits display are met and evidenced in `PHASE_2_READINESS.md`. Only the explicitly approved production test remains, and it stays blocked on written HIBP permission, counsel review, a nonzero budget decision, and separate owner authorization.
 
-## Phase 3 — Scan and temporal evidence engine
+## Phase 3 — Scan and temporal evidence engine (approved 2026-08-29, synthetic-only)
 
 **Objective:** make provider work durable, idempotent, explainable, and historical.  
 **Deliverables:** DB-backed queue/outbox, worker, scan/provider states, bounded retry/cancel, normalization, fingerprint versioning, findings/observations/evidence, provider health, partial coverage, usage reconciliation.  
 **Dependencies:** Phase 2 contract and Phase 1 persistence/security.  
 **Risks:** duplicate billing, false absence, stuck leases, poison payloads.  
 **Exit Criteria:** mandatory job/dedupe/reappearance/outage/cost tests pass; no provider failure corrupts scan; operations runbooks exist.
+
+The owner approved this phase on 2026-08-29 for synthetic-only implementation; ADR 0006 was accepted with it. The approval authorizes no live provider, real personal data, nonzero budget, or hosted activation.
+
+Phase 2's queued scan workflow already delivered the durable queue/outbox, worker, scan/provider states, bounded retry/cancel, normalization, and usage reservations. The remaining work is the temporal core: generic `Finding`/`Observation` persistence, versioned fingerprints, presence/absence and reappearance rules, provider-health persistence, and partial-coverage semantics.
 
 ## Phase 4 — Review dashboard and remediation
 

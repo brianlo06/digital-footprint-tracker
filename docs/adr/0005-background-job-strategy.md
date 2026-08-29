@@ -1,6 +1,6 @@
 # ADR 0005: Background Job Strategy
 
-**Status:** Proposed
+**Status:** Accepted on 2026-08-29. The synthetic Phase 2 queued scan workflow exercises this decision: the `scan_jobs` table with expiring leases, transactional enqueue, at-least-once delivery with idempotent handlers, jittered bounded retry, pre-claim cancellation, dead-lettering, cost reservation, and separately persisted scan/provider-run state. Hosted deployment of the recovery Cron Worker remains blocked by the activation gates in `../BREACH_SCAN_WORKER_OPERATIONS.md`.
 
 ## Context
 

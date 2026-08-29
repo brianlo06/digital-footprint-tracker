@@ -1,6 +1,6 @@
 # ADR 0006: Finding and Observation Model
 
-**Status:** Proposed
+**Status:** Accepted on 2026-08-29 with the owner's Phase 3 approval, for synthetic-only implementation. The generic `Finding`/`Observation` persistence, versioned fingerprints, and presence rules may be built against synthetic provider evidence; no live provider, real personal data, or hosted activation is authorized by this record.
 
 ## Context
 

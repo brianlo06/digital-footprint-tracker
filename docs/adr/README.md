@@ -1,6 +1,6 @@
 # Architecture Decision Records
 
-The owner authorized the Phase 1 foundation after Phase 0 review. Decisions exercised by that foundation are **Accepted**. The provider adapter boundary was accepted during Phase 2 readiness; provider activation, temporal evidence, and job decisions remain separately gated. Supersede accepted records rather than silently rewriting their intent.
+The owner authorized the Phase 1 foundation after Phase 0 review. Decisions exercised by that foundation are **Accepted**. The provider adapter boundary was accepted during Phase 2 readiness, the job strategy was accepted once the synthetic queued scan workflow exercised it, and the temporal evidence model was accepted with the owner's Phase 3 approval on 2026-08-29. Live-provider activation and hosted deployment remain separately gated. Supersede accepted records rather than silently rewriting their intent.
 
 | ADR                                                 | Status   | Decision                                                 |
 | --------------------------------------------------- | -------- | -------------------------------------------------------- |
@@ -8,8 +8,8 @@ The owner authorized the Phase 1 foundation after Phase 0 review. Decisions exer
 | [0002](0002-database-choice.md)                     | Accepted | PostgreSQL and Drizzle                                   |
 | [0003](0003-provider-adapter-pattern.md)            | Accepted | provider anti-corruption layer                           |
 | [0004](0004-identifier-storage.md)                  | Accepted | hybrid, application-encrypted identifier storage         |
-| [0005](0005-background-job-strategy.md)             | Proposed | database-backed durable jobs first                       |
-| [0006](0006-finding-observation-model.md)           | Proposed | stable findings plus immutable observations              |
+| [0005](0005-background-job-strategy.md)             | Accepted | database-backed durable jobs first                       |
+| [0006](0006-finding-observation-model.md)           | Accepted | stable findings plus immutable observations              |
 | [0007](0007-user-verification-model.md)             | Accepted | verification-gated capability policy                     |
 | [0008](0008-pii-logging-policy.md)                  | Accepted | deny-by-default PII telemetry policy                     |
 | [0009](0009-authentication-boundary.md)             | Accepted | managed auth adapter plus local-only development mode    |
