@@ -36,6 +36,7 @@ export type SyntheticBreachScenario =
   | "AUTHENTICATION"
   | "RATE_LIMIT"
   | "OUTAGE"
+  | "DEGRADED"
   | "PAGINATED";
 
 const commerceBreach = {
@@ -83,6 +84,9 @@ export function syntheticFixturePage(
 
   switch (scenario) {
     case "SUCCESS":
+    // A degraded provider still answers; only its self-reported health
+    // differs, which is what makes a scan PARTIAL rather than COMPLETED.
+    case "DEGRADED":
       return { records: [commerceBreach] };
     case "EMPTY":
       return { records: [] };

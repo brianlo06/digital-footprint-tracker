@@ -115,6 +115,47 @@ describeWithDatabase("durable synthetic breach scan persistence", () => {
     resetServerEnvForTests();
   });
 
+  it("persists a degraded-health check as a PARTIAL scan with its health outcome", async () => {
+    const degradedPrincipal: AuthenticatedPrincipal = {
+      subject: `breach_scan_degraded_${testRunId}`,
+      mode: "local",
+    };
+    const degradedAccount = await prepareAccount(degradedPrincipal, "degraded");
+    const degradedSelection = selectBreachProvider({
+      appEnvironment: "local",
+      provider: "synthetic",
+      featureEnabled: true,
+      killSwitchActive: false,
+      syntheticScenario: "DEGRADED",
+    });
+
+    const result = await executePostgresSyntheticBreachScan({
+      account: degradedAccount,
+      now: new Date(),
+      providerSelection: degradedSelection,
+      usageBudget: budget,
+    });
+    if (result.status !== "COMPLETED") throw new Error("expected COMPLETED result");
+
+    // PostgreSQL's scans_terminal_invariant must accept PARTIAL with a
+    // completion timestamp, and the run keeps the provider's own health word.
+    const [storedScan] = await getDatabase()
+      .select({ state: scans.state, completedAt: scans.completedAt })
+      .from(scans)
+      .where(eq(scans.id, result.scanId));
+    expect(storedScan.state).toBe("PARTIAL");
+    expect(storedScan.completedAt).not.toBeNull();
+
+    const [storedRun] = await getDatabase()
+      .select({ state: providerRuns.state, healthOutcome: providerRuns.healthOutcome })
+      .from(providerRuns)
+      .where(eq(providerRuns.id, result.providerRunId));
+    expect(storedRun).toEqual({ state: "COMPLETED", healthOutcome: "DEGRADED" });
+
+    const [history] = await listRecentBreachScans(degradedAccount, { limit: 1 });
+    expect(history).toMatchObject({ scanState: "PARTIAL", providerHealthOutcome: "DEGRADED" });
+  });
+
   it("persists a completed scan, provider run, and normalized findings", async () => {
     const result = await executePostgresSyntheticBreachScan({
       account: ownerAccount,

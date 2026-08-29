@@ -4,6 +4,7 @@ import { listIdentifiers } from "@/core/identifier-service";
 import { getBreachConsentSummary } from "@/privacy/breach-consent-service";
 import {
   describeBreachProvider,
+  isDegradedHealthOutcome,
   summarizeBreachCoverage,
 } from "@/providers/breach/breach-coverage-guidance";
 import { listRecentBreachScans } from "@/providers/breach/breach-scan-history";
@@ -128,6 +129,12 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
                   {scan.errorSafeCode ? (
                     <p className="muted">Safe failure code: {scan.errorSafeCode}</p>
                   ) : null}
+                  {isDegradedHealthOutcome(scan.providerHealthOutcome) ? (
+                    <p className="muted">
+                      Provider health at this check: {scan.providerHealthOutcome} — coverage may be
+                      incomplete.
+                    </p>
+                  ) : null}
                   {scan.findings.length > 0 ? (
                     <div className="stack">
                       {scan.findings.map((finding) => (
@@ -210,6 +217,13 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
             ? " The most recent check completed only partially, so its coverage is incomplete."
             : null}
         </p>
+        {isDegradedHealthOutcome(coverage.latestHealthOutcome) ? (
+          <p className="notice warning" role="status">
+            The provider last reported {coverage.latestHealthOutcome}. Results from that check may
+            be incomplete, and a check that returns nothing under degraded health is not evidence
+            that nothing was found.
+          </p>
+        ) : null}
         <ul>
           {coverage.limits.map((limit) => (
             <li key={limit}>{limit}</li>

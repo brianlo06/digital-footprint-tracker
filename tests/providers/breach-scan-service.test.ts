@@ -131,7 +131,7 @@ class FakeScanRunRepository implements ScanRunRepository {
 
   async completeScan(input: {
     readonly scanId: string;
-    readonly outcome: "COMPLETED" | "FAILED";
+    readonly outcome: "COMPLETED" | "PARTIAL" | "FAILED";
   }): Promise<void> {
     this.scans.set(input.scanId, { state: input.outcome });
   }
@@ -253,5 +253,35 @@ describe("synthetic breach scan service", () => {
     expect(providerRun).toMatchObject({ state: "FAILED", errorSafeCode: "PROVIDER_RATE_LIMITED" });
     const [scan] = [...repository.scans.values()];
     expect(scan).toMatchObject({ state: "FAILED" });
+  });
+
+  it("records a successful check under degraded provider health as PARTIAL", async () => {
+    const repository = new FakeScanRunRepository(target);
+
+    const result = await executeSyntheticBreachScan(
+      scanInput({ repository, providerSelection: enabledSelection("DEGRADED") }),
+    );
+
+    if (result.status !== "COMPLETED") throw new Error("expected COMPLETED result");
+    expect(result.findingCount).toBeGreaterThan(0);
+    expect(repository.providerRuns.get(result.providerRunId)).toMatchObject({
+      state: "COMPLETED",
+      healthOutcome: "DEGRADED",
+    });
+    // The provider answered, so the run completed; coverage is not
+    // guaranteed complete, so the scan must not claim COMPLETED.
+    expect(repository.scans.get(result.scanId)).toMatchObject({ state: "PARTIAL" });
+  });
+
+  it("records a healthy check as COMPLETED", async () => {
+    const repository = new FakeScanRunRepository(target);
+
+    const result = await executeSyntheticBreachScan(scanInput({ repository }));
+
+    if (result.status !== "COMPLETED") throw new Error("expected COMPLETED result");
+    expect(repository.providerRuns.get(result.providerRunId)).toMatchObject({
+      healthOutcome: "HEALTHY",
+    });
+    expect(repository.scans.get(result.scanId)).toMatchObject({ state: "COMPLETED" });
   });
 });

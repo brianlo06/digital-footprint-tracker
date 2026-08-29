@@ -6,6 +6,7 @@ import {
 } from "@/providers/breach/breach-invocation-service";
 import {
   BREACH_SCAN_REQUESTED_CAPABILITY,
+  scanOutcomeForProviderHealth,
   SYNTHETIC_BREACH_SCAN_BUDGET,
 } from "@/providers/breach/breach-scan-service";
 import type { ClaimedBreachScanJob } from "@/providers/breach/breach-scan-job-core";
@@ -138,7 +139,10 @@ export async function processClaimedSyntheticBreachScan(input: {
         updatedAt: sql`now()`,
       })
       .where(and(eq(scanJobs.id, job.jobId), eq(scanJobs.leaseToken, job.leaseToken)));
-    await repository.completeScan({ scanId: job.scanId, outcome: "COMPLETED" });
+    await repository.completeScan({
+      scanId: job.scanId,
+      outcome: scanOutcomeForProviderHealth(healthOutcome),
+    });
     return "COMPLETED";
   } catch (error) {
     const descriptor = safeProviderError(error);

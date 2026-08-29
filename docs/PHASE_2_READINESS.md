@@ -275,4 +275,14 @@ Registry unit tests separately prove that re-enabling requires the exact local e
 
 Verification: the drill passed as part of 65 restricted-role integration tests against a clean PostgreSQL 17 database with hosted-style provisioning, and the service-independent suite, `npm run check`, and the deployment-boundary verifiers passed unchanged.
 
+### Slice 11 — provider health and partial-coverage semantics (complete 2026-08-29)
+
+- a completed provider run whose self-reported health is anything other than `HEALTHY` now records its scan as `PARTIAL` rather than `COMPLETED`, so a rate-limited or degraded check is never presented as an exhaustive one, satisfying `docs/PRODUCT.md`'s rule that a partial scan must not imply full coverage;
+- both the direct and worker completion paths share one `scanOutcomeForProviderHealth` rule, so they cannot drift;
+- persisted `health_outcome` is now read back: scan history exposes it, the coverage section warns that a degraded check's results may be incomplete and that an empty result under degraded health is not evidence of absence, and each history row shows the health at that check;
+- a new `DEGRADED` synthetic scenario answers normally while reporting degraded health, making the `PARTIAL` path reachable and testable rather than dead code; and
+- no schema migration was required, because the existing `scans_terminal_invariant` already admitted `PARTIAL` with a completion timestamp.
+
+Verification: the service-independent suite passed with 246 tests (8 new), all 66 restricted-role integration tests passed (1 new, proving PostgreSQL accepts the `PARTIAL` terminal state and that history returns the health outcome), and `npm run check`/`npm run build`/`npm run cf:verify:boundaries` passed.
+
 All recorded synthetic-only Phase 2 slices are complete. Contracted or live-provider work remains blocked on written HIBP permission, counsel review, a nonzero budget decision, and separate owner authorization. A live HIBP adapter, credential binding, real email, nonzero _monetary_ budget, route-level live-provider activation, and external network use remain out of scope.

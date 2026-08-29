@@ -1,7 +1,7 @@
 import "server-only";
 
 import type { AccountContext } from "@/core/account-service";
-import type { CandidateFinding } from "@/core/domain.types";
+import type { CandidateFinding, ProviderHealth } from "@/core/domain.types";
 import type { BreachInvocationAuthorizationStore } from "@/providers/breach/breach-invocation-service";
 import { executeSyntheticBreachInvocation } from "@/providers/breach/breach-invocation-service";
 import { ProviderContractError } from "@/providers/provider.contracts";
@@ -24,6 +24,19 @@ export const SYNTHETIC_BREACH_SCAN_BUDGET: ProviderUsageBudget = {
   maxProviderDailyCostUnits: 0,
   maxProviderMonthlyCostUnits: 0,
 };
+
+/**
+ * A provider run that returned results but reported anything other than
+ * HEALTHY finished with coverage that is not guaranteed complete, so the scan
+ * is recorded as PARTIAL. `docs/PRODUCT.md` requires that a partial scan never
+ * imply full coverage; claiming COMPLETED here would present a rate-limited or
+ * degraded check as an exhaustive one.
+ */
+export function scanOutcomeForProviderHealth(
+  healthOutcome: ProviderHealth,
+): "COMPLETED" | "PARTIAL" {
+  return healthOutcome === "HEALTHY" ? "COMPLETED" : "PARTIAL";
+}
 
 /** Thrown by a ScanRunRepository.createScan implementation when the
  * account already has a RUNNING scan for the same capability (enforced by
@@ -71,7 +84,7 @@ export interface ScanRunRepository {
   ): Promise<void>;
   completeScan(input: {
     readonly scanId: string;
-    readonly outcome: "COMPLETED" | "FAILED";
+    readonly outcome: "COMPLETED" | "PARTIAL" | "FAILED";
   }): Promise<void>;
   insertBreachFindings(input: {
     readonly providerRunId: string;
@@ -192,7 +205,10 @@ export async function executeSyntheticBreachScan(input: {
         healthOutcome,
         reservationId: result.reservationId,
       });
-      await input.repository.completeScan({ scanId, outcome: "COMPLETED" });
+      await input.repository.completeScan({
+        scanId,
+        outcome: scanOutcomeForProviderHealth(healthOutcome),
+      });
       return { status: "COMPLETED", scanId, providerRunId, findingCount: result.candidates.length };
     }
 

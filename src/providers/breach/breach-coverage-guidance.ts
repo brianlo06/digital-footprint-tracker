@@ -43,7 +43,17 @@ export interface BreachCoverageSummary {
   readonly provider: BreachProviderPresentation | null;
   readonly lastCompletedCheckAt: Date | null;
   readonly latestScanState: BreachScanHistoryEntry["scanState"] | null;
+  /** Provider-reported health at the most recent run that reported any. */
+  readonly latestHealthOutcome: string | null;
   readonly limits: readonly string[];
+}
+
+/** Health states in which the provider itself signalled that a check may be
+ * incomplete, so the UI must not present its coverage as exhaustive. */
+const DEGRADED_HEALTH_OUTCOMES = new Set(["DEGRADED", "RATE_LIMITED", "UNAVAILABLE", "DISABLED"]);
+
+export function isDegradedHealthOutcome(healthOutcome: string | null): boolean {
+  return healthOutcome !== null && DEGRADED_HEALTH_OUTCOMES.has(healthOutcome);
 }
 
 export function summarizeBreachCoverage(input: {
@@ -53,8 +63,13 @@ export function summarizeBreachCoverage(input: {
   readonly recentScans: readonly BreachScanHistoryEntry[];
 }): BreachCoverageSummary {
   const providerEnabled = input.selection.status !== "DISABLED";
+  // A PARTIAL scan finished but under degraded provider health, so it is not
+  // a completed check for coverage purposes.
   const lastCompleted = input.recentScans.find(
     (scan) => scan.scanState === "COMPLETED" && scan.completedAt !== null,
+  );
+  const latestReportedHealth = input.recentScans.find(
+    (scan) => scan.providerHealthOutcome !== null,
   );
   return {
     providerEnabled,
@@ -64,6 +79,7 @@ export function summarizeBreachCoverage(input: {
         : null,
     lastCompletedCheckAt: lastCompleted?.completedAt ?? null,
     latestScanState: input.recentScans[0]?.scanState ?? null,
+    latestHealthOutcome: latestReportedHealth?.providerHealthOutcome ?? null,
     limits: BREACH_COVERAGE_LIMITS,
   };
 }

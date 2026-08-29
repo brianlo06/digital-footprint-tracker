@@ -140,7 +140,7 @@ export class PostgresBreachScanRepository implements ScanRunRepository {
 
   async completeScan(input: {
     readonly scanId: string;
-    readonly outcome: "COMPLETED" | "FAILED";
+    readonly outcome: "COMPLETED" | "PARTIAL" | "FAILED";
   }): Promise<void> {
     await this.transaction
       .update(scans)

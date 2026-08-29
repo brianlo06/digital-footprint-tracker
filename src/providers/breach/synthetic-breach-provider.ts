@@ -192,6 +192,7 @@ export function createSyntheticBreachProvider(
     async healthCheck(): Promise<ProviderHealth> {
       if (scenario === "RATE_LIMIT") return "RATE_LIMITED";
       if (scenario === "OUTAGE") return "UNAVAILABLE";
+      if (scenario === "DEGRADED") return "DEGRADED";
       return "HEALTHY";
     },
   };

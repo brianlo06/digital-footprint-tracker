@@ -26,6 +26,7 @@ export interface BreachScanHistoryEntry {
   readonly completedAt: Date | null;
   readonly providerId: string | null;
   readonly providerRunState: "RUNNING" | "COMPLETED" | "FAILED" | null;
+  readonly providerHealthOutcome: string | null;
   readonly errorSafeCode: string | null;
   readonly findings: readonly BreachScanHistoryFinding[];
 }
@@ -59,6 +60,7 @@ export async function listRecentBreachScans(
             scanId: providerRuns.scanId,
             providerId: providerRuns.providerId,
             providerRunState: providerRuns.state,
+            providerHealthOutcome: providerRuns.healthOutcome,
             errorSafeCode: providerRuns.errorSafeCode,
           })
           .from(providerRuns)
@@ -116,6 +118,7 @@ export async function listRecentBreachScans(
         completedAt: row.completedAt,
         providerId: providerRun?.providerId ?? null,
         providerRunState: providerRun?.providerRunState ?? null,
+        providerHealthOutcome: providerRun?.providerHealthOutcome ?? null,
         errorSafeCode: providerRun?.errorSafeCode ?? null,
         findings: providerRun ? (findingsByProviderRun.get(providerRun.providerRunId) ?? []) : [],
       };
