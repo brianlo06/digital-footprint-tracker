@@ -121,7 +121,9 @@ BEGIN
     'scans',
     'scan_jobs',
     'provider_runs',
-    'breach_findings'
+    'breach_findings',
+    'findings',
+    'observations'
   ]
   LOOP
     SELECT
@@ -327,7 +329,9 @@ BEGIN
       'scans',
       'scan_jobs',
       'provider_runs',
-      'breach_findings'
+      'breach_findings',
+      'findings',
+      'observations'
     ]
     LOOP
       FOREACH audited_privilege IN ARRAY ARRAY[

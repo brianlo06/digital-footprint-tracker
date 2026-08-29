@@ -93,6 +93,39 @@ export const scanJobState = pgEnum("scan_job_state", [
   "DEAD_LETTERED",
   "CANCELLED",
 ]);
+export const findingType = pgEnum("finding_type", [
+  "WEB_MENTION",
+  "SOCIAL_PROFILE",
+  "EMAIL_EXPOSURE",
+  "PHONE_EXPOSURE",
+  "ADDRESS_EXPOSURE",
+  "DATA_BROKER_PROFILE",
+  "BREACH",
+  "DOMAIN_EXPOSURE",
+  "PUBLIC_DOCUMENT",
+  "USERNAME_MATCH",
+  "OTHER",
+]);
+export const findingPresenceState = pgEnum("finding_presence_state", [
+  "PRESENT",
+  "MISSING",
+  "UNKNOWN",
+]);
+export const findingStatus = pgEnum("finding_status", [
+  "NEW",
+  "REVIEWED",
+  "CONFIRMED",
+  "FALSE_POSITIVE",
+  "IGNORED",
+  "REMEDIATION_IN_PROGRESS",
+  "RESOLVED",
+  "REAPPEARED",
+]);
+export const observationPresence = pgEnum("observation_presence", [
+  "PRESENT",
+  "MISSING",
+  "INDETERMINATE",
+]);
 
 export const users = pgTable(
   "users",
@@ -862,6 +895,144 @@ export const breachFindings = pgTable(
     ),
     check("breach_findings_source_url_scheme", sql`${table.sourceUrl} ~ '^https://'`),
     pgPolicy("breach_findings_tenant_isolation", {
+      for: "all",
+      to: "public",
+      using: sql`exists (
+        select 1 from users
+        where users.id = user_id
+          and users.auth_subject = nullif(current_setting('app.auth_subject', true), '')
+      )`,
+      withCheck: sql`exists (
+        select 1 from users
+        where users.id = user_id
+          and users.auth_subject = nullif(current_setting('app.auth_subject', true), '')
+      )`,
+    }),
+  ],
+).enableRLS();
+
+/**
+ * ADR 0006's stable, deduplicated claim. One row per fingerprint per tenant;
+ * provenance lives in the append-only observations below, never by
+ * overwriting this row's history.
+ */
+export const findings = pgTable(
+  "findings",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    identityId: uuid("identity_id")
+      .notNull()
+      .references(() => identities.id, { onDelete: "cascade" }),
+    /** Nullable by design: a finding may outlive the identifier that matched it. */
+    matchedIdentifierId: uuid("matched_identifier_id").references(() => identifiers.id, {
+      onDelete: "set null",
+    }),
+    type: findingType("type").notNull(),
+    sourceProviderId: text("source_provider_id").notNull(),
+    title: text("title").notNull(),
+    normalizedHost: text("normalized_host").notNull(),
+    providerExternalId: text("provider_external_id").notNull(),
+    fingerprint: text("fingerprint").notNull(),
+    fingerprintVersion: text("fingerprint_version").notNull(),
+    presenceState: findingPresenceState("presence_state").notNull().default("PRESENT"),
+    status: findingStatus("status").notNull().default("NEW"),
+    consecutiveAbsences: integer("consecutive_absences").notNull().default(0),
+    firstSeenAt: timestamp("first_seen_at", { withTimezone: true }).notNull(),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
+    lastCheckedAt: timestamp("last_checked_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    // Identity is per tenant: the same fingerprint for two accounts is two
+    // findings, and the lookup token inside the fingerprint already differs.
+    uniqueIndex("findings_tenant_fingerprint_unique").on(
+      table.userId,
+      table.fingerprint,
+      table.fingerprintVersion,
+    ),
+    index("findings_user_state_idx").on(table.userId, table.presenceState),
+    index("findings_user_checked_idx").on(table.userId, table.lastCheckedAt),
+    check("findings_fingerprint_format", sql`${table.fingerprint} ~ '^[0-9a-f]{64}$'`),
+    check(
+      "findings_fingerprint_version_format",
+      sql`${table.fingerprintVersion} ~ '^v[0-9]{1,3}$'`,
+    ),
+    check("findings_absences_range", sql`${table.consecutiveAbsences} BETWEEN 0 AND 1000`),
+    check(
+      "findings_provider_id_format",
+      sql`${table.sourceProviderId} ~ '^[a-z0-9][a-z0-9-]{0,63}$'`,
+    ),
+    // A finding that has never been present has no last_seen_at; one that is
+    // present now must have been seen at or before its last check.
+    check(
+      "findings_seen_invariant",
+      sql`(${table.presenceState} = 'PRESENT' AND ${table.lastSeenAt} IS NOT NULL)
+        OR ${table.presenceState} <> 'PRESENT'`,
+    ),
+    check("findings_checked_after_first_seen", sql`${table.lastCheckedAt} >= ${table.firstSeenAt}`),
+    pgPolicy("findings_tenant_isolation", {
+      for: "all",
+      to: "public",
+      using: sql`exists (
+        select 1 from users
+        where users.id = user_id
+          and users.auth_subject = nullif(current_setting('app.auth_subject', true), '')
+      )`,
+      withCheck: sql`exists (
+        select 1 from users
+        where users.id = user_id
+          and users.auth_subject = nullif(current_setting('app.auth_subject', true), '')
+      )`,
+    }),
+  ],
+).enableRLS();
+
+/**
+ * Append-only evidence that a provider checked a finding at a time. Rows are
+ * never updated or deleted outside account deletion and retention, so a
+ * provider outage stays visibly distinct from a confirmed removal.
+ */
+export const observations = pgTable(
+  "observations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    findingId: uuid("finding_id")
+      .notNull()
+      .references(() => findings.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    providerRunId: uuid("provider_run_id")
+      .notNull()
+      .references(() => providerRuns.id, { onDelete: "cascade" }),
+    presence: observationPresence("presence").notNull(),
+    observedAt: timestamp("observed_at", { withTimezone: true }).notNull(),
+    /** Provider's own timestamp for the underlying resource, when it supplies one. */
+    sourceDate: date("source_date"),
+    contentFingerprint: text("content_fingerprint").notNull(),
+    parserVersion: text("parser_version").notNull(),
+    /** Prior observation for this finding, giving an explicit audit chain. */
+    previousObservationId: uuid("previous_observation_id"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.previousObservationId],
+      foreignColumns: [table.id],
+      name: "observations_previous_observation_fk",
+    }).onDelete("set null"),
+    index("observations_finding_time_idx").on(table.findingId, table.observedAt),
+    index("observations_user_time_idx").on(table.userId, table.observedAt),
+    // One observation per finding per provider run: a run states its result
+    // for a finding exactly once.
+    uniqueIndex("observations_run_finding_unique").on(table.providerRunId, table.findingId),
+    check("observations_fingerprint_format", sql`${table.contentFingerprint} ~ '^[0-9a-f]{64}$'`),
+    check("observations_not_self_referential", sql`${table.previousObservationId} <> ${table.id}`),
+    pgPolicy("observations_tenant_isolation", {
       for: "all",
       to: "public",
       using: sql`exists (

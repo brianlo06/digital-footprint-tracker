@@ -91,6 +91,7 @@ class FakeScanRunRepository implements ScanRunRepository {
     readonly providerRunId: string;
     readonly candidates: readonly CandidateFinding[];
   }[] = [];
+  readonly projectedFindings: Parameters<ScanRunRepository["projectFindings"]>[0][] = [];
 
   constructor(private readonly eligibleTarget: EligibleBreachTarget | null) {}
 
@@ -134,6 +135,10 @@ class FakeScanRunRepository implements ScanRunRepository {
     readonly outcome: "COMPLETED" | "PARTIAL" | "FAILED";
   }): Promise<void> {
     this.scans.set(input.scanId, { state: input.outcome });
+  }
+
+  async projectFindings(input: Parameters<ScanRunRepository["projectFindings"]>[0]): Promise<void> {
+    this.projectedFindings.push(input);
   }
 
   async insertBreachFindings(

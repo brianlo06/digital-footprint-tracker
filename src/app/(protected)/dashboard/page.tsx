@@ -1,5 +1,6 @@
 import { getServerEnv } from "@/config/server-env";
 import { findAccount } from "@/core/account-service";
+import { listTrackedFindings } from "@/core/finding-history";
 import { listIdentifiers } from "@/core/identifier-service";
 import { getBreachConsentSummary } from "@/privacy/breach-consent-service";
 import {
@@ -39,10 +40,11 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
   const parameters = await searchParams;
   const account = await findAccount(await requireProtectedPagePrincipal());
   if (!account) redirect("/onboarding");
-  const [identifierList, breachConsent, recentScans] = await Promise.all([
+  const [identifierList, breachConsent, recentScans, trackedFindings] = await Promise.all([
     listIdentifiers(account),
     getBreachConsentSummary(account),
     listRecentBreachScans(account, { limit: 5 }),
+    listTrackedFindings(account, { limit: 10 }),
   ]);
   const verified = identifierList.filter((item) => item.verificationStatus === "VERIFIED").length;
   const hasVerifiedEmail = identifierList.some(
@@ -187,6 +189,40 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
             Refresh scan status
           </Link>
         </div>
+      </section>
+
+      <section aria-labelledby="tracked-findings-heading" className="card">
+        <h2 id="tracked-findings-heading">Tracked findings</h2>
+        <p className="muted">
+          One entry per distinct finding, kept stable across checks so removal and reappearance stay
+          visible. A finding is only called resolved after repeated confirmed absences; a failed or
+          degraded check never counts as one.
+        </p>
+        {trackedFindings.length === 0 ? (
+          <div className="empty-state">No finding is being tracked yet.</div>
+        ) : (
+          <div className="stack">
+            {trackedFindings.map((finding) => (
+              <article className="identifier-row" key={finding.id}>
+                <div>
+                  <p>
+                    <strong>{finding.title}</strong> ·{" "}
+                    {describeBreachProvider(finding.sourceProviderId).displayName}
+                  </p>
+                  <p className="muted">
+                    First seen {finding.firstSeenAt.toLocaleString()} · last seen{" "}
+                    {finding.lastSeenAt ? finding.lastSeenAt.toLocaleString() : "never"} · last
+                    checked {finding.lastCheckedAt.toLocaleString()}
+                  </p>
+                </div>
+                <div className="stack">
+                  <span className="badge">{finding.presenceState.toLowerCase()}</span>
+                  <span className="badge">{finding.status.toLowerCase().replace(/_/g, " ")}</span>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
       </section>
 
       <section aria-labelledby="coverage-heading" className="card">

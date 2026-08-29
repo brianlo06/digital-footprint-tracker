@@ -52,7 +52,11 @@ GRANT USAGE ON TYPE
   scan_state,
   scan_trigger,
   provider_run_state,
-  scan_job_state
+  scan_job_state,
+  finding_type,
+  finding_presence_state,
+  finding_status,
+  observation_presence
 TO digital_footprint_runtime;
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE
@@ -67,7 +71,9 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE
   scans,
   scan_jobs,
   provider_runs,
-  breach_findings
+  breach_findings,
+  findings,
+  observations
 TO digital_footprint_runtime;
 
 -- Deliberately asymmetric to the full-CRUD grant above: the runtime

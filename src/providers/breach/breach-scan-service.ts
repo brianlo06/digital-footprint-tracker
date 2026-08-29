@@ -86,6 +86,18 @@ export interface ScanRunRepository {
     readonly scanId: string;
     readonly outcome: "COMPLETED" | "PARTIAL" | "FAILED";
   }): Promise<void>;
+  /** Projects this run's results onto the generic ADR 0006 temporal model. */
+  projectFindings(input: {
+    readonly userId: string;
+    readonly identityId: string;
+    readonly matchedIdentifierId: string;
+    readonly providerRunId: string;
+    readonly providerId: string;
+    readonly scanOutcome: "COMPLETED" | "PARTIAL" | "FAILED";
+    readonly observedAt: Date;
+    readonly parserVersion: string;
+    readonly candidates: readonly CandidateFinding[];
+  }): Promise<void>;
   insertBreachFindings(input: {
     readonly providerRunId: string;
     readonly userId: string;
@@ -205,10 +217,19 @@ export async function executeSyntheticBreachScan(input: {
         healthOutcome,
         reservationId: result.reservationId,
       });
-      await input.repository.completeScan({
-        scanId,
-        outcome: scanOutcomeForProviderHealth(healthOutcome),
+      const scanOutcome = scanOutcomeForProviderHealth(healthOutcome);
+      await input.repository.projectFindings({
+        userId: input.account.userId,
+        identityId: input.account.identityId,
+        matchedIdentifierId: target.identifierId,
+        providerRunId,
+        providerId: provider.id,
+        scanOutcome,
+        observedAt: input.now,
+        parserVersion: provider.parserVersion,
+        candidates: result.candidates,
       });
+      await input.repository.completeScan({ scanId, outcome: scanOutcome });
       return { status: "COMPLETED", scanId, providerRunId, findingCount: result.candidates.length };
     }
 

@@ -1,6 +1,6 @@
 # Conceptual Data Model
 
-**Status:** Partially executable. The Phase 1 foundation, the synthetic Phase 2 provider-usage reservation subset, and a breach-capability `Scan`/`ProviderRun`/finding subset have PostgreSQL migrations; the broader generic `Finding`/`Observation`/`Evidence` model remains proposed.
+**Status:** Partially executable. The Phase 1 foundation, the synthetic Phase 2 provider-usage reservation subset, a breach-capability `Scan`/`ProviderRun`/finding subset, and (since Phase 3) the generic `Finding`/`Observation` temporal core have PostgreSQL migrations. `Evidence`, severity/risk scoring, remediation, suppression, and notification remain proposed.
 
 ## Modeling principles
 
@@ -105,9 +105,11 @@ Status: `NEW`, `REVIEWED`, `CONFIRMED`, `FALSE_POSITIVE`, `IGNORED`, `REMEDIATIO
 
 Severity is risk/action priority, not sensitivity. It should consider confidence, sensitivity, source reach, persistence, breach categories, and remediation difficulty under a versioned model.
 
-The generic `Finding` table above remains conceptual. The executable breach capability instead persists a narrower, exact `breach_findings` table scoped to one `provider_run`: `provider_breach_id`, `breach_name`, `breach_date`, `provider_added_at`/`provider_modified_at`, `data_categories`, `is_verified`/`is_sensitive`/`is_retired`, `source_url`, `checked_at`, and `parser_version` — precisely the enforced provider data boundary allowlist in `docs/PHASE_2_READINESS.md`, no more. It has no `status`, `severity`, `presence_state`, deduplication fingerprint, or cross-provider identity; those require the generic model.
+The generic `Finding` table above is now partly executable: Phase 3 persists `type`, `source_provider_id`, `title`, `normalized_host`, `provider_external_id`, `matched_identifier_id`, `fingerprint`/`fingerprint_version`, `presence_state`, `status`, first/last seen and last checked times. Confidence, sensitivity, severity, risk model version, description, canonical URL, and remediation summary remain conceptual pending Phase 4's review and scoring work. The executable breach capability instead persists a narrower, exact `breach_findings` table scoped to one `provider_run`: `provider_breach_id`, `breach_name`, `breach_date`, `provider_added_at`/`provider_modified_at`, `data_categories`, `is_verified`/`is_sensitive`/`is_retired`, `source_url`, `checked_at`, and `parser_version` — precisely the enforced provider data boundary allowlist in `docs/PHASE_2_READINESS.md`, no more. It has no `status`, `severity`, `presence_state`, deduplication fingerprint, or cross-provider identity; those require the generic model.
 
 ### Observation
+
+Executable since Phase 3 as the append-only `observations` table: finding, provider run, presence, `observed_at`, provider source date, content fingerprint, parser version, and a `previous_observation_id` chain. HTTP/retrieval metadata and per-observation confidence remain conceptual.
 
 An immutable event that a provider checked a resource at a time. Fields: finding, provider run, `observed_at`, presence (`PRESENT`, `MISSING`, `INDETERMINATE`), source timestamp, HTTP/retrieval metadata safe to retain, evidence summary, content fingerprint, confidence at observation, and optional prior observation link.
 
@@ -159,4 +161,4 @@ Prefer stable provider external ID for `normalized_resource_id`; otherwise norma
 
 ## Non-executable schema policy
 
-Phase 1 implements the foundation subset in Drizzle/PostgreSQL: `User`, one `Identity`, encrypted `Identifier`, `IdentifierVerification`, `ConsentRecord`, `AuditEvent`, and `DeletionReceipt`. Synthetic Phase 2 adds the versioned breach-consent lifecycle, `provider_usage_reservations`, and now a breach-capability `Scan`/`ProviderRun`/finding subset (`scans`, `provider_runs`, `breach_findings`) linking them together. The generic `Finding`, `Observation`, `Evidence`, `ScanJob`, `OwnedAsset`, `Provider`/`ProviderCredential`, `RemediationAction`, `SuppressionRule`, and `Notification` entities in this document remain conceptual with no executable persistence. No seed or real personal data is included. Multi-tenant isolation and deletion mechanics require further threat testing before any shared preview handles personal data.
+Phase 1 implements the foundation subset in Drizzle/PostgreSQL: `User`, one `Identity`, encrypted `Identifier`, `IdentifierVerification`, `ConsentRecord`, `AuditEvent`, and `DeletionReceipt`. Synthetic Phase 2 adds the versioned breach-consent lifecycle, `provider_usage_reservations`, and now a breach-capability `Scan`/`ProviderRun`/finding subset (`scans`, `provider_runs`, `breach_findings`) linking them together. The generic `Evidence`, `OwnedAsset`, `Provider`/`ProviderCredential`, `RemediationAction`, `SuppressionRule`, and `Notification` entities in this document remain conceptual with no executable persistence. No seed or real personal data is included. Multi-tenant isolation and deletion mechanics require further threat testing before any shared preview handles personal data.

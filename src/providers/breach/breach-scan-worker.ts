@@ -139,10 +139,19 @@ export async function processClaimedSyntheticBreachScan(input: {
         updatedAt: sql`now()`,
       })
       .where(and(eq(scanJobs.id, job.jobId), eq(scanJobs.leaseToken, job.leaseToken)));
-    await repository.completeScan({
-      scanId: job.scanId,
-      outcome: scanOutcomeForProviderHealth(healthOutcome),
+    const scanOutcome = scanOutcomeForProviderHealth(healthOutcome);
+    await repository.projectFindings({
+      userId: job.userId,
+      identityId: job.identityId,
+      matchedIdentifierId: job.identifierId,
+      providerRunId,
+      providerId: provider.id,
+      scanOutcome,
+      observedAt: input.now,
+      parserVersion: provider.parserVersion,
+      candidates: result.candidates,
     });
+    await repository.completeScan({ scanId: job.scanId, outcome: scanOutcome });
     return "COMPLETED";
   } catch (error) {
     const descriptor = safeProviderError(error);

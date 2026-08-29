@@ -36,7 +36,20 @@ No later phase begins without explicit owner approval. Security/privacy/legal ga
 
 The owner approved this phase on 2026-08-29 for synthetic-only implementation; ADR 0006 was accepted with it. The approval authorizes no live provider, real personal data, nonzero budget, or hosted activation.
 
-Phase 2's queued scan workflow already delivered the durable queue/outbox, worker, scan/provider states, bounded retry/cancel, normalization, and usage reservations. The remaining work is the temporal core: generic `Finding`/`Observation` persistence, versioned fingerprints, presence/absence and reappearance rules, provider-health persistence, and partial-coverage semantics.
+Phase 2's queued scan workflow already delivered the durable queue/outbox, worker, scan/provider states, bounded retry/cancel, normalization, and usage reservations. Provider-health persistence and partial-coverage semantics landed on 2026-08-29.
+
+### Slice 1 — generic finding and observation temporal core (complete 2026-08-29)
+
+- migration `0023` adds tenant-owned `findings` and `observations` tables with forced RLS and the same single-join tenant policy as the other per-tenant tables;
+- a finding is identified by a versioned SHA-256 fingerprint over finding type, provider scope, normalized host, the identifier's keyed HMAC lookup token, and the provider's stable external ID — never a raw identifier value, and never a mutable title or description; fields are length-prefixed so no value can imitate a different field split;
+- `FINDING_FINGERPRINT_VERSION` is stored per row, so a future normalization change (a public-suffix registrable domain, for example) arrives as `v2` instead of silently re-identifying history;
+- observations are append-only, one per provider run per finding, chained through `previous_observation_id`, and carry a content fingerprint so a change to the same finding's details is visible;
+- ADR 0006's rules live in one pure module: only a fully completed scan can infer absence, a failed or partial scan yields `INDETERMINATE` and changes nothing, a finding resolves only after two consecutive confirmed absences, a later presence marks it `REAPPEARED`, and user-owned statuses are never overwritten by automatic rules; and
+- the dashboard shows tracked findings with presence and status, deduplicated across checks.
+
+Verification: the full migration chain applied to a clean PostgreSQL 17 database, hosted-style provisioning and `npm run db:verify:boundaries` passed with both new tables attested, all 70 restricted-role integration tests passed (4 new, covering deduplication across repeated scans, resolve-then-reappear, degraded-scan absence handling, and cross-tenant isolation), the service-independent suite passed with 275 tests (29 new), and `npm run check`/`npm run build` passed.
+
+Remaining Phase 3 work: `Evidence` persistence, cross-provider equivalence groups, observation retention per `docs/PRIVACY.md`'s 24-month rule, and operations runbooks.
 
 ## Phase 4 — Review dashboard and remediation
 

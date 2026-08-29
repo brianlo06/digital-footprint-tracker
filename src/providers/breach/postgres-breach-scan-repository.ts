@@ -11,10 +11,12 @@ import {
   scans,
   users,
 } from "@/database/schema";
+import { projectFindingObservations } from "@/core/postgres-finding-projection";
 import {
   BREACH_CONSENT_POLICY_VERSION,
   BREACH_CONSENT_PURPOSE,
 } from "@/providers/breach/breach-invocation-policy";
+import { projectedCandidatesFromBreachResults } from "@/providers/breach/breach-finding-projection";
 import {
   ScanAlreadyRunningError,
   type EligibleBreachTarget,
@@ -146,6 +148,20 @@ export class PostgresBreachScanRepository implements ScanRunRepository {
       .update(scans)
       .set({ state: input.outcome, completedAt: sql`now()` })
       .where(eq(scans.id, input.scanId));
+  }
+
+  async projectFindings(input: Parameters<ScanRunRepository["projectFindings"]>[0]): Promise<void> {
+    await projectFindingObservations(this.transaction, {
+      userId: input.userId,
+      identityId: input.identityId,
+      matchedIdentifierId: input.matchedIdentifierId,
+      providerRunId: input.providerRunId,
+      providerId: input.providerId,
+      scanOutcome: input.scanOutcome,
+      observedAt: input.observedAt,
+      parserVersion: input.parserVersion,
+      candidates: projectedCandidatesFromBreachResults(input.candidates),
+    });
   }
 
   async insertBreachFindings(

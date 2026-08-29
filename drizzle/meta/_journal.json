@@ -162,6 +162,13 @@
       "when": 1787808612473,
       "tag": "0022_colossal_white_tiger",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1787982782231,
+      "tag": "0023_ambiguous_lord_tyger",
+      "breakpoints": true
     }
   ]
 }

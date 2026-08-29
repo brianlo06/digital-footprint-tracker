@@ -292,7 +292,11 @@ GRANT USAGE ON TYPE
   public.scan_state,
   public.scan_trigger,
   public.provider_run_state,
-  public.scan_job_state
+  public.scan_job_state,
+  public.finding_type,
+  public.finding_presence_state,
+  public.finding_status,
+  public.observation_presence
 TO digital_footprint_runtime;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE
   public.users,
@@ -306,7 +310,9 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE
   public.scans,
   public.scan_jobs,
   public.provider_runs,
-  public.breach_findings
+  public.breach_findings,
+  public.findings,
+  public.observations
 TO digital_footprint_runtime;
 
 -- Deliberately asymmetric to the full-CRUD grant above: the runtime
