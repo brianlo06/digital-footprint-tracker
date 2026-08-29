@@ -42,6 +42,10 @@ jobs:
         run: npm ci
       - name: Run formatting, lint, types, and unit tests
         run: npm run check
+      - name: Verify migrations match the committed schema
+        run: npm run db:check
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
       - name: Verify no-data deployment boundaries
         run: npm run cf:verify:boundaries
       - name: Build production Cloudflare Worker
@@ -95,6 +99,9 @@ jobs:
       TEST_ROTATION_DATABASE_URL: postgres://digital_footprint_rotation:ci_rotation_password_0123456789abcdef@127.0.0.1:5432/digital_footprint_tracker_test
       TEST_LOOKUP_ROTATION_DATABASE_URL: postgres://digital_footprint_lookup_rotation:ci_lookup_rotation_password_0123456789abcdef@127.0.0.1:5432/digital_footprint_tracker_test
       TEST_DELIVERY_DATABASE_URL: postgres://digital_footprint_delivery:ci_delivery_password_0123456789abcdef@127.0.0.1:5432/digital_footprint_tracker_test
+      # Without this the integration suites skip themselves when a URL is
+      # missing, and CI would report success having run no database test.
+      REQUIRE_DATABASE_TESTS: "1"
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

@@ -126,6 +126,11 @@ describeWithDatabase("generic finding and observation temporal model", () => {
     process.env.LOOKUP_KEY_ID = "finding-model-lookup-v1";
     process.env.LOOKUP_KEY = Buffer.alloc(32, 62).toString("base64");
     process.env.LOCAL_VERIFICATION_CODE = "000000";
+    // Set once and never mutated mid-run: process.env is shared with the
+    // other integration files vitest runs concurrently. Every call below
+    // passes its principal or account explicitly, so nothing here depends
+    // on this value matching a particular test's subject.
+    process.env.LOCAL_AUTH_SUBJECT = `finding_model_${testRunId}`;
     resetServerEnvForTests();
   });
 
@@ -144,8 +149,6 @@ describeWithDatabase("generic finding and observation temporal model", () => {
       subject: `finding_dedupe_${testRunId}`,
       mode: "local",
     };
-    process.env.LOCAL_AUTH_SUBJECT = principal.subject;
-    resetServerEnvForTests();
     const account = await prepareAccount(principal, "dedupe");
 
     await runScan(account, "SUCCESS", new Date("2026-08-29T09:00:00.000Z"));
@@ -177,8 +180,6 @@ describeWithDatabase("generic finding and observation temporal model", () => {
       subject: `finding_lifecycle_${testRunId}`,
       mode: "local",
     };
-    process.env.LOCAL_AUTH_SUBJECT = principal.subject;
-    resetServerEnvForTests();
     const account = await prepareAccount(principal, "lifecycle");
 
     await runScan(account, "SUCCESS", new Date("2026-08-29T09:00:00.000Z"));
@@ -224,8 +225,6 @@ describeWithDatabase("generic finding and observation temporal model", () => {
       subject: `finding_outage_${testRunId}`,
       mode: "local",
     };
-    process.env.LOCAL_AUTH_SUBJECT = principal.subject;
-    resetServerEnvForTests();
     const account = await prepareAccount(principal, "outage");
 
     await runScan(account, "SUCCESS", new Date("2026-08-29T09:00:00.000Z"));
@@ -262,8 +261,6 @@ describeWithDatabase("generic finding and observation temporal model", () => {
       subject: `finding_tenant_${testRunId}`,
       mode: "local",
     };
-    process.env.LOCAL_AUTH_SUBJECT = principal.subject;
-    resetServerEnvForTests();
     const account = await prepareAccount(principal, "tenant");
     await runScan(account, "SUCCESS", new Date("2026-08-29T09:00:00.000Z"));
 
@@ -271,8 +268,6 @@ describeWithDatabase("generic finding and observation temporal model", () => {
       subject: `finding_tenant_other_${testRunId}`,
       mode: "local",
     };
-    process.env.LOCAL_AUTH_SUBJECT = otherPrincipal.subject;
-    resetServerEnvForTests();
     const otherAccount = await prepareAccount(otherPrincipal, "tenant-other");
 
     const visible = await withTenantDatabase(otherPrincipal, (transaction) =>

@@ -12,6 +12,8 @@
   --warning-soft: #fff3d9;
   --danger: #992f31;
   --danger-soft: #fff0ef;
+  --focus: #b26a00;
+  --field-border: #74867c;
   --shadow: 0 18px 50px rgba(24, 54, 43, 0.08);
 }
 
@@ -80,8 +82,10 @@ button.danger {
   background: var(--danger);
 }
 
+/* WCAG 2.2 SC 1.4.11: the focus indicator needs at least 3:1 against the
+   surfaces it appears on. The previous #e29c2f reached only 2.3:1 on white. */
 :focus-visible {
-  outline: 3px solid #e29c2f;
+  outline: 3px solid var(--focus);
   outline-offset: 3px;
 }
 
@@ -292,7 +296,8 @@ input[type="email"],
 input[type="text"] {
   min-height: 46px;
   width: 100%;
-  border: 1px solid #aebdb5;
+  /* SC 1.4.11: a field's border identifies the control, so it needs 3:1. */
+  border: 1px solid var(--field-border);
   border-radius: 0.65rem;
   background: white;
   color: var(--ink);
