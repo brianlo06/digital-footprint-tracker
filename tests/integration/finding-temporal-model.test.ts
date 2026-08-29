@@ -3,6 +3,7 @@ import { createAccountIfMissing, type AccountContext } from "@/core/account-serv
 import { addEmailIdentifier, verifyEmailIdentifier } from "@/core/identifier-service";
 import { closeDatabase, getDatabase } from "@/database/client";
 import { consentRecords, findings, observations, users } from "@/database/schema";
+import { runRetentionMaintenance } from "@/privacy/retention-service";
 import { withTenantDatabase } from "@/database/tenant";
 import {
   BREACH_CONSENT_POLICY_VERSION,
@@ -35,14 +36,23 @@ describeWithDatabase("generic finding and observation temporal model", () => {
   };
   const userIds: string[] = [];
 
+  // Provider request caps are global and cross-tenant by design, so these
+  // scans would otherwise spend the shared "synthetic-breach" daily quota that
+  // the usage-ledger suite asserts against. The temporal model is
+  // provider-agnostic, so scoping this file to its own provider id keeps both
+  // suites deterministic and additionally proves findings key on that scope.
+  const providerScope = `synthetic-temporal-${testRunId}`.toLowerCase().slice(0, 64);
+
   function selection(scenario: "SUCCESS" | "EMPTY" | "DEGRADED") {
-    return selectBreachProvider({
+    const selected = selectBreachProvider({
       appEnvironment: "local",
       provider: "synthetic",
       featureEnabled: true,
       killSwitchActive: false,
       syntheticScenario: scenario,
     });
+    if (!selected.provider) throw new Error("expected an enabled synthetic provider");
+    return { ...selected, provider: { ...selected.provider, id: providerScope } };
   }
 
   async function prepareAccount(
@@ -78,7 +88,8 @@ describeWithDatabase("generic finding and observation temporal model", () => {
       usageBudget: budget,
     });
     if (result.status !== "COMPLETED") {
-      throw new Error(`expected COMPLETED scan, received ${result.status}`);
+      const reason = "reason" in result ? `: ${result.reason}` : "";
+      throw new Error(`expected COMPLETED scan, received ${result.status}${reason}`);
     }
   }
 
@@ -254,6 +265,50 @@ describeWithDatabase("generic finding and observation temporal model", () => {
       presenceState: "PRESENT",
       consecutiveAbsences: 0,
     });
+  });
+
+  it("ages out old observations but always keeps each finding's most recent one", async () => {
+    const principal: AuthenticatedPrincipal = {
+      subject: `finding_retention_${testRunId}`,
+      mode: "local",
+    };
+    const account = await prepareAccount(principal, "retention");
+
+    // Real-time offsets, not fixed instants: the invocation gate requires the
+    // identifier to have been verified within 24 hours of the scan clock, and
+    // the retention call below needs a clock PostgreSQL will accept.
+    // Each clock must sit at or after the identifier's verification instant
+    // (a negative verification age is rejected as stale) and stay ordered.
+    const base = Date.now();
+    await runScan(account, "SUCCESS", new Date(base));
+    await runScan(account, "SUCCESS", new Date(base + 60_000));
+    await runScan(account, "SUCCESS", new Date(base + 2 * 60_000));
+    expect(await observationRows(account.userId)).toHaveLength(3);
+
+    // Age every observation well past the retention window.
+    await getDatabase()
+      .update(observations)
+      .set({ observedAt: new Date("2024-01-01T00:00:00.000Z") })
+      .where(eq(observations.userId, account.userId));
+
+    // PostgreSQL rejects a maintenance clock more than five minutes ahead of
+    // its own, so this one call uses real time rather than a fixed instant.
+    const result = await runRetentionMaintenance({
+      now: new Date(),
+      batchSize: 100,
+      orphanAuditRetentionDays: 365,
+      scanJobRetentionDays: 90,
+      observationRetentionDays: 730,
+    });
+    expect(result.deletedObservations).toBeGreaterThanOrEqual(2);
+
+    // `docs/PRIVACY.md` keeps evidence provenance for the life of the finding,
+    // so the newest observation survives however old it is.
+    const remaining = await observationRows(account.userId);
+    expect(remaining).toHaveLength(1);
+    // The finding itself is untouched by observation retention.
+    const [finding] = await findingRows(account.userId);
+    expect(finding).toMatchObject({ presenceState: "PRESENT", status: "NEW" });
   });
 
   it("keeps findings isolated between tenants", async () => {

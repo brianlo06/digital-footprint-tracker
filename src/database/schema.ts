@@ -1046,5 +1046,11 @@ export const observations = pgTable(
           and users.auth_subject = nullif(current_setting('app.auth_subject', true), '')
       )`,
     }),
+    pgPolicy("observations_retention_capability", {
+      for: "all",
+      to: "public",
+      using: sql`current_user = 'digital_footprint_retention_owner'`,
+      withCheck: sql`current_user = 'digital_footprint_retention_owner'`,
+    }),
   ],
 ).enableRLS();

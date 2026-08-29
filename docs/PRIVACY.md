@@ -74,7 +74,7 @@ Passwords, credential material, stolen tokens, breach dumps, government IDs, and
 
 Provider agreements can require shorter or prohibit caching; adapter metadata must override defaults downward. Users should be offered shorter history, and retention must be enforceable by automated deletion with metrics and audits.
 
-The Phase 1 foundation implements one bounded, unscheduled maintenance batch for expired pending verification secrets, expired completed deletion receipts, aged orphan audit events, and (since synthetic Phase 2) terminal scan-job detail older than the 90-day default above. Failed or incomplete deletion receipts are excluded. Production periods and invocation remain approval gates; see `RETENTION_OPERATIONS.md`.
+The Phase 1 foundation implements one bounded, unscheduled maintenance batch for expired pending verification secrets, expired completed deletion receipts, aged orphan audit events, terminal scan-job detail older than the 90-day default above, and (since Phase 3) observation history older than the 24-month default, always preserving each finding's most recent observation so its provenance survives for the life of the finding. Failed or incomplete deletion receipts are excluded. Production periods and invocation remain approval gates; see `RETENTION_OPERATIONS.md`.
 
 ## Account deletion
 

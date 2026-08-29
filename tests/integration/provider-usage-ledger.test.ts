@@ -44,10 +44,16 @@ describeWithDatabase("durable provider usage and authorization boundary", () => 
     featureEnabled: true,
     killSwitchActive: false,
   });
+  // Provider request caps are global and cross-tenant by design, so a small
+  // cap on the shared "synthetic-breach" id would make these tests depend on
+  // how many scans every other suite happened to run today. The tests that
+  // actually exercise capping below use their own provider id and their own
+  // deliberately tiny limits; this shared budget keeps the per-user cap
+  // meaningful while leaving provider headroom.
   const budget: ProviderUsageBudget = {
     maxUserDailyRequests: 5,
-    maxProviderDailyRequests: 5,
-    maxProviderMonthlyRequests: 5,
+    maxProviderDailyRequests: 10_000,
+    maxProviderMonthlyRequests: 10_000,
     maxProviderDailyCostUnits: 0,
     maxProviderMonthlyCostUnits: 0,
   };

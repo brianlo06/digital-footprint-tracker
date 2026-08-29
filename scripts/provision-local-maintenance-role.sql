@@ -74,6 +74,10 @@ TO digital_footprint_retention_owner;
 -- scan-job rows even though the function only deletes them.
 GRANT SELECT, UPDATE, DELETE ON TABLE public.scan_jobs
 TO digital_footprint_retention_owner;
+-- Aged observation history only; the retention function never touches the
+-- findings those observations belong to.
+GRANT SELECT, UPDATE, DELETE ON TABLE public.observations
+TO digital_footprint_retention_owner;
 
 REVOKE ALL PRIVILEGES ON TABLE
   public.users,
@@ -86,12 +90,12 @@ REVOKE ALL PRIVILEGES ON TABLE
 FROM digital_footprint_maintenance;
 
 GRANT CREATE ON SCHEMA public TO digital_footprint_retention_owner;
-ALTER FUNCTION public.run_retention_maintenance(timestamptz, integer, timestamptz, timestamptz)
+ALTER FUNCTION public.run_retention_maintenance(timestamptz, integer, timestamptz, timestamptz, timestamptz)
 OWNER TO digital_footprint_retention_owner;
 REVOKE CREATE ON SCHEMA public FROM digital_footprint_retention_owner;
 REVOKE CREATE ON SCHEMA public FROM digital_footprint_maintenance;
 
-REVOKE ALL ON FUNCTION public.run_retention_maintenance(timestamptz, integer, timestamptz, timestamptz)
+REVOKE ALL ON FUNCTION public.run_retention_maintenance(timestamptz, integer, timestamptz, timestamptz, timestamptz)
 FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.run_retention_maintenance(timestamptz, integer, timestamptz, timestamptz)
+GRANT EXECUTE ON FUNCTION public.run_retention_maintenance(timestamptz, integer, timestamptz, timestamptz, timestamptz)
 TO digital_footprint_maintenance;

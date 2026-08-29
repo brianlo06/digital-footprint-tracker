@@ -98,7 +98,7 @@ describeWithDatabase("bounded retention maintenance", () => {
         ) as "canReadVerifications",
         has_function_privilege(
           current_user,
-          'public.run_retention_maintenance(timestamptz,integer,timestamptz,timestamptz)',
+          'public.run_retention_maintenance(timestamptz,integer,timestamptz,timestamptz,timestamptz)',
           'EXECUTE'
         ) as "canExecuteRetention"
       from pg_roles
@@ -117,7 +117,7 @@ describeWithDatabase("bounded retention maintenance", () => {
       from pg_proc as procedure
       inner join pg_roles as owner on owner.oid = procedure.proowner
       where procedure.oid =
-        'public.run_retention_maintenance(timestamptz,integer,timestamptz,timestamptz)'::regprocedure
+        'public.run_retention_maintenance(timestamptz,integer,timestamptz,timestamptz,timestamptz)'::regprocedure
     `;
     expect(functionOwner).toEqual({ canLogin: false, bypassRls: false });
 
@@ -130,7 +130,8 @@ describeWithDatabase("bounded retention maintenance", () => {
           now(),
           1001,
           now() - interval '365 days',
-          now() - interval '90 days'
+          now() - interval '90 days',
+          now() - interval '730 days'
         )
       `,
     ).rejects.toMatchObject({ code: "22023" });
@@ -140,7 +141,8 @@ describeWithDatabase("bounded retention maintenance", () => {
           now() + interval '1 day',
           1,
           now() - interval '365 days',
-          now() - interval '90 days'
+          now() - interval '90 days',
+          now() - interval '730 days'
         )
       `,
     ).rejects.toMatchObject({ code: "22023" });
@@ -150,7 +152,8 @@ describeWithDatabase("bounded retention maintenance", () => {
           now(),
           null,
           now() - interval '365 days',
-          now() - interval '90 days'
+          now() - interval '90 days',
+          now() - interval '730 days'
         )
       `,
     ).rejects.toMatchObject({ code: "22023" });
@@ -160,7 +163,19 @@ describeWithDatabase("bounded retention maintenance", () => {
           now(),
           1,
           now() - interval '365 days',
-          now()
+          now(),
+          now() - interval '730 days'
+        )
+      `,
+    ).rejects.toMatchObject({ code: "22023" });
+    await expect(
+      maintenanceSql`
+        select * from public.run_retention_maintenance(
+          now(),
+          1,
+          now() - interval '365 days',
+          now() - interval '90 days',
+          now() - interval '29 days'
         )
       `,
     ).rejects.toMatchObject({ code: "22023" });
@@ -297,6 +312,7 @@ describeWithDatabase("bounded retention maintenance", () => {
       batchSize: 100,
       orphanAuditRetentionDays: 365,
       scanJobRetentionDays: 90,
+      observationRetentionDays: 730,
     });
 
     expect(result.expiredVerifications).toBeGreaterThanOrEqual(1);

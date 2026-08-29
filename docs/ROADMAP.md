@@ -49,7 +49,16 @@ Phase 2's queued scan workflow already delivered the durable queue/outbox, worke
 
 Verification: the full migration chain applied to a clean PostgreSQL 17 database, hosted-style provisioning and `npm run db:verify:boundaries` passed with both new tables attested, all 70 restricted-role integration tests passed (4 new, covering deduplication across repeated scans, resolve-then-reappear, degraded-scan absence handling, and cross-tenant isolation), the service-independent suite passed with 275 tests (29 new), and `npm run check`/`npm run build` passed.
 
-Remaining Phase 3 work: `Evidence` persistence, cross-provider equivalence groups, observation retention per `docs/PRIVACY.md`'s 24-month rule, and operations runbooks.
+### Slice 2 — observation retention and operations runbook (complete 2026-08-29)
+
+- migration `0024` extends the retention function with a bounded observation sweep that deletes history older than the 24-month default from `docs/PRIVACY.md` while always preserving each finding's most recent observation, because that table retains evidence summary and provenance for the life of the finding;
+- PostgreSQL enforces a thirty-day floor on the observation cutoff, and the Worker validates `OBSERVATION_RETENTION_DAYS=730` before any database client exists;
+- the retention owner gains an `observations` capability policy and exact grants; findings themselves are never touched by retention, only by account deletion; and
+- `docs/SCAN_OPERATIONS.md` is the Phase 3 runbook: pipeline states, the safe-code table, stuck-work triage, how to read temporal evidence, and the conclusions an operator must not draw from a finding.
+
+Verification: the full migration chain applied to a clean PostgreSQL 17 database, hosted-style provisioning and `npm run db:verify:boundaries` passed, and the restricted-role integration suite passed three consecutive times with 71 tests.
+
+Remaining Phase 3 work: `Evidence` persistence and cross-provider equivalence groups. Both are deliberately deferred rather than forgotten: the enforced breach allowlist already persists this capability's full provenance, and equivalence grouping cannot be designed honestly against a single provider.
 
 ## Phase 4 — Review dashboard and remediation
 

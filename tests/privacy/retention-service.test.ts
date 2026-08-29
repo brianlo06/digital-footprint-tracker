@@ -21,6 +21,12 @@ describe("retention maintenance bounds", () => {
     await expect(
       runRetentionMaintenance({ scanJobRetentionDays: Number.MAX_SAFE_INTEGER }),
     ).rejects.toThrow("SCAN_JOB_RETENTION_DAYS_INVALID");
+    await expect(runRetentionMaintenance({ observationRetentionDays: 29 })).rejects.toThrow(
+      "OBSERVATION_RETENTION_DAYS_INVALID",
+    );
+    await expect(
+      runRetentionMaintenance({ observationRetentionDays: Number.MAX_SAFE_INTEGER }),
+    ).rejects.toThrow("OBSERVATION_RETENTION_DAYS_INVALID");
     await expect(runRetentionMaintenance({ now: new Date(Number.NaN) })).rejects.toThrow(
       "RETENTION_NOW_INVALID",
     );

@@ -100,6 +100,7 @@ The pinned GitHub Actions workflow runs `npm run check`, the production build, m
 - [Clerk authentication and deletion operations](docs/CLERK_OPERATIONS.md)
 - [Cloudflare preview operations](docs/CLOUDFLARE_PREVIEW.md)
 - [Breach scan Worker operations](docs/BREACH_SCAN_WORKER_OPERATIONS.md)
+- [Scan and evidence operations](docs/SCAN_OPERATIONS.md)
 - [Local browser validation](docs/BROWSER_VALIDATION.md)
 - [Route and Server Action authorization matrix](docs/AUTHORIZATION_MATRIX.md)
 - [Product definition](docs/PRODUCT.md)

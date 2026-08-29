@@ -256,7 +256,7 @@ describeWithDatabase("bounded verification delivery outbox worker", () => {
         deliverySql`select delivery_id from public.verification_delivery_outbox limit 1`,
       ).rejects.toMatchObject({ code: "42501" });
       await expect(
-        deliverySql`select public.run_retention_maintenance(now(), 100, now(), now())`,
+        deliverySql`select public.run_retention_maintenance(now(), 100, now(), now(), now())`,
       ).rejects.toMatchObject({ code: "42501" });
     } finally {
       await deliverySql.end({ timeout: 5 });
