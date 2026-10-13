@@ -1,6 +1,6 @@
 # Phased Roadmap
 
-Current portfolio scope: a local synthetic workflow through queued scans, findings, observations, and recent history. This polish pass stabilizes existing work; it does not complete Phase 3 or authorize Phase 4. See [the demo](../README.md#five-minute-synthetic-demo) and [verification evidence](STABILIZATION.md).
+Current portfolio scope: a local synthetic workflow through queued scans, findings, observations, and recent history. Phase 4 was approved on 2026-10-12 for synthetic-only work and its first slice, finding detail and review, is implemented. See [the demo](../README.md#five-minute-synthetic-demo) and [verification evidence](STABILIZATION.md).
 
 No later phase begins without explicit owner approval. Security/privacy/legal gates are deliverables, not cleanup tasks.
 
@@ -70,6 +70,20 @@ Remaining Phase 3 work: `Evidence` persistence and cross-provider equivalence gr
 **Risks:** fear-inducing presentation, false attribution, sensitive content leakage.  
 **Exit Criteria:** user research validates comprehension; WCAG 2.2 AA review; no composite score; remediation status claims are accurate.
 
+The owner approved this phase, together with the remaining Phase 3 work, on 2026-10-12 for synthetic-only implementation. The approval authorizes no live provider, real personal data, nonzero budget, or hosted activation.
+
+### Slice 1 — finding detail and review (complete 2026-10-12)
+
+- `/findings/[findingId]` answers, for one tracked finding, why it is shown (the masked matched identifier and source), when it was first and last seen and checked, what is stored, and its check history, with an inconclusive check always labelled as saying nothing about removal;
+- the account holder can mark a finding reviewed, confirm it relates to them, say it is not them, or ignore it, and can undo any of those; undo returns to the status automatic rules hold for the current temporal state, never to a remembered earlier one;
+- the rules live in one pure module, `src/core/finding-review.ts`; a review changes only `status`, never presence or the absence streak, and ADR 0006 already guarantees that later observations do not overwrite a user-set status;
+- findings marked not-mine or ignored leave the overview and remain in the full history; and
+- no migration: the statuses already existed, and each review writes an audit event.
+
+Not in this slice: a `SuppressionRule` table with scope, reason, and expiry (a dismissal here applies to exactly one fingerprinted finding), remediation tracking, the category dashboard, notifications, and export. Phase 3's Evidence persistence and equivalence groups also remain open; equivalence grouping still has only one provider to be designed against.
+
+Verification: `npm run check` passed with 306 service-independent tests (7 new), and the restricted-role integration suite passed with 73 tests on a clean PostgreSQL 17 database (1 new, covering cross-account denial, persistence of a review across resolve-and-reappear, undo, overview filtering, and audit events).
+
 ## Phase 5 — Carefully selected additional providers
 
 **Objective:** expand value one capability at a time.  
@@ -96,6 +110,6 @@ Remaining Phase 3 work: `Evidence` persistence and cross-provider equivalence gr
 
 ## Current stabilization scope
 
-Keep the existing synthetic workflow runnable and understandable, maintain regression coverage and accurate setup instructions, and preserve default-off provider/hosted boundaries. No new milestone, provider, architecture, or deployment is authorized by this pass. Phase 3's general Evidence persistence and equivalence groups remain deferred; Phase 4's broader review/remediation experience remains unimplemented.
+Keep the existing synthetic workflow runnable and understandable, maintain regression coverage and accurate setup instructions, and preserve default-off provider/hosted boundaries. No new milestone, provider, architecture, or deployment is authorized by this pass. That stabilization pass is closed. Phase 3's general Evidence persistence and equivalence groups remain open, and Phase 4 beyond Slice 1 is unimplemented.
 
 Historical verification counts above describe those implementation sessions, not a guarantee that the latest CI run passed. The subsequent observation-retention CI failure and this pass's local verification are documented in [STABILIZATION.md](STABILIZATION.md).

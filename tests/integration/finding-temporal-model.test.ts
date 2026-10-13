@@ -2,9 +2,10 @@ import { retentionTestLock } from "./retention-test-lock";
 import { resetServerEnvForTests } from "@/config/server-env";
 import { createAccountIfMissing, type AccountContext } from "@/core/account-service";
 import { listTrackedFindings } from "@/core/finding-history";
+import { getFindingDetail, reviewFinding } from "@/core/finding-review-service";
 import { addEmailIdentifier, verifyEmailIdentifier } from "@/core/identifier-service";
 import { closeDatabase, getDatabase } from "@/database/client";
-import { consentRecords, findings, observations, users } from "@/database/schema";
+import { auditEvents, consentRecords, findings, observations, users } from "@/database/schema";
 import { runRetentionMaintenance } from "@/privacy/retention-service";
 import { withTenantDatabase } from "@/database/tenant";
 import {
@@ -345,6 +346,83 @@ describeWithDatabase("generic finding and observation temporal model", () => {
     // The finding itself is untouched by observation retention.
     const [finding] = await findingRows(account.userId);
     expect(finding).toMatchObject({ presenceState: "PRESENT", status: "NEW" });
+  });
+
+  it("records a review the owner can undo, and that later checks never overwrite", async () => {
+    const principal: AuthenticatedPrincipal = {
+      subject: `finding_review_${testRunId}`,
+      mode: "local",
+    };
+    const strangerPrincipal: AuthenticatedPrincipal = {
+      subject: `finding_review_stranger_${testRunId}`,
+      mode: "local",
+    };
+    const account = await prepareAccount(principal, "review");
+    const stranger = await prepareAccount(strangerPrincipal, "review-stranger");
+    const base = Date.now();
+    await runScan(account, "SUCCESS", new Date(base));
+    const [{ id: findingId }] = await findingRows(account.userId);
+
+    // Another account can neither read nor review the finding.
+    expect(await getFindingDetail(stranger, findingId)).toBeNull();
+    expect(await reviewFinding(stranger, findingId, "FALSE_POSITIVE")).toEqual({
+      outcome: "NOT_FOUND",
+    });
+    expect(await reviewFinding(account, "not-a-uuid", "CONFIRMED")).toEqual({
+      outcome: "NOT_FOUND",
+    });
+
+    expect(await reviewFinding(account, findingId, "RESET")).toEqual({ outcome: "UNCHANGED" });
+    expect(await reviewFinding(account, findingId, "FALSE_POSITIVE")).toEqual({
+      outcome: "UPDATED",
+      status: "FALSE_POSITIVE",
+    });
+    expect(await reviewFinding(account, findingId, "FALSE_POSITIVE")).toEqual({
+      outcome: "UNCHANGED",
+    });
+
+    // Dismissed findings leave the default list but stay in the full one.
+    expect(await listTrackedFindings(account, { limit: 10, excludeDismissed: true })).toEqual([]);
+    expect(await listTrackedFindings(account, { limit: 10 })).toHaveLength(1);
+
+    // Two confirmed absences would resolve an unreviewed finding; a later
+    // presence would mark it reappeared. The user's label survives both.
+    await runScan(account, "EMPTY", new Date(base + 60_000));
+    await runScan(account, "EMPTY", new Date(base + 120_000));
+    await runScan(account, "SUCCESS", new Date(base + 180_000));
+    const detail = await getFindingDetail(account, findingId);
+    expect(detail).toMatchObject({
+      status: "FALSE_POSITIVE",
+      presenceState: "PRESENT",
+      observationsTruncated: false,
+    });
+    expect(detail!.matchedIdentifierMasked).toMatch(/\*/);
+    expect(detail!.observations.map((entry) => entry.presence)).toEqual([
+      "PRESENT",
+      "MISSING",
+      "MISSING",
+      "PRESENT",
+    ]);
+    expect(detail!.observations.every((entry) => !entry.contentChanged)).toBe(true);
+
+    // Undo returns to what automatic rules hold for the current state.
+    expect(await reviewFinding(account, findingId, "RESET")).toEqual({
+      outcome: "UPDATED",
+      status: "NEW",
+    });
+    expect(await listTrackedFindings(account, { limit: 10, excludeDismissed: true })).toHaveLength(
+      1,
+    );
+
+    const audited = await getDatabase()
+      .select({ action: auditEvents.action })
+      .from(auditEvents)
+      .where(eq(auditEvents.targetId, findingId))
+      .orderBy(asc(auditEvents.occurredAt));
+    expect(audited.map((row) => row.action)).toEqual([
+      "FINDING_REVIEW_FALSE_POSITIVE",
+      "FINDING_REVIEW_RESET",
+    ]);
   });
 
   it("keeps findings isolated between tenants", async () => {

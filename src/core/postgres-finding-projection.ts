@@ -7,6 +7,7 @@ import {
   computeFindingFingerprint,
   FINDING_FINGERPRINT_VERSION,
 } from "@/core/finding-fingerprint";
+import { DISMISSED_FINDING_STATUSES } from "@/core/finding-review";
 import {
   applyObservation,
   INITIAL_FINDING_STATE,
@@ -14,7 +15,7 @@ import {
   type FindingTemporalState,
   type ObservationPresence,
 } from "@/core/observation-rules";
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, notInArray, sql } from "drizzle-orm";
 
 /** One provider-reported resource, already normalized past the adapter boundary. */
 export interface ProjectedCandidate {
@@ -250,7 +251,12 @@ async function appendObservation(
 /** Reads the tenant's current findings for display, newest activity first. */
 export async function listFindings(
   transaction: DatabaseTransaction,
-  input: { readonly userId: string; readonly limit: number; readonly offset?: number },
+  input: {
+    readonly userId: string;
+    readonly limit: number;
+    readonly offset?: number;
+    readonly excludeDismissed?: boolean;
+  },
 ) {
   return transaction
     .select({
@@ -266,7 +272,14 @@ export async function listFindings(
       lastCheckedAt: findings.lastCheckedAt,
     })
     .from(findings)
-    .where(eq(findings.userId, input.userId))
+    .where(
+      input.excludeDismissed
+        ? and(
+            eq(findings.userId, input.userId),
+            notInArray(findings.status, [...DISMISSED_FINDING_STATUSES]),
+          )
+        : eq(findings.userId, input.userId),
+    )
     .orderBy(desc(findings.lastCheckedAt), desc(findings.id))
     .limit(input.limit)
     .offset(input.offset ?? 0);

@@ -46,7 +46,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
     listIdentifiers(account),
     getBreachConsentSummary(account),
     listRecentBreachScans(account, { limit: 5 }),
-    listTrackedFindings(account, { limit: 10 }),
+    listTrackedFindings(account, { limit: 10, excludeDismissed: true }),
   ]);
   const verified = identifierList.filter((item) => item.verificationStatus === "VERIFIED").length;
   const hasVerifiedEmail = identifierList.some(
@@ -176,8 +176,10 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
         <h2 id="tracked-findings-heading">Tracked findings</h2>
         <p className="muted">
           Showing up to ten distinct findings, kept stable across checks so absence and reappearance
-          stay visible. A finding is only called resolved after repeated confirmed absences; a
-          failed or degraded check never counts as one.
+          stay visible. Open a finding to see its check history and review it; findings you marked
+          as not yours or ignored are left out here and remain in the full history. A finding is
+          only called resolved after repeated confirmed absences; a failed or degraded check never
+          counts as one.
         </p>
         <TrackedFindingList findings={trackedFindings} />
       </section>

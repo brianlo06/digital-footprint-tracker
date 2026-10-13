@@ -72,6 +72,12 @@ export default async function HistoryPage({ searchParams }: { searchParams: Sear
         </p>
       </header>
 
+      {parameters.error === "finding_unavailable" ? (
+        <div className="notice danger" role="alert">
+          That finding is not available. Choose one from the list below.
+        </div>
+      ) : null}
+
       <section aria-labelledby="history-scans-heading" className="card">
         <h2 id="history-scans-heading">Scans</h2>
         <p className="muted">
