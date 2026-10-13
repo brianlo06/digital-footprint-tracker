@@ -27,18 +27,32 @@ async function waitUntilListening(worker) {
   fail("worker_did_not_listen");
 }
 
-async function expectResponse(path, status, location) {
+async function checkResponse(path, status, location) {
   const response = await fetch(`${origin}${path}`, { redirect: "manual" });
-  if (response.status !== status) fail(`${path}:status_${response.status}`);
+  if (response.status !== status) return `${path}:status_${response.status}`;
   if (!response.headers.get("content-security-policy")?.includes("'nonce-")) {
-    fail(`${path}:missing_nonce_csp`);
+    return `${path}:missing_nonce_csp`;
   }
   if (location !== undefined) {
     const actual = response.headers.get("location");
     if (!actual || new URL(actual, origin).pathname !== location) {
-      fail(`${path}:unexpected_redirect`);
+      return `${path}:unexpected_redirect`;
     }
   }
+  return undefined;
+}
+
+// The local runtime can answer its first requests before the Worker is fully
+// initialised, so a check is retried briefly. A real regression fails every
+// attempt.
+async function expectResponse(path, status, location) {
+  let failure;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    if (attempt > 0) await new Promise((resolve) => setTimeout(resolve, 1_000));
+    failure = await checkResponse(path, status, location);
+    if (failure === undefined) return;
+  }
+  fail(failure);
 }
 
 const worker = spawn(
