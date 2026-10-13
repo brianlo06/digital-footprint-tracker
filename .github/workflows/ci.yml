@@ -50,6 +50,8 @@ jobs:
         run: npm run cf:verify:boundaries
       - name: Build production Cloudflare Worker
         run: npm run cf:build
+      - name: Smoke-test the built preview Worker
+        run: npm run cf:smoke
       - name: Verify generated Cloudflare bindings
         run: npm run cf:typecheck
       - name: Verify generated standalone Worker bindings
