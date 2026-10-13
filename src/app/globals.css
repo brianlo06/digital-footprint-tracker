@@ -362,6 +362,41 @@ input[type="text"] {
   white-space: nowrap;
 }
 
+.fact-list {
+  display: grid;
+  gap: 0.9rem;
+  margin: 0;
+}
+
+.fact-list dt {
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.fact-list dd {
+  margin: 0.2rem 0 0;
+  line-height: 1.55;
+}
+
+/* SC 1.4.10: a data table may scroll in its own region instead of the page. */
+.table-scroll {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  border-bottom: 1px solid var(--line);
+  padding: 0.6rem 0.75rem 0.6rem 0;
+  text-align: left;
+  vertical-align: top;
+}
+
 .empty-state {
   border: 1px dashed #9cad9f;
   border-radius: 1rem;

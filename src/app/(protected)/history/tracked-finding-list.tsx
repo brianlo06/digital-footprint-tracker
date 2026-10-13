@@ -1,5 +1,8 @@
 import type { TrackedFinding } from "@/core/finding-history";
 import { describeBreachProvider } from "@/providers/breach/breach-coverage-guidance";
+import Link from "next/link";
+
+import { FINDING_STATUS_LABELS } from "../findings/finding-labels";
 
 export function TrackedFindingList({ findings }: { findings: readonly TrackedFinding[] }) {
   return findings.length === 0 ? (
@@ -10,8 +13,10 @@ export function TrackedFindingList({ findings }: { findings: readonly TrackedFin
         <article className="identifier-row" key={finding.id}>
           <div>
             <p>
-              <strong>{finding.title}</strong> ·{" "}
-              {describeBreachProvider(finding.sourceProviderId).displayName}
+              <strong>
+                <Link href={`/findings/${finding.id}`}>{finding.title}</Link>
+              </strong>{" "}
+              · {describeBreachProvider(finding.sourceProviderId).displayName}
             </p>
             <p className="muted">
               First seen {finding.firstSeenAt.toLocaleString()} · last seen{" "}
@@ -21,7 +26,7 @@ export function TrackedFindingList({ findings }: { findings: readonly TrackedFin
           </div>
           <div className="stack">
             <span className="badge">{finding.presenceState.toLowerCase()}</span>
-            <span className="badge">{finding.status.toLowerCase().replace(/_/g, " ")}</span>
+            <span className="badge">{FINDING_STATUS_LABELS[finding.status]}</span>
           </div>
         </article>
       ))}
