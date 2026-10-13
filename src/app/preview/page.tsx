@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+export const metadata = { title: "Preview boundary" };
+
 export default function PreviewBoundaryPage() {
   return (
     <section className="stack" aria-labelledby="preview-heading">

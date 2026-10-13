@@ -41,6 +41,7 @@ export function ScanHistoryList({ scans }: { scans: readonly BreachScanHistoryEn
                       Source (fictional URL):{" "}
                       <a href={finding.sourceUrl} rel="noreferrer" target="_blank">
                         {finding.sourceUrl}
+                        <span className="visually-hidden"> (opens in a new tab)</span>
                       </a>{" "}
                       · parser {finding.parserVersion}
                     </p>

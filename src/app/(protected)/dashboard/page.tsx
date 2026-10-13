@@ -190,6 +190,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
             {coverage.provider.attributionUrl ? (
               <a href={coverage.provider.attributionUrl} rel="noreferrer" target="_blank">
                 {coverage.provider.displayName}
+                <span className="visually-hidden"> (opens in a new tab)</span>
               </a>
             ) : (
               <strong>{coverage.provider.displayName}</strong>

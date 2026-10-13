@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+export const metadata = { title: "Account deleted" };
+
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 export default async function DeletedPage({ searchParams }: { searchParams: SearchParams }) {
