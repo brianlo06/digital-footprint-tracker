@@ -24,9 +24,13 @@ function accountPrincipal(account: AccountContext): AuthenticatedPrincipal {
 
 export async function listTrackedFindings(
   account: AccountContext,
-  options: { readonly limit: number },
+  options: { readonly limit: number; readonly offset?: number },
 ): Promise<readonly TrackedFinding[]> {
   return withTenantDatabase(accountPrincipal(account), (transaction) =>
-    listFindings(transaction, { userId: account.userId, limit: options.limit }),
+    listFindings(transaction, {
+      userId: account.userId,
+      limit: options.limit,
+      offset: options.offset,
+    }),
   );
 }
