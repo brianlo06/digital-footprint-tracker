@@ -3,6 +3,7 @@ import { createAccountIfMissing, findAccount } from "@/core/account-service";
 import {
   addEmailIdentifier,
   listIdentifiers,
+  requestEmailVerification,
   verifyEmailIdentifier,
 } from "@/core/identifier-service";
 import { closeDatabase, getDatabase } from "@/database/client";
@@ -295,6 +296,74 @@ describeWithDatabase("synthetic account lifecycle", () => {
     );
 
     await deleteAccount(lockoutPrincipal, authGateway, { recentlyReauthenticated: true });
+  });
+
+  it("reissues a challenge so a locked or aged verification is recoverable", async () => {
+    const reissuePrincipal: AuthenticatedPrincipal = {
+      subject: `integration_reissue_${testRunId}`,
+      mode: "local",
+    };
+    const strangerPrincipal: AuthenticatedPrincipal = {
+      subject: `integration_reissue_stranger_${testRunId}`,
+      mode: "local",
+    };
+    const account = await createAccountIfMissing(reissuePrincipal);
+    const stranger = await createAccountIfMissing(strangerPrincipal);
+    const created = await addEmailIdentifier(account, "reissue.challenge@example.test");
+
+    await expect(requestEmailVerification(stranger, created.identifierId)).rejects.toThrow(
+      "VERIFICATION_NOT_AVAILABLE",
+    );
+
+    // The first challenge is retired as soon as a replacement exists.
+    const second = await requestEmailVerification(account, created.identifierId);
+    expect(second.verificationId).not.toBe(created.verificationId);
+    await expect(verifyEmailIdentifier(account, created.verificationId, "000000")).rejects.toThrow(
+      "VERIFICATION_NOT_AVAILABLE",
+    );
+    const [retired] = await getDatabase()
+      .select({
+        challengeHash: identifierVerifications.challengeHash,
+        status: identifierVerifications.status,
+      })
+      .from(identifierVerifications)
+      .where(eq(identifierVerifications.id, created.verificationId));
+    expect(retired).toEqual({ challengeHash: "consumed", status: "EXPIRED" });
+
+    await verifyEmailIdentifier(account, second.verificationId, "000000");
+    const [firstVerified] = await listIdentifiers(account);
+    expect(firstVerified.verificationStatus).toBe("VERIFIED");
+
+    // Age the verification past the scan-authorization window, then verify
+    // again: the status never drops and the timestamp moves forward.
+    const aged = new Date(Date.now() - 48 * 60 * 60 * 1_000);
+    await getDatabase()
+      .update(identifiers)
+      .set({ lastVerifiedAt: aged })
+      .where(eq(identifiers.id, created.identifierId));
+    const third = await requestEmailVerification(account, created.identifierId);
+    const [pendingAgain] = await listIdentifiers(account);
+    expect(pendingAgain.verificationStatus).toBe("VERIFIED");
+    expect(pendingAgain.lastVerifiedAt?.getTime()).toBe(aged.getTime());
+
+    await verifyEmailIdentifier(account, third.verificationId, "000000");
+    const [reverified] = await listIdentifiers(account);
+    expect(reverified.verificationStatus).toBe("VERIFIED");
+    expect(reverified.lastVerifiedAt!.getTime()).toBeGreaterThan(aged.getTime());
+
+    const requested = await getDatabase()
+      .select({ id: auditEvents.id })
+      .from(auditEvents)
+      .where(
+        and(
+          eq(auditEvents.targetId, created.identifierId),
+          eq(auditEvents.action, "IDENTIFIER_VERIFICATION_REQUESTED"),
+        ),
+      );
+    expect(requested).toHaveLength(2);
+
+    await deleteAccount(reissuePrincipal, authGateway, { recentlyReauthenticated: true });
+    await deleteAccount(strangerPrincipal, authGateway, { recentlyReauthenticated: true });
   });
 
   it("requires recent reauthentication before deletion changes data", async () => {

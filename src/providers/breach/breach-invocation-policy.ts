@@ -53,6 +53,15 @@ function validDate(value: Date): boolean {
   return value instanceof Date && Number.isFinite(value.getTime());
 }
 
+export function isBreachVerificationRecent(
+  lastVerifiedAt: Date | null,
+  now: Date = new Date(),
+): boolean {
+  if (!lastVerifiedAt) return false;
+  const verificationAge = now.getTime() - lastVerifiedAt.getTime();
+  return verificationAge >= 0 && verificationAge <= BREACH_VERIFICATION_MAX_AGE_MS;
+}
+
 export function evaluateBreachInvocationAuthorization(
   command: BreachInvocationCommandIdentity,
   snapshot: BreachInvocationAuthorizationSnapshot | null,
@@ -83,8 +92,7 @@ export function evaluateBreachInvocationAuthorization(
     return "IDENTIFIER_NOT_VERIFIED";
   }
 
-  const verificationAge = now.getTime() - snapshot.identifier.lastVerifiedAt.getTime();
-  if (verificationAge < 0 || verificationAge > BREACH_VERIFICATION_MAX_AGE_MS) {
+  if (!isBreachVerificationRecent(snapshot.identifier.lastVerifiedAt, now)) {
     return "VERIFICATION_STALE";
   }
 

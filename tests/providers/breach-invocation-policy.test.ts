@@ -3,6 +3,7 @@ import {
   BREACH_CONSENT_PURPOSE,
   BREACH_VERIFICATION_MAX_AGE_MS,
   evaluateBreachInvocationAuthorization,
+  isBreachVerificationRecent,
   type BreachInvocationAuthorizationSnapshot,
 } from "@/providers/breach/breach-invocation-policy";
 import { describe, expect, it } from "vitest";
@@ -171,6 +172,15 @@ describe("breach invocation authorization", () => {
     expect(evaluateBreachInvocationAuthorization(command, additionalCategory, now)).toBe(
       "CONSENT_SCOPE_INVALID",
     );
+  });
+
+  it("treats only a verification inside the window as recent", () => {
+    const at = (offsetMs: number) => new Date(now.getTime() - offsetMs);
+    expect(isBreachVerificationRecent(at(0), now)).toBe(true);
+    expect(isBreachVerificationRecent(at(BREACH_VERIFICATION_MAX_AGE_MS), now)).toBe(true);
+    expect(isBreachVerificationRecent(at(BREACH_VERIFICATION_MAX_AGE_MS + 1), now)).toBe(false);
+    expect(isBreachVerificationRecent(at(-1), now)).toBe(false);
+    expect(isBreachVerificationRecent(null, now)).toBe(false);
   });
 
   it("rejects an invalid evaluation clock", () => {

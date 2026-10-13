@@ -330,6 +330,22 @@ input[type="text"] {
   margin-bottom: 0.2rem;
 }
 
+.identifier-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 .empty-state {
   border: 1px dashed #9cad9f;
   border-radius: 1rem;

@@ -1,7 +1,11 @@
 "use server";
 
 import { findAccount } from "@/core/account-service";
-import { addEmailIdentifier, verifyEmailIdentifier } from "@/core/identifier-service";
+import {
+  addEmailIdentifier,
+  requestEmailVerification,
+  verifyEmailIdentifier,
+} from "@/core/identifier-service";
 import { requirePrincipal } from "@/security/auth";
 import { consumeServerActionRateLimit } from "@/security/rate-limit";
 import { redirect } from "next/navigation";
@@ -22,6 +26,26 @@ export async function addEmailAction(formData: FormData): Promise<void> {
   } catch (error) {
     if (error && typeof error === "object" && "digest" in error) throw error;
     redirect("/identities?error=add_failed");
+  }
+}
+
+export async function requestVerificationAction(formData: FormData): Promise<void> {
+  const principal = await requirePrincipal();
+  const rateLimit = await consumeServerActionRateLimit(principal, "VERIFICATION_ATTEMPT");
+  if (!rateLimit.allowed) redirect("/identities?error=rate_limited");
+  const identifierId = formData.get("identifierId");
+  if (typeof identifierId !== "string" || !/^[0-9a-f-]{36}$/i.test(identifierId)) {
+    redirect("/identities?error=verification_invalid");
+  }
+
+  try {
+    const account = await findAccount(principal);
+    if (!account) redirect("/onboarding");
+    const result = await requestEmailVerification(account, identifierId);
+    redirect(`/identities?reissued=1&verification=${encodeURIComponent(result.verificationId)}`);
+  } catch (error) {
+    if (error && typeof error === "object" && "digest" in error) throw error;
+    redirect("/identities?error=verification_request_failed");
   }
 }
 
