@@ -101,7 +101,7 @@ Keep every other provider disabled, API keys empty, and scheduled scans/email no
 5. Run a second check and refresh. Expect two recent scans but still one tracked finding. Reload the page: the results persist in PostgreSQL.
 6. Optionally withdraw permission in Privacy: the run control becomes unavailable. Account deletion removes the demo account and its linked scans/findings; a limited pseudonymous deletion receipt remains.
 
-The overview shows five recent scans and up to ten tracked findings, not a complete history browser. Verification must be recent (within 24 hours); when it ages out, or a code expires or locks, use **Verify again** / **Get a new code** on the Identifiers page. For a fresh walkthrough, delete the synthetic account and start again. If a job remains queued, check the dev-server log and [scan runbook](docs/SCAN_OPERATIONS.md); the recovery Cron Worker is not deployed or scheduled by this demo. Do not repeatedly submit scans to recover stuck work.
+The overview shows five recent scans and up to ten tracked findings; the **History** page pages through every stored scan and tracked finding, twenty at a time. Per-finding observation history is not displayed. Verification must be recent (within 24 hours); when it ages out, or a code expires or locks, use **Verify again** / **Get a new code** on the Identifiers page. For a fresh walkthrough, delete the synthetic account and start again. If a job remains queued, check the dev-server log and [scan runbook](docs/SCAN_OPERATIONS.md); the recovery Cron Worker is not deployed or scheduled by this demo. Do not repeatedly submit scans to recover stuck work.
 
 See [stabilization verification](docs/STABILIZATION.md) for the actual test and browser evidence, including limitations.
 

@@ -250,7 +250,7 @@ async function appendObservation(
 /** Reads the tenant's current findings for display, newest activity first. */
 export async function listFindings(
   transaction: DatabaseTransaction,
-  input: { readonly userId: string; readonly limit: number },
+  input: { readonly userId: string; readonly limit: number; readonly offset?: number },
 ) {
   return transaction
     .select({
@@ -268,7 +268,8 @@ export async function listFindings(
     .from(findings)
     .where(eq(findings.userId, input.userId))
     .orderBy(desc(findings.lastCheckedAt), desc(findings.id))
-    .limit(input.limit);
+    .limit(input.limit)
+    .offset(input.offset ?? 0);
 }
 
 /** Observation history for one finding, oldest first, for provenance display. */

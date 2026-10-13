@@ -1,6 +1,7 @@
 import { retentionTestLock } from "./retention-test-lock";
 import { resetServerEnvForTests } from "@/config/server-env";
 import { createAccountIfMissing, type AccountContext } from "@/core/account-service";
+import { listTrackedFindings } from "@/core/finding-history";
 import { addEmailIdentifier, verifyEmailIdentifier } from "@/core/identifier-service";
 import { closeDatabase, getDatabase } from "@/database/client";
 import { consentRecords, findings, observations, users } from "@/database/schema";
@@ -10,6 +11,7 @@ import {
   BREACH_CONSENT_POLICY_VERSION,
   BREACH_CONSENT_PURPOSE,
 } from "@/providers/breach/breach-invocation-policy";
+import { listRecentBreachScans } from "@/providers/breach/breach-scan-history";
 import { executePostgresSyntheticBreachScan } from "@/providers/breach/postgres-breach-scan";
 import { selectBreachProvider } from "@/providers/provider-registry";
 import type { ProviderUsageBudget } from "@/providers/provider-usage-ledger";
@@ -196,6 +198,16 @@ describeWithDatabase("generic finding and observation temporal model", () => {
     expect(observed.map((row) => row.presence)).toEqual(["PRESENT", "PRESENT"]);
     expect(observed[0].previousObservationId).toBeNull();
     expect(observed[1].previousObservationId).toBe(observed[0].id);
+
+    // History paging walks both scans newest first without overlap, and the
+    // single deduplicated finding does not repeat on a second page.
+    const [newest] = await listRecentBreachScans(account, { limit: 1 });
+    const [older] = await listRecentBreachScans(account, { limit: 1, offset: 1 });
+    expect(newest.scanId).not.toBe(older.scanId);
+    expect(newest.startedAt.getTime()).toBeGreaterThan(older.startedAt.getTime());
+    expect(await listRecentBreachScans(account, { limit: 1, offset: 2 })).toEqual([]);
+    expect(await listTrackedFindings(account, { limit: 1 })).toHaveLength(1);
+    expect(await listTrackedFindings(account, { limit: 1, offset: 1 })).toEqual([]);
   });
 
   it("resolves a finding only after consecutive confirmed absences, then reappears it", async () => {

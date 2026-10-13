@@ -4,7 +4,6 @@ import { listTrackedFindings } from "@/core/finding-history";
 import { listIdentifiers } from "@/core/identifier-service";
 import { getBreachConsentSummary } from "@/privacy/breach-consent-service";
 import {
-  describeBreachProvider,
   isDegradedHealthOutcome,
   summarizeBreachCoverage,
 } from "@/providers/breach/breach-coverage-guidance";
@@ -14,7 +13,9 @@ import { selectBreachProviderFromEnv } from "@/providers/provider-registry";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { cancelQueuedBreachScanAction, runBreachScanAction } from "./actions";
+import { runBreachScanAction } from "./actions";
+import { ScanHistoryList } from "../history/scan-history-list";
+import { TrackedFindingList } from "../history/tracked-finding-list";
 import { requireProtectedPagePrincipal } from "../principal";
 
 export const metadata = { title: "Privacy overview" };
@@ -158,81 +159,16 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
           Showing the latest five checks. Queued work runs after the response; refresh to load its
           current state.
         </p>
-        {recentScans.length === 0 ? (
-          <div className="empty-state">No scan has run yet.</div>
-        ) : (
-          <div className="stack">
-            {recentScans.map((scan) => (
-              <article className="identifier-row" key={scan.scanId}>
-                <div>
-                  <p>
-                    {scan.providerId
-                      ? describeBreachProvider(scan.providerId).displayName
-                      : "Awaiting provider dispatch"}{" "}
-                    · {scan.startedAt.toLocaleString()}
-                  </p>
-                  {scan.errorSafeCode ? (
-                    <p className="muted">Safe failure code: {scan.errorSafeCode}</p>
-                  ) : null}
-                  {isDegradedHealthOutcome(scan.providerHealthOutcome) ? (
-                    <p className="muted">
-                      Provider health at this check: {scan.providerHealthOutcome} — coverage may be
-                      incomplete.
-                    </p>
-                  ) : null}
-                  {scan.findings.length > 0 ? (
-                    <div className="stack">
-                      {scan.findings.map((finding) => (
-                        <div key={finding.id}>
-                          <p>
-                            <strong>{finding.breachName}</strong> · breach date {finding.breachDate}{" "}
-                            · checked {finding.checkedAt.toLocaleString()}
-                          </p>
-                          <p className="muted">
-                            Source (fictional URL):{" "}
-                            <a href={finding.sourceUrl} rel="noreferrer" target="_blank">
-                              {finding.sourceUrl}
-                            </a>{" "}
-                            · parser {finding.parserVersion}
-                          </p>
-                          <p>
-                            {finding.dataCategories.map((category) => (
-                              <span className="badge" key={category}>
-                                {category}
-                              </span>
-                            ))}
-                            {finding.isVerified ? (
-                              <span className="badge">provider-verified</span>
-                            ) : null}
-                            {finding.isSensitive ? <span className="badge">sensitive</span> : null}
-                            {finding.isRetired ? <span className="badge">retired</span> : null}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
-                <div className="stack">
-                  <span className="badge">{scan.scanState.toLowerCase()}</span>
-                  {scan.scanState === "QUEUED" ? (
-                    <form action={cancelQueuedBreachScanAction}>
-                      <input name="scanId" type="hidden" value={scan.scanId} />
-                      <button className="button secondary" type="submit">
-                        Cancel queued scan
-                      </button>
-                    </form>
-                  ) : null}
-                </div>
-              </article>
-            ))}
-          </div>
-        )}
+        <ScanHistoryList scans={recentScans} />
         <div className="inline-actions">
           <form action="/dashboard" method="get">
             <button className="button secondary" type="submit">
               Refresh scan status
             </button>
           </form>
+          <Link className="button secondary" href="/history">
+            View full history
+          </Link>
         </div>
       </section>
 
@@ -243,31 +179,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
           stay visible. A finding is only called resolved after repeated confirmed absences; a
           failed or degraded check never counts as one.
         </p>
-        {trackedFindings.length === 0 ? (
-          <div className="empty-state">No finding is being tracked yet.</div>
-        ) : (
-          <div className="stack">
-            {trackedFindings.map((finding) => (
-              <article className="identifier-row" key={finding.id}>
-                <div>
-                  <p>
-                    <strong>{finding.title}</strong> ·{" "}
-                    {describeBreachProvider(finding.sourceProviderId).displayName}
-                  </p>
-                  <p className="muted">
-                    First seen {finding.firstSeenAt.toLocaleString()} · last seen{" "}
-                    {finding.lastSeenAt ? finding.lastSeenAt.toLocaleString() : "never"} · last
-                    checked {finding.lastCheckedAt.toLocaleString()}
-                  </p>
-                </div>
-                <div className="stack">
-                  <span className="badge">{finding.presenceState.toLowerCase()}</span>
-                  <span className="badge">{finding.status.toLowerCase().replace(/_/g, " ")}</span>
-                </div>
-              </article>
-            ))}
-          </div>
-        )}
+        <TrackedFindingList findings={trackedFindings} />
       </section>
 
       <section aria-labelledby="coverage-heading" className="card">

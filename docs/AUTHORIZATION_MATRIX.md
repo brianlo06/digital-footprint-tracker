@@ -8,14 +8,15 @@ Every Server Action is treated as a directly reachable mutation endpoint. Layout
 
 ## Routes
 
-| Route               | Required boundary                                      | No active account                     | Authorized data returned                                                           |
-| ------------------- | ------------------------------------------------------ | ------------------------------------- | ---------------------------------------------------------------------------------- |
-| `/`                 | Public; no private query                               | Public foundation page                | No account data                                                                    |
-| `/onboarding`       | Current authenticated principal in the leaf page       | Show explicit account-creation action | No identifier data                                                                 |
-| `/dashboard`        | Current principal plus active account in the leaf page | Redirect to onboarding                | Counts, plus scan/provider-run/finding history, scoped to only the current account |
-| `/identities`       | Current principal plus active account in the leaf page | Redirect to onboarding                | Masked identifier DTOs for only the current identity                               |
-| `/settings/privacy` | Current principal plus active account in the leaf page | Redirect to onboarding                | Purpose-specific consent state and generic policy text; no plaintext identifiers   |
-| `/deleted`          | Public receipt display                                 | Display supplied opaque receipt ID    | No lookup or enumeration; no deleted identifier detail                             |
+| Route               | Required boundary                                      | No active account                     | Authorized data returned                                                                                                 |
+| ------------------- | ------------------------------------------------------ | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `/`                 | Public; no private query                               | Public foundation page                | No account data                                                                                                          |
+| `/onboarding`       | Current authenticated principal in the leaf page       | Show explicit account-creation action | No identifier data                                                                                                       |
+| `/dashboard`        | Current principal plus active account in the leaf page | Redirect to onboarding                | Counts, plus scan/provider-run/finding history, scoped to only the current account                                       |
+| `/history`          | Current principal plus active account in the leaf page | Redirect to onboarding                | Paged scan/provider-run/finding and tracked-finding DTOs for only the current account; page numbers are bounded integers |
+| `/identities`       | Current principal plus active account in the leaf page | Redirect to onboarding                | Masked identifier DTOs for only the current identity                                                                     |
+| `/settings/privacy` | Current principal plus active account in the leaf page | Redirect to onboarding                | Purpose-specific consent state and generic policy text; no plaintext identifiers                                         |
+| `/deleted`          | Public receipt display                                 | Display supplied opaque receipt ID    | No lookup or enumeration; no deleted identifier detail                                                                   |
 
 The shared protected layout also checks authentication, but no leaf page relies on that check alone. There are no Route Handlers in the current foundation.
 
