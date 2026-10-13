@@ -1,6 +1,7 @@
 import { findAccount } from "@/core/account-service";
 import { listIdentifiers } from "@/core/identifier-service";
 import { getBreachConsentSummary } from "@/privacy/breach-consent-service";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import {
@@ -40,13 +41,14 @@ export default async function PrivacySettingsPage({
         <h1>Privacy controls</h1>
         <p className="lede">
           Control why encrypted identifiers may be used. Synthetic provider work remains
-          user-triggered, and no footprint findings exist yet.
+          user-triggered. Only fictional fixture findings and scan history are stored.
         </p>
       </header>
 
       {parameters.consent === "granted" ? (
         <div className="notice" role="status">
-          Breach-metadata permission recorded. This did not start a lookup.
+          Breach-metadata permission recorded. This did not start a lookup.{" "}
+          <Link href="/dashboard">Continue to the synthetic check</Link>.
         </div>
       ) : null}
       {parameters.consent === "withdrawn" ? (
@@ -113,8 +115,10 @@ export default async function PrivacySettingsPage({
         <h2>Current retention</h2>
         <p>
           Identifier data remains until you delete the account. Verification challenges expire after
-          15 minutes. No provider response, scan history, notification, or raw web content is
-          currently collected.
+          15 minutes. Synthetic scan summaries and findings remain until account deletion.
+          Observation history has a 730-day retention default, preserving the newest observation per
+          finding; terminal job detail has a 90-day default. Cleanup requires the maintenance
+          worker, which is not scheduled in the local demo. No raw provider payloads are retained.
         </p>
       </section>
 

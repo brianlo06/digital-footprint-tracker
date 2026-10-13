@@ -10,8 +10,9 @@ export default function HomePage() {
         <h1>Know what the public web says about you.</h1>
         <p className="lede">
           Digital Footprint Tracker is being built to turn scattered online exposure into clear,
-          explainable evidence and safer next steps. Today, only the private account and identifier
-          foundation is active.
+          explainable evidence and safer next steps. The local demo now connects encrypted
+          identifiers, explicit consent, queued synthetic scans, and finding history. All results
+          are fictional.
         </p>
         {previewOnly ? (
           <div className="notice warning" role="status">
@@ -22,7 +23,7 @@ export default function HomePage() {
         ) : null}
         <div className="actions">
           <Link className="button" href={previewOnly ? "/preview" : "/onboarding"}>
-            {previewOnly ? "Review preview boundary" : "Set up my identity"}
+            {previewOnly ? "Review preview boundary" : "Start local demo"}
           </Link>
           <Link
             className="button secondary"
@@ -53,9 +54,10 @@ export default function HomePage() {
             </p>
           </article>
           <article className="card">
-            <h3>No provider calls</h3>
+            <h3>No live provider calls</h3>
             <p className="muted">
-              Search, breach, broker, social, and owned-asset integrations remain disabled.
+              Live integrations remain disabled. The local synthetic adapter uses fictional fixtures
+              with no network client.
             </p>
           </article>
         </div>

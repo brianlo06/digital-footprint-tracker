@@ -1,5 +1,6 @@
 import { findAccount } from "@/core/account-service";
 import { listIdentifiers } from "@/core/identifier-service";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { addEmailAction, verifyEmailAction } from "./actions";
@@ -35,7 +36,8 @@ export default async function IdentitiesPage({ searchParams }: { searchParams: S
       ) : null}
       {parameters.verified ? (
         <div className="notice" role="status">
-          Identifier verified locally. No provider capability has been enabled.
+          Identifier verified locally.{" "}
+          <Link href="/settings/privacy">Next: review breach-metadata permission</Link>.
         </div>
       ) : null}
       {parameters.error ? (
@@ -69,8 +71,8 @@ export default async function IdentitiesPage({ searchParams }: { searchParams: S
         <section aria-labelledby="verify-heading" className="card">
           <h2 id="verify-heading">Verify locally</h2>
           <p className="muted">
-            No message is sent in Phase 1. Use the local fixture code configured in your environment
-            (the example value is 000000).
+            No message is sent in this demo. Use the local fixture code configured in your
+            environment (the example value is 000000).
           </p>
           <form action={verifyEmailAction} className="form-grid">
             <input name="verificationId" type="hidden" value={verificationId} />
@@ -94,7 +96,7 @@ export default async function IdentitiesPage({ searchParams }: { searchParams: S
       <section aria-labelledby="add-heading" className="card">
         <h2 id="add-heading">Add an email</h2>
         <p className="muted">
-          For local evaluation, synthetic data is safest. The value is normalized in memory,
+          Use a fictional address such as demo@example.test. The value is normalized in memory,
           envelope-encrypted, and represented by a keyed lookup token.
         </p>
         <form action={addEmailAction} className="form-grid">

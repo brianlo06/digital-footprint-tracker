@@ -1,3 +1,4 @@
+import { retentionTestLock } from "./retention-test-lock";
 import { randomUUID } from "node:crypto";
 import { createAccountIfMissing } from "@/core/account-service";
 import { addEmailIdentifier } from "@/core/identifier-service";
@@ -52,9 +53,11 @@ describeWithDatabase("bounded retention maintenance", () => {
   };
   const maintenanceSql = postgres(testMaintenanceDatabaseUrl!, { max: 1, prepare: false });
 
-  beforeAll(() => {
-    // process.env is a shared global; another concurrently running
-    // integration test file may have left a previous lookup key set.
+  const retentionLock = retentionTestLock(testDatabaseUrl!);
+
+  beforeAll(async () => {
+    await retentionLock.acquire();
+    // Keep this suite independent of inherited rotation configuration.
     delete process.env.PREVIOUS_LOOKUP_KEY_ID;
     delete process.env.PREVIOUS_LOOKUP_KEY;
     process.env.DATABASE_URL = testDatabaseUrl;
@@ -74,6 +77,7 @@ describeWithDatabase("bounded retention maintenance", () => {
   afterAll(async () => {
     await maintenanceSql.end({ timeout: 5 });
     await closeDatabase();
+    await retentionLock.release();
     resetServerEnvForTests();
   });
 

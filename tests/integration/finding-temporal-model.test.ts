@@ -1,3 +1,4 @@
+import { retentionTestLock } from "./retention-test-lock";
 import { resetServerEnvForTests } from "@/config/server-env";
 import { createAccountIfMissing, type AccountContext } from "@/core/account-service";
 import { addEmailIdentifier, verifyEmailIdentifier } from "@/core/identifier-service";
@@ -18,12 +19,19 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 const testDatabaseUrl = process.env.TEST_DATABASE_URL;
 const testRuntimeDatabaseUrl = process.env.TEST_RUNTIME_DATABASE_URL;
-if (process.env.REQUIRE_DATABASE_TESTS === "1" && (!testDatabaseUrl || !testRuntimeDatabaseUrl)) {
+const testMaintenanceDatabaseUrl = process.env.TEST_MAINTENANCE_DATABASE_URL;
+if (
+  process.env.REQUIRE_DATABASE_TESTS === "1" &&
+  (!testDatabaseUrl || !testRuntimeDatabaseUrl || !testMaintenanceDatabaseUrl)
+) {
   throw new Error(
-    "TEST_DATABASE_URL and TEST_RUNTIME_DATABASE_URL are required for the integration test command",
+    "TEST_DATABASE_URL, TEST_RUNTIME_DATABASE_URL, and TEST_MAINTENANCE_DATABASE_URL are required for the integration test command",
   );
 }
-const describeWithDatabase = testDatabaseUrl && testRuntimeDatabaseUrl ? describe : describe.skip;
+const describeWithDatabase =
+  testDatabaseUrl && testRuntimeDatabaseUrl && testMaintenanceDatabaseUrl
+    ? describe
+    : describe.skip;
 
 describeWithDatabase("generic finding and observation temporal model", () => {
   const testRunId = Date.now();
@@ -125,11 +133,15 @@ describeWithDatabase("generic finding and observation temporal model", () => {
       .orderBy(asc(observations.observedAt), asc(observations.id));
   }
 
+  const retentionLock = retentionTestLock(testDatabaseUrl!);
+
   beforeAll(async () => {
+    await retentionLock.acquire();
     delete process.env.PREVIOUS_LOOKUP_KEY_ID;
     delete process.env.PREVIOUS_LOOKUP_KEY;
     process.env.DATABASE_URL = testDatabaseUrl;
     process.env.RUNTIME_DATABASE_URL = testRuntimeDatabaseUrl;
+    process.env.MAINTENANCE_DATABASE_URL = testMaintenanceDatabaseUrl;
     process.env.APP_ENV = "local";
     process.env.AUTH_MODE = "local";
     process.env.ENCRYPTION_KEY_ID = "finding-model-v1";
@@ -137,22 +149,21 @@ describeWithDatabase("generic finding and observation temporal model", () => {
     process.env.LOOKUP_KEY_ID = "finding-model-lookup-v1";
     process.env.LOOKUP_KEY = Buffer.alloc(32, 62).toString("base64");
     process.env.LOCAL_VERIFICATION_CODE = "000000";
-    // Set once and never mutated mid-run: process.env is shared with the
-    // other integration files vitest runs concurrently. Every call below
-    // passes its principal or account explicitly, so nothing here depends
-    // on this value matching a particular test's subject.
+    // Each operation passes its principal/account explicitly.
     process.env.LOCAL_AUTH_SUBJECT = `finding_model_${testRunId}`;
     resetServerEnvForTests();
   });
 
   afterAll(async () => {
-    if (userIds.length > 0) {
+    try {
       for (const userId of userIds) {
         await getDatabase().delete(users).where(eq(users.id, userId));
       }
+    } finally {
+      await closeDatabase();
+      await retentionLock.release();
+      resetServerEnvForTests();
     }
-    await closeDatabase();
-    resetServerEnvForTests();
   });
 
   it("creates one deduplicated finding across repeated identical scans", async () => {
@@ -161,9 +172,10 @@ describeWithDatabase("generic finding and observation temporal model", () => {
       mode: "local",
     };
     const account = await prepareAccount(principal, "dedupe");
+    const base = Date.now();
 
-    await runScan(account, "SUCCESS", new Date("2026-08-29T09:00:00.000Z"));
-    await runScan(account, "SUCCESS", new Date("2026-08-29T10:00:00.000Z"));
+    await runScan(account, "SUCCESS", new Date(base));
+    await runScan(account, "SUCCESS", new Date(base + 60_000));
 
     const rows = await findingRows(account.userId);
     expect(rows).toHaveLength(1);
@@ -176,8 +188,8 @@ describeWithDatabase("generic finding and observation temporal model", () => {
     });
     expect(rows[0].fingerprint).toMatch(/^[0-9a-f]{64}$/);
     // First seen is pinned to the first scan; last seen advances.
-    expect(rows[0].firstSeenAt).toEqual(new Date("2026-08-29T09:00:00.000Z"));
-    expect(rows[0].lastSeenAt).toEqual(new Date("2026-08-29T10:00:00.000Z"));
+    expect(rows[0].firstSeenAt).toEqual(new Date(base));
+    expect(rows[0].lastSeenAt).toEqual(new Date(base + 60_000));
 
     // Two runs, two observations, chained oldest to newest.
     const observed = await observationRows(account.userId);
@@ -192,11 +204,12 @@ describeWithDatabase("generic finding and observation temporal model", () => {
       mode: "local",
     };
     const account = await prepareAccount(principal, "lifecycle");
+    const base = Date.now();
 
-    await runScan(account, "SUCCESS", new Date("2026-08-29T09:00:00.000Z"));
+    await runScan(account, "SUCCESS", new Date(base));
 
     // One clean absence is not enough to call it resolved.
-    await runScan(account, "EMPTY", new Date("2026-08-29T10:00:00.000Z"));
+    await runScan(account, "EMPTY", new Date(base + 60_000));
     let [row] = await findingRows(account.userId);
     expect(row).toMatchObject({
       presenceState: "MISSING",
@@ -204,7 +217,7 @@ describeWithDatabase("generic finding and observation temporal model", () => {
       consecutiveAbsences: 1,
     });
 
-    await runScan(account, "EMPTY", new Date("2026-08-29T11:00:00.000Z"));
+    await runScan(account, "EMPTY", new Date(base + 2 * 60_000));
     [row] = await findingRows(account.userId);
     expect(row).toMatchObject({
       presenceState: "MISSING",
@@ -212,7 +225,7 @@ describeWithDatabase("generic finding and observation temporal model", () => {
       consecutiveAbsences: 2,
     });
 
-    await runScan(account, "SUCCESS", new Date("2026-08-29T12:00:00.000Z"));
+    await runScan(account, "SUCCESS", new Date(base + 3 * 60_000));
     [row] = await findingRows(account.userId);
     expect(row).toMatchObject({
       presenceState: "PRESENT",
@@ -237,34 +250,37 @@ describeWithDatabase("generic finding and observation temporal model", () => {
       mode: "local",
     };
     const account = await prepareAccount(principal, "outage");
+    const base = Date.now();
 
-    await runScan(account, "SUCCESS", new Date("2026-08-29T09:00:00.000Z"));
+    await runScan(account, "SUCCESS", new Date(base));
     const [seeded] = await findingRows(account.userId);
 
-    // DEGRADED returns the same record, so make the provider return nothing
-    // while unhealthy by running the EMPTY fixture through a degraded scan:
-    // the projection marks the scan PARTIAL, so absence cannot mean removal.
-    await executePostgresSyntheticBreachScan({
+    // Preserve the same provider scope, but return no records while degraded.
+    // This exercises indeterminate absence rather than a different finding.
+    const degraded = selection("DEGRADED");
+    const empty = selection("EMPTY");
+    const result = await executePostgresSyntheticBreachScan({
       account,
-      now: new Date("2026-08-29T10:00:00.000Z"),
-      providerSelection: selectBreachProvider({
-        appEnvironment: "local",
-        provider: "synthetic",
-        featureEnabled: true,
-        killSwitchActive: false,
-        syntheticScenario: "DEGRADED",
-      }),
+      now: new Date(base + 60_000),
+      providerSelection: {
+        ...degraded,
+        provider: { ...degraded.provider, scan: empty.provider.scan },
+      },
       usageBudget: budget,
     });
+    expect(result.status).toBe("COMPLETED");
 
     const [row] = await findingRows(account.userId);
-    // The degraded run still reported the breach, so it stays present and its
-    // absence streak is untouched.
+    // An unhealthy absence must not change the last known presence.
     expect(row).toMatchObject({
       id: seeded.id,
       presenceState: "PRESENT",
       consecutiveAbsences: 0,
     });
+    expect((await observationRows(account.userId)).map((entry) => entry.presence)).toEqual([
+      "PRESENT",
+      "INDETERMINATE",
+    ]);
   });
 
   it("ages out old observations but always keeps each finding's most recent one", async () => {
@@ -285,11 +301,16 @@ describeWithDatabase("generic finding and observation temporal model", () => {
     await runScan(account, "SUCCESS", new Date(base + 2 * 60_000));
     expect(await observationRows(account.userId)).toHaveLength(3);
 
-    // Age every observation well past the retention window.
-    await getDatabase()
-      .update(observations)
-      .set({ observedAt: new Date("2024-01-01T00:00:00.000Z") })
-      .where(eq(observations.userId, account.userId));
+    const original = await observationRows(account.userId);
+    // Preserve ordering while aging all rows beyond the cutoff. Equal timestamps
+    // would select an arbitrary UUID rather than prove the newest row survives.
+    const now = new Date();
+    for (const [index, observation] of original.entries()) {
+      await getDatabase()
+        .update(observations)
+        .set({ observedAt: new Date(now.getTime() - (740 - index) * 86_400_000) })
+        .where(eq(observations.id, observation.id));
+    }
 
     // PostgreSQL rejects a maintenance clock more than five minutes ahead of
     // its own, so this one call uses real time rather than a fixed instant.
@@ -306,6 +327,9 @@ describeWithDatabase("generic finding and observation temporal model", () => {
     // so the newest observation survives however old it is.
     const remaining = await observationRows(account.userId);
     expect(remaining).toHaveLength(1);
+    expect(remaining[0].id).toBe(original[2].id);
+    const repeated = await runRetentionMaintenance({ now });
+    expect(repeated.deletedObservations).toBe(0);
     // The finding itself is untouched by observation retention.
     const [finding] = await findingRows(account.userId);
     expect(finding).toMatchObject({ presenceState: "PRESENT", status: "NEW" });
@@ -317,7 +341,8 @@ describeWithDatabase("generic finding and observation temporal model", () => {
       mode: "local",
     };
     const account = await prepareAccount(principal, "tenant");
-    await runScan(account, "SUCCESS", new Date("2026-08-29T09:00:00.000Z"));
+    const base = Date.now();
+    await runScan(account, "SUCCESS", new Date(base));
 
     const otherPrincipal: AuthenticatedPrincipal = {
       subject: `finding_tenant_other_${testRunId}`,
@@ -330,7 +355,7 @@ describeWithDatabase("generic finding and observation temporal model", () => {
     );
     expect(visible).toHaveLength(0);
 
-    await runScan(otherAccount, "SUCCESS", new Date("2026-08-29T09:30:00.000Z"));
+    await runScan(otherAccount, "SUCCESS", new Date(Date.now() + 60_000));
     const ownVisible = await withTenantDatabase(otherPrincipal, (transaction) =>
       transaction.select({ userId: findings.userId }).from(findings),
     );

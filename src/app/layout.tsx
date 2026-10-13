@@ -56,7 +56,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
           </main>
           <footer className="footer">
             <div className="footer-inner">
-              Foundation milestone · No scanning or external data providers are enabled.
+              Synthetic-only portfolio demo · No live provider calls or real-data scans.
             </div>
           </footer>
         </AuthProvider>

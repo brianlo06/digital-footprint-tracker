@@ -1,10 +1,16 @@
 # Digital Footprint Tracker
 
-> **SYNTHETIC-ONLY PHASE 2 — NO LIVE PROVIDER OR PERSONAL-DATA SCAN**
+> **LOCAL SYNTHETIC DEMO — NO LIVE PROVIDER OR PERSONAL-DATA SCAN**
 
 Digital Footprint Tracker is a privacy-first evidence platform for individuals to understand their own public online presence: what is visible, where it came from, how confidently it relates to them, how sensitive it is, how it changes over time, and what they can safely do next.
 
-Phase 0 architecture and the Phase 1 local-first application foundation are complete. Phase 2 is approved for synthetic-only provider work: fictional contract fixtures and disabled-by-default adapters may run locally, with zero live-provider spend or calls. The local application now includes a user-triggered synthetic breach-metadata workflow with purpose-specific consent, PostgreSQL-backed queued jobs, expiring leases, bounded retries, pre-dispatch cancellation, normalized provenance, and tenant-isolated scan history. A public, no-data Cloudflare preview is available at [dft.jarvisworlds.com](https://dft.jarvisworlds.com). It does **not** scan, scrape, query live providers, enumerate usernames, send email, or execute the local scan workflow. Hosted personal-data features remain disabled behind the pre-production activation gates in the [Phase 1 status](docs/PHASE_1_STATUS.md).
+The implemented local demo connects encrypted email identifiers, local fixture verification, explicit consent, a durable PostgreSQL scan queue, fictional breach metadata, deduplicated findings, and recent scan history. It demonstrates authorization, tenant isolation, background processing, and temporal evidence without contacting a provider. Built with Next.js, React, TypeScript, PostgreSQL, and Drizzle.
+
+**Start here:** follow [Local setup](#local-setup), then the [five-minute demo](#five-minute-synthetic-demo). The [public preview](https://dft.jarvisworlds.com) is a no-data boundary page, **not the working scan demo**. Hosted authentication and personal-data features remain disabled. This stabilization pass does not activate a new roadmap phase.
+
+| Available locally                                                                                                                                                                               | Incomplete / deferred                                                                                                        | Intentionally restricted                                                                     |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| Identifier encryption and fixture verification; purpose-specific consent; queued synthetic scans; retries/cancellation; provenance; findings and observations; recent history; account deletion | General Evidence store, cross-provider equivalence, finding review/remediation, export, notifications, full history browsing | Real personal data, live providers, scraping/enumeration, paid calls, hosted data activation |
 
 ## Safety boundary
 
@@ -17,7 +23,7 @@ Identity → Identifiers → Scans → Providers → Evidence
          → Findings → Observations → Risk → Remediation
 ```
 
-The local synthetic path implements `Identity → Identifiers → Scans → Provider metadata`; generic observations, risk scoring, and remediation remain future work.
+The local synthetic path reaches findings and append-only observations. A general Evidence store, risk scoring, and remediation remain future work.
 
 ## Current foundation
 
@@ -56,7 +62,13 @@ openssl rand -base64 32
 
 Place the two generated values into `ENCRYPTION_KEY` and `LOOKUP_KEY`. Also set `LOOKUP_KEY_ID` to any short opaque string (e.g. `local-lookup-v1`) — it versions the lookup key independently of `ENCRYPTION_KEY_ID` and is not generated key material. Then start PostgreSQL either with the provided local Compose file or an existing local PostgreSQL service. `DATABASE_URL` is the owner/migration connection; `RUNTIME_DATABASE_URL` must use the restricted application role. Update both URLs if needed, then run migrations before granting the runtime role access:
 
+Next.js reads `.env.local`, but the migration CLI and shell commands need exported variables:
+
 ```bash
+set -a
+. ./.env.local
+set +a
+docker compose up -d --wait
 npm run db:migrate
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/provision-local-runtime-role.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/provision-local-rate-limit-role.sql
@@ -65,10 +77,33 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/provision-local-maintenance-r
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/provision-local-rotation-role.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/provision-local-lookup-rotation-role.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/provision-local-delivery-role.sql
-npm run dev
+npm run dev -- --hostname 127.0.0.1
 ```
 
-The local verification fixture is `LOCAL_VERIFICATION_CODE` (default `000000`). Use synthetic addresses while evaluating the foundation. Local mode must never be exposed on a shared or production network.
+The local verification fixture is `LOCAL_VERIFICATION_CODE` (default `000000`). Use fictional `.test` addresses only while evaluating the demo. Local mode must never be exposed on a shared or production network.
+
+## Five-minute synthetic demo
+
+After setup, change only these three provider settings in `.env.local` (and in your shell if already exported), then restart the development server:
+
+```dotenv
+BREACH_PROVIDER=synthetic
+FEATURE_BREACH_SCAN=true
+BREACH_PROVIDER_KILL_SWITCH=false
+```
+
+Keep every other provider disabled, API keys empty, and scheduled scans/email notifications off. The synthetic adapter has no network client; these flags do not enable a live integration. Defaults in `.env.example` remain off.
+
+1. Open `http://127.0.0.1:3000` and choose **Start local demo → Create private foundation**.
+2. Follow **Add and verify demo@example.test**. Accept storage consent, add the address, and enter `000000` (or your `LOCAL_VERIFICATION_CODE`). No email is sent.
+3. Follow the next-step link to **Privacy**, accept the separate breach-metadata permission, then return to **Overview**.
+4. Choose **Run synthetic breach check**, then **Refresh scan status**. The existing post-response dispatcher processes the durable job. Expect a completed scan with **Synthetic Commerce**, fictional provenance, and one tracked finding marked **present / new**.
+5. Run a second check and refresh. Expect two recent scans but still one tracked finding. Reload the page: the results persist in PostgreSQL.
+6. Optionally withdraw permission in Privacy: the run control becomes unavailable. Account deletion removes the demo account and its linked scans/findings; a limited pseudonymous deletion receipt remains.
+
+The overview shows five recent scans and up to ten tracked findings, not a complete history browser. Verification must be recent (within 24 hours); the demo has no re-verification UI for an expired verified identifier. For a fresh walkthrough, delete the synthetic account and start again. If a job remains queued, check the dev-server log and [scan runbook](docs/SCAN_OPERATIONS.md); the recovery Cron Worker is not deployed or scheduled by this demo. Do not repeatedly submit scans to recover stuck work.
+
+See [stabilization verification](docs/STABILIZATION.md) for the actual test and browser evidence, including limitations.
 
 ## Validation
 

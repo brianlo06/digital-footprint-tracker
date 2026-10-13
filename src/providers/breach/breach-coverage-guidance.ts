@@ -35,7 +35,7 @@ export const BREACH_COVERAGE_LIMITS: readonly string[] = [
   "No finding means nothing was observed through the enabled provider at check time, not that the email is unexposed.",
   "A provider-reported breach is not proof of current account compromise.",
   "Breaches the provider has not verified are excluded, and no provider catalog is comprehensive.",
-  "Findings are provider-reported metadata. You can reject a finding here, but this product cannot correct the provider's source data.",
+  "Findings are provider-reported metadata. Finding review controls are not implemented; this product cannot correct the provider's source data.",
 ];
 
 export interface BreachCoverageSummary {

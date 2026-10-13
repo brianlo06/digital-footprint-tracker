@@ -51,23 +51,43 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
     (identifier) => identifier.verificationStatus === "VERIFIED",
   );
   const breachConsentGranted = breachConsent?.state === "GRANTED";
-  const canRunScan = hasVerifiedEmail && breachConsentGranted;
+  const selection = selectBreachProviderFromEnv(getServerEnv());
+  const providerEnabled = Boolean(selection.provider);
+  const canRunScan = hasVerifiedEmail && breachConsentGranted && providerEnabled;
   const scanParam = typeof parameters.scan === "string" ? parameters.scan : undefined;
   const coverage = summarizeBreachCoverage({
-    selection: selectBreachProviderFromEnv(getServerEnv()),
+    selection,
     recentScans,
   });
 
   return (
     <div className="stack">
       <header>
-        <p className="eyebrow">Foundation status</p>
+        <p className="eyebrow">Local synthetic demo</p>
         <h1>Privacy overview</h1>
         <p className="lede">
-          Your private foundation is ready. A user-triggered synthetic breach-metadata check is
-          available once a verified email and matching permission exist.
+          Explore a complete check using fictional breach metadata: verify a test identifier, grant
+          permission, run a scan, then compare findings and history. No live lookup is made.
         </p>
       </header>
+      <section className="card" aria-labelledby="demo-steps-heading">
+        <h2 id="demo-steps-heading">Try the workflow</h2>
+        <ol>
+          <li>
+            <Link href="/identities">Add and verify demo@example.test</Link> using the local fixture
+            code (default 000000).
+          </li>
+          <li>
+            <Link href="/settings/privacy">Grant breach-metadata permission</Link>. Consent alone
+            starts no scan.
+          </li>
+          <li>Run a synthetic check below, then refresh its status to see the processed result.</li>
+          <li>
+            Run it again: recent scans gain a second entry while the same finding stays
+            deduplicated.
+          </li>
+        </ol>
+      </section>
       <div className="grid">
         <article className="card">
           <p className="eyebrow">Identifiers</p>
@@ -77,13 +97,15 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
         <article className="card">
           <p className="eyebrow">Verified</p>
           <h2>{verified}</h2>
-          <p className="muted">Eligible for future capabilities only after separate approval.</p>
+          <p className="muted">
+            Local verification; scan authorization also requires recent verification and consent.
+          </p>
         </article>
         <article className="card">
-          <p className="eyebrow">External providers</p>
-          <h2>{canRunScan ? 1 : 0}</h2>
+          <p className="eyebrow">Synthetic source</p>
+          <h2>{providerEnabled ? 1 : 0}</h2>
           <p className="muted">
-            {canRunScan
+            {providerEnabled
               ? "Synthetic breach-metadata provider only; no live network source is active."
               : "No search, breach, broker, social, or domain source is active."}
           </p>
@@ -104,9 +126,11 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
         </p>
         {!canRunScan ? (
           <div className="notice">
-            {hasVerifiedEmail
-              ? "Grant breach-metadata permission on the privacy settings page to enable a check."
-              : "Verify an email and grant breach-metadata permission on the privacy settings page to enable a check."}
+            {!providerEnabled
+              ? "The synthetic source is disabled. Follow the README local demo configuration, then restart the development server."
+              : hasVerifiedEmail
+                ? "Grant breach-metadata permission on the privacy settings page to enable a check."
+                : "Verify an email and grant breach-metadata permission on the privacy settings page to enable a check."}
           </div>
         ) : (
           <form action={runBreachScanAction} className="form-grid">
@@ -115,6 +139,10 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
         )}
 
         <h3>Recent scans</h3>
+        <p className="muted">
+          Showing the latest five checks. Queued work runs after the response; refresh to load its
+          current state.
+        </p>
         {recentScans.length === 0 ? (
           <div className="empty-state">No scan has run yet.</div>
         ) : (
@@ -125,7 +153,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
                   <p>
                     {scan.providerId
                       ? describeBreachProvider(scan.providerId).displayName
-                      : "no provider"}{" "}
+                      : "Awaiting provider dispatch"}{" "}
                     · {scan.startedAt.toLocaleString()}
                   </p>
                   {scan.errorSafeCode ? (
@@ -146,7 +174,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
                             · checked {finding.checkedAt.toLocaleString()}
                           </p>
                           <p className="muted">
-                            Source:{" "}
+                            Source (fictional URL):{" "}
                             <a href={finding.sourceUrl} rel="noreferrer" target="_blank">
                               {finding.sourceUrl}
                             </a>{" "}
@@ -185,18 +213,20 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
           </div>
         )}
         <div className="inline-actions">
-          <Link className="button secondary" href="/dashboard">
-            Refresh scan status
-          </Link>
+          <form action="/dashboard" method="get">
+            <button className="button secondary" type="submit">
+              Refresh scan status
+            </button>
+          </form>
         </div>
       </section>
 
       <section aria-labelledby="tracked-findings-heading" className="card">
         <h2 id="tracked-findings-heading">Tracked findings</h2>
         <p className="muted">
-          One entry per distinct finding, kept stable across checks so removal and reappearance stay
-          visible. A finding is only called resolved after repeated confirmed absences; a failed or
-          degraded check never counts as one.
+          Showing up to ten distinct findings, kept stable across checks so absence and reappearance
+          stay visible. A finding is only called resolved after repeated confirmed absences; a
+          failed or degraded check never counts as one.
         </p>
         {trackedFindings.length === 0 ? (
           <div className="empty-state">No finding is being tracked yet.</div>
@@ -270,8 +300,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
       <div className="status-panel">
         <h2>Next safe step</h2>
         <p>
-          Add and verify a synthetic or personal email locally. It will not be transmitted to an
-          email service or scanning provider.
+          Use fictional .test addresses only in this demo. They will not be transmitted to an email
+          service or scanning provider.
         </p>
         <Link className="button" href="/identities">
           Manage identifiers

@@ -1,5 +1,7 @@
 # Phased Roadmap
 
+Current portfolio scope: a local synthetic workflow through queued scans, findings, observations, and recent history. This polish pass stabilizes existing work; it does not complete Phase 3 or authorize Phase 4. See [the demo](../README.md#five-minute-synthetic-demo) and [verification evidence](STABILIZATION.md).
+
 No later phase begins without explicit owner approval. Security/privacy/legal gates are deliverables, not cleanup tasks.
 
 ## Phase 0 — Architecture and scaffold (complete)
@@ -92,6 +94,8 @@ Remaining Phase 3 work: `Evidence` persistence and cross-provider equivalence gr
 **Risks:** impersonation, excess identity disclosure, captchas/terms, false removal claims.  
 **Exit Criteria:** legal approval per workflow; minimum disclosure; no stealth automation; submitted and verified-removed remain distinct.
 
-## First milestone after approval
+## Current stabilization scope
 
-Build only the foundation slice: toolchain, accessible shell, local PostgreSQL, auth selection/integration, one identity with encrypted email storage and verification interface backed by a local fake, consent/audit records, full account deletion workflow, and synthetic tests. No provider, scan engine, scheduling, or dashboard findings yet. This milestone validates the hardest trust boundary before external data enters the system.
+Keep the existing synthetic workflow runnable and understandable, maintain regression coverage and accurate setup instructions, and preserve default-off provider/hosted boundaries. No new milestone, provider, architecture, or deployment is authorized by this pass. Phase 3's general Evidence persistence and equivalence groups remain deferred; Phase 4's broader review/remediation experience remains unimplemented.
+
+Historical verification counts above describe those implementation sessions, not a guarantee that the latest CI run passed. The subsequent observation-retention CI failure and this pass's local verification are documented in [STABILIZATION.md](STABILIZATION.md).
