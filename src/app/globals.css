@@ -36,6 +36,8 @@ html {
 
 body {
   margin: 0;
+  /* SC 1.4.10: long source URLs and identifiers must wrap at 320 CSS px. */
+  overflow-wrap: anywhere;
   min-height: 100vh;
   background:
     radial-gradient(circle at top left, rgba(205, 235, 222, 0.6), transparent 34rem), var(--surface);
@@ -150,9 +152,23 @@ button.danger {
 }
 
 .nav-links a {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
   color: var(--muted);
   font-weight: 650;
   text-decoration: none;
+  white-space: nowrap;
+}
+
+/* The current page is marked by weight and underline as well as colour, so it
+   does not rely on colour alone (SC 1.4.1). */
+.nav-links a[aria-current="page"] {
+  color: var(--ink);
+  font-weight: 800;
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 0.35rem;
 }
 
 .nav-links a:hover {

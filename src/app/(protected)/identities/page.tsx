@@ -9,6 +9,20 @@ import { requireProtectedPagePrincipal } from "../principal";
 
 export const metadata = { title: "My identifiers" };
 
+// Each message names the field or step at fault and how to recover, without
+// revealing whether an identifier or challenge exists for another account.
+const IDENTIFIER_ERROR_MESSAGES: Record<string, string> = {
+  rate_limited: "Too many attempts were received. Wait a few minutes before trying again.",
+  consent_required: "Tick the storage consent box before adding an email address.",
+  invalid_email: "Enter an email address in the Email address field.",
+  add_failed:
+    "The email could not be added. Check that it is a valid address you have not already added, then try again.",
+  verification_invalid: "Enter the six-digit verification code using digits only.",
+  verification_failed:
+    "That code was not accepted. Check the six digits and try again, or get a new code if it has expired or locked.",
+  verification_request_failed: "A new code could not be issued for that identifier. Try again.",
+};
+
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 export default async function IdentitiesPage({ searchParams }: { searchParams: SearchParams }) {
@@ -47,9 +61,10 @@ export default async function IdentitiesPage({ searchParams }: { searchParams: S
           <Link href="/settings/privacy">Next: review breach-metadata permission</Link>.
         </div>
       ) : null}
-      {parameters.error ? (
+      {typeof parameters.error === "string" ? (
         <div className="notice danger" role="alert">
-          The request could not be completed. Check the input and try again.
+          {IDENTIFIER_ERROR_MESSAGES[parameters.error] ??
+            "The request could not be completed. Check the input and try again."}
         </div>
       ) : null}
 

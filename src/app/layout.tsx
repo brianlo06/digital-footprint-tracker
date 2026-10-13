@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 
 import { AuthProvider } from "./ui/auth-provider";
 import { AuthStatus } from "./ui/auth-ui";
+import { PrimaryNavLinks } from "./ui/primary-nav-links";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -44,10 +45,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
                 <span>Digital Footprint Tracker</span>
               </Link>
               <nav aria-label="Primary" className="nav-links">
-                <Link href="/dashboard">Overview</Link>
-                <Link href="/history">History</Link>
-                <Link href="/identities">My identifiers</Link>
-                <Link href="/settings/privacy">Privacy</Link>
+                <PrimaryNavLinks />
                 <AuthStatus mode={authMode} />
               </nav>
             </div>
