@@ -45,6 +45,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
               </Link>
               <nav aria-label="Primary" className="nav-links">
                 <Link href="/dashboard">Overview</Link>
+                <Link href="/history">History</Link>
                 <Link href="/identities">My identifiers</Link>
                 <Link href="/settings/privacy">Privacy</Link>
                 <AuthStatus mode={authMode} />

@@ -37,7 +37,7 @@ function accountPrincipal(account: AccountContext): AuthenticatedPrincipal {
 
 export async function listRecentBreachScans(
   account: AccountContext,
-  options: { readonly limit: number },
+  options: { readonly limit: number; readonly offset?: number },
 ): Promise<readonly BreachScanHistoryEntry[]> {
   return withTenantDatabase(accountPrincipal(account), async (transaction) => {
     const scanRows = await transaction
@@ -49,8 +49,9 @@ export async function listRecentBreachScans(
       })
       .from(scans)
       .where(eq(scans.userId, account.userId))
-      .orderBy(desc(scans.startedAt))
-      .limit(options.limit);
+      .orderBy(desc(scans.startedAt), desc(scans.id))
+      .limit(options.limit)
+      .offset(options.offset ?? 0);
 
     const scanIds = scanRows.map((row) => row.scanId);
     const providerRunRows = scanIds.length
