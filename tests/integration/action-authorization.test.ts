@@ -1,4 +1,8 @@
-import { addEmailAction, verifyEmailAction } from "@/app/(protected)/identities/actions";
+import {
+  addEmailAction,
+  requestVerificationAction,
+  verifyEmailAction,
+} from "@/app/(protected)/identities/actions";
 import { initializeAccountAction } from "@/app/(protected)/onboarding/actions";
 import {
   deleteAccountAction,
@@ -130,6 +134,18 @@ describeWithDatabase("Server Action authorization matrix", () => {
     verificationForm.set("code", "000000");
     await expect(redirectedTo(verifyEmailAction(verificationForm))).resolves.toBe(
       `/identities?error=verification_failed&verification=${verificationId}`,
+    );
+
+    // A cross-account reissue must not retire the owner's outstanding
+    // challenge, which the assertions below would observe as EXPIRED.
+    const [ownerIdentifier] = await getDatabase()
+      .select({ identifierId: identifierVerifications.identifierId })
+      .from(identifierVerifications)
+      .where(eq(identifierVerifications.id, verificationId!));
+    const reissueForm = new FormData();
+    reissueForm.set("identifierId", ownerIdentifier.identifierId);
+    await expect(redirectedTo(requestVerificationAction(reissueForm))).resolves.toBe(
+      "/identities?error=verification_request_failed",
     );
 
     const [ownerVerification] = await getDatabase()

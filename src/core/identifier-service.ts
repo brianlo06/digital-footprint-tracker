@@ -15,6 +15,7 @@ import {
   challengeMatches,
   createChallengeHash,
   createLookupToken,
+  decryptSensitiveValue,
   encryptSensitiveValue,
 } from "@/security/crypto";
 import { getApplicationKeyring } from "@/security/keyring";
@@ -35,6 +36,7 @@ export interface IdentifierSummary {
   readonly maskedDisplay: string;
   readonly verificationStatus: "UNVERIFIED" | "PENDING" | "VERIFIED" | "EXPIRED" | "REVOKED";
   readonly createdAt: Date;
+  readonly lastVerifiedAt: Date | null;
 }
 
 const MAX_VERIFICATION_ATTEMPTS = 5;
@@ -147,11 +149,98 @@ export async function listIdentifiers(account: AccountContext): Promise<Identifi
         maskedDisplay: identifiers.maskedDisplay,
         verificationStatus: identifiers.verificationStatus,
         createdAt: identifiers.createdAt,
+        lastVerifiedAt: identifiers.lastVerifiedAt,
       })
       .from(identifiers)
       .where(eq(identifiers.identityId, account.identityId))
       .orderBy(desc(identifiers.createdAt)) as Promise<IdentifierSummary[]>;
   });
+}
+
+/**
+ * Issues a fresh challenge for an identifier the account already stores, so an
+ * expired, locked, or aged-out verification is recoverable without re-adding
+ * the identifier. Any outstanding challenge is retired first; the identifier's
+ * own status and last verification time change only when the new challenge is
+ * completed.
+ */
+export async function requestEmailVerification(
+  account: AccountContext,
+  identifierId: string,
+  verificationGateway: EmailVerificationGateway = getEmailVerificationGateway(),
+): Promise<{ verificationId: string }> {
+  const principal = accountPrincipal(account);
+  const [identifier] = await withTenantDatabase(principal, async (transaction) =>
+    transaction
+      .select({
+        encryptedValue: identifiers.encryptedValue,
+        verificationStatus: identifiers.verificationStatus,
+      })
+      .from(identifiers)
+      .where(
+        and(
+          eq(identifiers.id, identifierId),
+          eq(identifiers.identityId, account.identityId),
+          eq(identifiers.type, "EMAIL"),
+        ),
+      )
+      .limit(1),
+  );
+  if (!identifier || identifier.verificationStatus === "REVOKED") {
+    throw new Error("VERIFICATION_NOT_AVAILABLE");
+  }
+
+  const verificationId = randomUUID();
+  const challenge = await verificationGateway.issueEmailChallenge({
+    verificationId,
+    destination: decryptSensitiveValue(
+      identifier.encryptedValue,
+      identifierEncryptionContext(account.identityId, identifierId),
+      getApplicationKeyring(),
+    ),
+  });
+
+  await withTenantDatabase(principal, async (transaction) => {
+    await transaction
+      .update(identifierVerifications)
+      .set({ status: "EXPIRED", challengeHash: "consumed" })
+      .where(
+        and(
+          eq(identifierVerifications.identifierId, identifierId),
+          eq(identifierVerifications.status, "PENDING"),
+        ),
+      );
+    await transaction.insert(identifierVerifications).values({
+      id: verificationId,
+      identifierId,
+      method: challenge.method,
+      challengeHash: challenge.challengeHash,
+      status: "PENDING",
+      expiresAt: challenge.expiresAt,
+    });
+    if (challenge.delivery) {
+      await transaction.insert(verificationDeliveryOutbox).values({
+        deliveryId: challenge.delivery.deliveryId,
+        verificationId,
+        userId: account.userId,
+        channel: challenge.delivery.channel,
+        template: challenge.delivery.template,
+        encryptedPayload: challenge.delivery.encryptedPayload,
+        state: "PENDING",
+      });
+    }
+    await transaction.insert(auditEvents).values({
+      userId: account.userId,
+      actorType: "USER",
+      action: "IDENTIFIER_VERIFICATION_REQUESTED",
+      targetType: "IDENTIFIER",
+      targetId: identifierId,
+      outcome: "SUCCESS",
+      correlationId: randomUUID(),
+    });
+  });
+
+  return { verificationId };
 }
 
 export async function verifyEmailIdentifier(

@@ -1,9 +1,10 @@
 import { findAccount } from "@/core/account-service";
 import { listIdentifiers } from "@/core/identifier-service";
+import { isBreachVerificationRecent } from "@/providers/breach/breach-invocation-policy";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { addEmailAction, verifyEmailAction } from "./actions";
+import { addEmailAction, requestVerificationAction, verifyEmailAction } from "./actions";
 import { requireProtectedPagePrincipal } from "../principal";
 
 export const metadata = { title: "My identifiers" };
@@ -34,6 +35,12 @@ export default async function IdentitiesPage({ searchParams }: { searchParams: S
           Email encrypted and stored. Complete the local-only verification step below.
         </div>
       ) : null}
+      {parameters.reissued ? (
+        <div className="notice" role="status">
+          A new verification code was issued and any earlier code no longer works. Complete the
+          local-only verification step below.
+        </div>
+      ) : null}
       {parameters.verified ? (
         <div className="notice" role="status">
           Identifier verified locally.{" "}
@@ -52,17 +59,45 @@ export default async function IdentitiesPage({ searchParams }: { searchParams: S
           <div className="empty-state">No identifiers are stored yet.</div>
         ) : (
           <div className="stack">
-            {identifierList.map((identifier) => (
-              <article className="identifier-row" key={identifier.id}>
-                <div>
-                  <p>
-                    <strong>{identifier.maskedDisplay}</strong>
-                  </p>
-                  <p className="muted">Email · added {identifier.createdAt.toLocaleDateString()}</p>
-                </div>
-                <span className="badge">{identifier.verificationStatus.toLowerCase()}</span>
-              </article>
-            ))}
+            {identifierList.map((identifier) => {
+              const verifiedRecently =
+                identifier.verificationStatus === "VERIFIED" &&
+                isBreachVerificationRecent(identifier.lastVerifiedAt);
+              return (
+                <article className="identifier-row" key={identifier.id}>
+                  <div>
+                    <p>
+                      <strong>{identifier.maskedDisplay}</strong>
+                    </p>
+                    <p className="muted">
+                      Email · added {identifier.createdAt.toLocaleDateString()}
+                      {identifier.lastVerifiedAt
+                        ? ` · last verified ${identifier.lastVerifiedAt.toLocaleString()}`
+                        : ""}
+                    </p>
+                    {identifier.verificationStatus === "VERIFIED" && !verifiedRecently ? (
+                      <p className="muted">
+                        Verified more than 24 hours ago. Verify again before running a check.
+                      </p>
+                    ) : null}
+                  </div>
+                  <div className="identifier-actions">
+                    <span className="badge">{identifier.verificationStatus.toLowerCase()}</span>
+                    {identifier.verificationStatus !== "REVOKED" ? (
+                      <form action={requestVerificationAction}>
+                        <input name="identifierId" type="hidden" value={identifier.id} />
+                        <button className="button secondary" type="submit">
+                          {identifier.verificationStatus === "VERIFIED"
+                            ? "Verify again"
+                            : "Get a new code"}
+                          <span className="visually-hidden"> for {identifier.maskedDisplay}</span>
+                        </button>
+                      </form>
+                    ) : null}
+                  </div>
+                </article>
+              );
+            })}
           </div>
         )}
       </section>

@@ -8,6 +8,7 @@ import {
   isDegradedHealthOutcome,
   summarizeBreachCoverage,
 } from "@/providers/breach/breach-coverage-guidance";
+import { isBreachVerificationRecent } from "@/providers/breach/breach-invocation-policy";
 import { listRecentBreachScans } from "@/providers/breach/breach-scan-history";
 import { selectBreachProviderFromEnv } from "@/providers/provider-registry";
 import Link from "next/link";
@@ -50,10 +51,17 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
   const hasVerifiedEmail = identifierList.some(
     (identifier) => identifier.verificationStatus === "VERIFIED",
   );
+  // Mirrors the authorization gate so a stale verification is explained here
+  // instead of surfacing as a denied scan; the gate itself remains the control.
+  const hasRecentlyVerifiedEmail = identifierList.some(
+    (identifier) =>
+      identifier.verificationStatus === "VERIFIED" &&
+      isBreachVerificationRecent(identifier.lastVerifiedAt),
+  );
   const breachConsentGranted = breachConsent?.state === "GRANTED";
   const selection = selectBreachProviderFromEnv(getServerEnv());
   const providerEnabled = Boolean(selection.provider);
-  const canRunScan = hasVerifiedEmail && breachConsentGranted && providerEnabled;
+  const canRunScan = hasRecentlyVerifiedEmail && breachConsentGranted && providerEnabled;
   const scanParam = typeof parameters.scan === "string" ? parameters.scan : undefined;
   const coverage = summarizeBreachCoverage({
     selection,
@@ -126,11 +134,18 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
         </p>
         {!canRunScan ? (
           <div className="notice">
-            {!providerEnabled
-              ? "The synthetic source is disabled. Follow the README local demo configuration, then restart the development server."
-              : hasVerifiedEmail
-                ? "Grant breach-metadata permission on the privacy settings page to enable a check."
-                : "Verify an email and grant breach-metadata permission on the privacy settings page to enable a check."}
+            {!providerEnabled ? (
+              "The synthetic source is disabled. Follow the README local demo configuration, then restart the development server."
+            ) : !hasVerifiedEmail ? (
+              "Verify an email and grant breach-metadata permission on the privacy settings page to enable a check."
+            ) : !hasRecentlyVerifiedEmail ? (
+              <>
+                Your email was verified more than 24 hours ago.{" "}
+                <Link href="/identities">Verify it again</Link> to enable a check.
+              </>
+            ) : (
+              "Grant breach-metadata permission on the privacy settings page to enable a check."
+            )}
           </div>
         ) : (
           <form action={runBreachScanAction} className="form-grid">
